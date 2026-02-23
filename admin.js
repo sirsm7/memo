@@ -33,6 +33,19 @@ function setupAdminEventListeners() {
     // CRUD Pegawai
     document.getElementById('btnTambahPegawai')?.addEventListener('click', () => openPegawaiModal());
     document.getElementById('formPegawai')?.addEventListener('submit', handlePegawaiSubmit);
+    
+    // Logik Toggle Input Manual vs Select (Pegawai)
+    document.getElementById('pegawaiSektorSelect')?.addEventListener('change', function() {
+        const manualInput = document.getElementById('pegawaiSektorManual');
+        manualInput.classList.toggle('hidden', this.value !== 'MANUAL');
+        if (this.value === 'MANUAL') manualInput.focus();
+    });
+
+    document.getElementById('pegawaiUnitSelect')?.addEventListener('change', function() {
+        const manualInput = document.getElementById('pegawaiUnitManual');
+        manualInput.classList.toggle('hidden', this.value !== 'MANUAL');
+        if (this.value === 'MANUAL') manualInput.focus();
+    });
 
     // CRUD Memo
     document.getElementById('formMemo')?.addEventListener('submit', handleMemoSubmit);
@@ -76,7 +89,6 @@ async function handleLogin(e) {
     btn.innerHTML = '<div class="loader mr-2"></div> Sahkan...';
 
     try {
-        // Query terus ke table memo_admin (Tanpa RLS)
         const { data, error } = await _supabase
             .from('memo_admin')
             .select('*')
@@ -108,7 +120,7 @@ function handleLogout() {
     currentAdmin = null;
     showAdminUI(false);
     window.switchTab('daftar');
-    window.location.reload(); // Refresh untuk bersihkan state
+    window.location.reload(); 
 }
 
 function showAdminUI(isLoggedIn) {
@@ -138,9 +150,13 @@ function switchAdminSection(section) {
     const targetSection = 'adminSection' + section.charAt(0).toUpperCase() + section.slice(1);
     const targetBtn = 'subTabBtn' + section.charAt(0).toUpperCase() + section.slice(1);
     
-    document.getElementById(targetSection).classList.remove('hidden');
-    document.getElementById(targetBtn).classList.add('bg-indigo-100', 'text-indigo-700');
-    document.getElementById(targetBtn).classList.remove('text-slate-600');
+    const div = document.getElementById(targetSection);
+    const btn = document.getElementById(targetBtn);
+    if(div) div.classList.remove('hidden');
+    if(btn) {
+        btn.classList.add('bg-indigo-100', 'text-indigo-700');
+        btn.classList.remove('text-slate-600');
+    }
 }
 
 // ================= DATA FETCHING =================
@@ -216,22 +232,44 @@ function renderAdminSistemTable(data) {
     `).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
 }
 
-// ================= CRUD LOGIC: PEGAWAI =================
+// ================= CRUD LOGIC: PEGAWAI (DIPERBAIKI) =================
 window.openPegawaiModal = function(pegawai = null) {
     const form = document.getElementById('formPegawai');
-    form.reset();
+    const sSelect = document.getElementById('pegawaiSektorSelect');
+    const uSelect = document.getElementById('pegawaiUnitSelect');
+    const sManual = document.getElementById('pegawaiSektorManual');
+    const uManual = document.getElementById('pegawaiUnitManual');
     
+    form.reset();
+    sManual.classList.add('hidden');
+    uManual.classList.add('hidden');
+    
+    // Ekstrak list unik Sektor & Unit dari data sedia ada
+    const unikSektor = [...new Set(adminPegawaiData.map(p => p.sektor))].sort();
+    const unikUnit = [...new Set(adminPegawaiData.map(p => p.unit))].sort();
+
+    // Populate Sektor Dropdown
+    sSelect.innerHTML = '<option value="">-- PILIH SEKTOR --</option>';
+    unikSektor.forEach(s => sSelect.innerHTML += `<option value="${s}">${s}</option>`);
+    sSelect.innerHTML += '<option value="MANUAL">++ TAMBAH SEKTOR BAHARU ++</option>';
+
+    // Populate Unit Dropdown
+    uSelect.innerHTML = '<option value="">-- PILIH UNIT --</option>';
+    unikUnit.forEach(u => uSelect.innerHTML += `<option value="${u}">${u}</option>`);
+    uSelect.innerHTML += '<option value="MANUAL">++ TAMBAH UNIT BAHARU ++</option>';
+
     if (pegawai) {
         document.getElementById('modalPegawaiTitle').textContent = "Kemaskini Data Pegawai";
         document.getElementById('pegawaiId').value = pegawai.id;
         document.getElementById('pegawaiNama').value = pegawai.nama;
-        document.getElementById('pegawaiSektor').value = pegawai.sektor;
-        document.getElementById('pegawaiUnit').value = pegawai.unit;
         document.getElementById('pegawaiEmel').value = pegawai.emel_rasmi;
+        sSelect.value = pegawai.sektor;
+        uSelect.value = pegawai.unit;
     } else {
         document.getElementById('modalPegawaiTitle').textContent = "Tambah Pegawai Baharu";
         document.getElementById('pegawaiId').value = "";
     }
+    
     toggleModal('modalPegawai', true);
 }
 
@@ -243,10 +281,27 @@ window.editPegawai = function(id) {
 async function handlePegawaiSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('pegawaiId').value;
+    
+    // Ambil nilai Sektor (Dropdown vs Manual)
+    let finalSektor = document.getElementById('pegawaiSektorSelect').value;
+    if (finalSektor === 'MANUAL') {
+        finalSektor = document.getElementById('pegawaiSektorManual').value;
+    }
+
+    // Ambil nilai Unit (Dropdown vs Manual)
+    let finalUnit = document.getElementById('pegawaiUnitSelect').value;
+    if (finalUnit === 'MANUAL') {
+        finalUnit = document.getElementById('pegawaiUnitManual').value;
+    }
+
+    if (!finalSektor || !finalUnit) {
+        return window.showMessage("Sila pilih atau masukkan Sektor dan Unit.", "error");
+    }
+
     const payload = {
         nama: document.getElementById('pegawaiNama').value.toUpperCase(),
-        sektor: document.getElementById('pegawaiSektor').value.toUpperCase(),
-        unit: document.getElementById('pegawaiUnit').value.toUpperCase(),
+        sektor: finalSektor.toUpperCase(),
+        unit: finalUnit.toUpperCase(),
         emel_rasmi: document.getElementById('pegawaiEmel').value
     };
 
@@ -255,15 +310,11 @@ async function handlePegawaiSubmit(e) {
             await _supabase.from('memo_pegawai').update(payload).eq('id', id);
             window.showMessage("Data pegawai berjaya dikemaskini.", "success");
         } else {
-            // Kita perlukan ID manual untuk memo_pegawai jika tiada auto-increment (bergantung schema anda)
-            // Namun audit anda menunjukkan id sebagai bigint, kita cuba insert terus
             await _supabase.from('memo_pegawai').insert([payload]);
             window.showMessage("Pegawai baharu berjaya didaftarkan.", "success");
         }
         toggleModal('modalPegawai', false);
-        loadAdminPegawai();
-        // Muatkan semula data dropdown di tab awam
-        window.location.reload(); 
+        await loadAdminPegawai();
     } catch (err) {
         window.showMessage("Gagal menyimpan pegawai: " + err.message, "error");
     }
