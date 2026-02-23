@@ -57,12 +57,12 @@
     <div class="max-w-5xl mx-auto p-4 sm:p-8 my-4 sm:my-8">
         <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Header Korporat (Telah Dikemas Kini) -->
+            <!-- Header Korporat -->
             <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50">
                 <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
                 <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Memo@AG</h2>
                 <p class="text-slate-700 text-base sm:text-lg mt-3 font-semibold">Pejabat Pendidikan Daerah Alor Gajah.</p>
-                <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi.</p>
+                <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi rentas sektor.</p>
             </div>
 
             <!-- SPA Tab Navigation -->
@@ -103,10 +103,11 @@
                             
                             <div class="col-span-1 md:col-span-2 border-b border-slate-100 pb-2 mt-4">
                                 <h3 class="text-lg font-bold text-slate-700">Langkah 2: Maklumat Pendaftaran</h3>
+                                <p class="text-xs text-slate-500 mt-1">Sektor yang dipilih di bawah akan dijadikan rujukan utama program.</p>
                             </div>
 
                             <div class="col-span-1">
-                                <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor <span class="text-red-500">*</span></label>
+                                <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor Utama <span class="text-red-500">*</span></label>
                                 <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" onchange="populateUnit()">
                                     <option value="">Sila pilih sektor...</option>
                                 </select>
@@ -119,18 +120,27 @@
                                 </select>
                             </div>
 
+                            <!-- PENGURUSAN STATE: TAGS DAN NAMA (DIUBAH SUAI) -->
                             <div class="col-span-1 md:col-span-2">
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Penerima (Berbilang Pilihan) <span class="text-red-500">*</span></label>
-                                <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-40 overflow-y-auto custom-scrollbar focus-within:bg-white transition-colors shadow-inner">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Penerima Terpilih (Rentas Sektor) <span class="text-red-500">*</span></label>
+                                
+                                <!-- Tags Container -->
+                                <div id="selectedTagsContainer" class="flex flex-wrap gap-2 mb-3 min-h-[44px] p-3 bg-white border border-slate-300 rounded-lg shadow-sm transition-colors focus-within:ring-2 focus-within:ring-indigo-500">
+                                    <span class="text-sm text-slate-400 italic">Belum ada penerima dipilih...</span>
+                                </div>
+
+                                <!-- Senarai Checkbox Container -->
+                                <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-52 overflow-y-auto custom-scrollbar shadow-inner relative">
                                     <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
                                 </div>
                             </div>
 
                             <div class="col-span-1 md:col-span-2">
                                 <label for="email" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat Emel Penerima (Auto) <span class="text-red-500">*</span></label>
-                                <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar"></textarea>
+                                <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none"></textarea>
                             </div>
 
+                            <!-- MAKLUMAT PROGRAM -->
                             <div class="col-span-1">
                                 <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
                                 <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
@@ -242,7 +252,7 @@
 
         </div>
         
-        <!-- Footer Korporat (Telah Dikemas Kini) -->
+        <!-- Footer Korporat -->
         <div class="text-center mt-6 mb-8">
             <p class="text-xs font-medium text-slate-400">Hakcipta terpelihara USTP &copy; Pejabat Pendidikan Daerah Alor Gajah <span id="currentYear"></span>.</p>
         </div>
@@ -259,6 +269,9 @@
         let groupedData = {};
         let uploadedFileUrl = "";
         let allRecords = []; // Cache untuk dashboard
+        
+        // PENGURUSAN STATE GLOBAL (Baru)
+        let globalSelected = new Map(); // Menjejak email -> nama rentas sektor
 
         // Init Data
         document.addEventListener('DOMContentLoaded', async () => {
@@ -296,7 +309,7 @@
             }
         }
 
-        /* ================= BORANG: POPULATE DATA ================= */
+        /* ================= BORANG: POPULATE DATA & STATE MANAGEMENT ================= */
         function processPegawai(data) {
             groupedData = {};
             data.forEach(p => {
@@ -321,8 +334,6 @@
             const u = document.getElementById('unit');
             const nc = document.getElementById('namaContainer');
             u.innerHTML = '<option value="">-- PILIH UNIT --</option>';
-            u.disabled = true;
-            nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
             
             if (sk && groupedData[sk]) {
                 Object.keys(groupedData[sk]).sort().forEach(un => {
@@ -331,6 +342,10 @@
                     u.appendChild(opt);
                 });
                 u.disabled = false;
+                nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+            } else {
+                u.disabled = true;
+                nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
             }
         }
 
@@ -341,11 +356,21 @@
             nc.innerHTML = '';
             
             if (sk && un && groupedData[sk][un]) {
+                // Header List berserta Butang Pilih Semua
+                nc.innerHTML = `
+                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Senarai Pegawai (${un})</span>
+                        <button type="button" onclick="selectAllInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
+                    </div>
+                `;
+
+                // Render Checkboxes berdasarkan Global State
                 groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
+                    const isChecked = globalSelected.has(p.emel) ? 'checked' : '';
                     nc.innerHTML += `
-                        <div class="flex items-center mb-2 hover:bg-indigo-50 p-2 rounded transition-colors">
-                            <input type="checkbox" id="c_${i}" name="penerima" value="${p.nama}" data-email="${p.emel}" onchange="updateEmails()" class="w-4 h-4 text-indigo-600 rounded">
-                            <label for="c_${i}" class="ml-3 text-sm font-semibold text-slate-700 cursor-pointer">${p.nama}</label>
+                        <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
+                            <input type="checkbox" id="c_${i}" value="${p.nama}" data-email="${p.emel}" onchange="togglePenerima('${p.nama}', '${p.emel}', this.checked)" class="w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500" ${isChecked}>
+                            <label for="c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
                         </div>`;
                 });
             } else {
@@ -353,9 +378,66 @@
             }
         }
 
-        function updateEmails() {
-            const chks = document.querySelectorAll('input[name="penerima"]:checked');
-            document.getElementById('email').value = Array.from(chks).map(c => c.getAttribute('data-email')).join(', ');
+        /* --- LOGIK PENGURUSAN TAG & GLOBAL STATE --- */
+        function togglePenerima(nama, emel, isChecked) {
+            if (isChecked) {
+                globalSelected.set(emel, nama);
+            } else {
+                globalSelected.delete(emel);
+            }
+            renderTags();
+        }
+
+        function selectAllInUnit() {
+            const checkboxes = document.querySelectorAll('.unit-checkbox');
+            if (checkboxes.length === 0) return;
+
+            // Jika semua di dalam DOM dah di-check, kita batal semua. Jika tidak, tanda semua.
+            const allChecked = Array.from(checkboxes).every(c => c.checked);
+            
+            checkboxes.forEach(c => {
+                c.checked = !allChecked;
+                togglePenerima(c.value, c.getAttribute('data-email'), !allChecked);
+            });
+        }
+
+        function removeTag(emel) {
+            globalSelected.delete(emel);
+            
+            // Nyah-tanda (uncheck) checkbox di dalam DOM jika ia wujud pada view sekarang
+            const cb = document.querySelector(`.unit-checkbox[data-email="${emel}"]`);
+            if (cb) cb.checked = false;
+            
+            renderTags();
+        }
+
+        function renderTags() {
+            const container = document.getElementById('selectedTagsContainer');
+            const emailInput = document.getElementById('email');
+            
+            if (globalSelected.size === 0) {
+                container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
+                emailInput.value = '';
+                return;
+            }
+
+            container.innerHTML = '';
+            const emails = [];
+            
+            globalSelected.forEach((nama, emel) => {
+                emails.push(emel);
+                container.innerHTML += `
+                    <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
+                        <span>${nama}</span>
+                        <button type="button" onclick="removeTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            // Auto-update textarea emel
+            emailInput.value = emails.join(', ');
         }
 
         /* ================= EARLY UPLOAD & FORM LOCK ================= */
@@ -437,19 +519,20 @@
             reader.onerror = error => reject(error);
         });
 
-        /* ================= SUBMIT LOGIC ================= */
+        /* ================= SUBMIT LOGIC (DIKEMASKINI UNTUK STATE) ================= */
         async function handleFormSubmit(e) {
             e.preventDefault();
             if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
             
-            const checked = document.querySelectorAll('input[name="penerima"]:checked');
-            if (checked.length === 0) return showMessage("Pilih sekurang-kurangnya 1 penerima.", "error");
+            // Validasi berasaskan Global State, bukan lagi DOM element
+            if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
             setLoading(true, "Menyimpan Data...");
 
             try {
-                const names = Array.from(checked).map(c => c.value);
-                const emels = Array.from(checked).map(c => c.getAttribute('data-email'));
+                // Ekstrak data dari Global State Map
+                const names = Array.from(globalSelected.values());
+                const emels = Array.from(globalSelected.keys());
 
                 // 1. Simpan ke Supabase
                 const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
@@ -641,8 +724,12 @@
         function resetForm() {
             document.getElementById('mainForm').reset();
             resetFileUpload();
+            
+            // Reset Global State
+            globalSelected.clear();
+            renderTags();
+            
             populateUnit();
-            document.getElementById('email').value = '';
         }
     </script>
 </body>
