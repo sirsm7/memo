@@ -65,7 +65,7 @@
                 <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi rentas sektor.</p>
             </div>
 
-            <!-- SPA Tab Navigation (Dikemaskini dengan 3 Tab) -->
+            <!-- SPA Tab Navigation (3 Tab) -->
             <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-6 pt-4">
                 <button onclick="switchTab('daftar')" id="tabBtnDaftar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
                     Pendaftaran Memo
@@ -265,6 +265,7 @@
                     
                     <div class="w-full flex-1 min-h-[500px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                         <iframe 
+                            id="calendarFrame"
                             src="https://calendar.google.com/calendar/embed?src=c_f0a44fa5b697d8af04d01f229b28ecb766cb9dd1f5d0c9d287aec3f164524888%40group.calendar.google.com&ctz=Asia%2FKuala_Lumpur" 
                             class="w-full h-[500px] sm:h-[600px] md:h-[700px]" 
                             style="border: 0" 
@@ -312,12 +313,11 @@
             }
         });
 
-        /* ================= TAB NAVIGATION (DIKEMASKINI) ================= */
+        /* ================= TAB NAVIGATION ================= */
         function switchTab(tabName) {
             const tabs = ['daftar', 'analisis', 'kalendar'];
             
             tabs.forEach(t => {
-                // Bina format ID, cth: 'tabDaftar', 'tabBtnDaftar'
                 const divId = 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
                 const btnId = 'tabBtn' + t.charAt(0).toUpperCase() + t.slice(1);
                 
@@ -386,7 +386,6 @@
             nc.innerHTML = '';
             
             if (sk && un && groupedData[sk][un]) {
-                // Header List berserta Butang Pilih Semua
                 nc.innerHTML = `
                     <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
                         <span class="text-xs font-bold text-slate-500 uppercase">Senarai Pegawai (${un})</span>
@@ -394,7 +393,6 @@
                     </div>
                 `;
 
-                // Render Checkboxes berdasarkan Global State
                 groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
                     const isChecked = globalSelected.has(p.emel) ? 'checked' : '';
                     nc.innerHTML += `
@@ -422,7 +420,6 @@
             const checkboxes = document.querySelectorAll('.unit-checkbox');
             if (checkboxes.length === 0) return;
 
-            // Jika semua di dalam DOM dah di-check, kita batal semua. Jika tidak, tanda semua.
             const allChecked = Array.from(checkboxes).every(c => c.checked);
             
             checkboxes.forEach(c => {
@@ -434,7 +431,6 @@
         function removeTag(emel) {
             globalSelected.delete(emel);
             
-            // Nyah-tanda (uncheck) checkbox di dalam DOM jika ia wujud pada view sekarang
             const cb = document.querySelector(`.unit-checkbox[data-email="${emel}"]`);
             if (cb) cb.checked = false;
             
@@ -466,7 +462,6 @@
                 `;
             });
             
-            // Auto-update textarea emel
             emailInput.value = emails.join(', ');
         }
 
@@ -483,7 +478,6 @@
             const link = document.getElementById('fileLink');
             const resetBtn = document.getElementById('resetFileBtn');
 
-            // Reset UI
             statusDiv.classList.remove('hidden');
             loader.classList.remove('hidden');
             text.textContent = "Sedang memuat naik fail ke Drive pelayan...";
@@ -506,7 +500,6 @@
                 const data = await res.json();
                 if (data.status !== 'success') throw new Error(data.message);
 
-                // Success Upload
                 uploadedFileUrl = data.fileUrl;
                 text.textContent = "Fail Sedia: ";
                 text.classList.replace('text-slate-600', 'text-emerald-600');
@@ -515,7 +508,6 @@
                 link.classList.remove('hidden');
                 resetBtn.classList.remove('hidden');
                 
-                // UNLOCK FORM ANIMATION
                 formUtamaDiv.classList.remove('hidden');
                 setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
 
@@ -525,7 +517,7 @@
                 text.classList.replace('text-slate-600', 'text-red-500');
                 loader.classList.add('hidden');
                 input.disabled = false;
-                resetBtn.classList.remove('hidden'); // allow to clear
+                resetBtn.classList.remove('hidden');
                 showMessage("Gagal muat naik fail: " + err.message, "error");
             }
         }
@@ -537,7 +529,6 @@
             input.disabled = false;
             document.getElementById('uploadStatus').classList.add('hidden');
             
-            // LOCK FORM
             formUtamaDiv.classList.add('opacity-0');
             setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
         }
@@ -549,18 +540,15 @@
             reader.onerror = error => reject(error);
         });
 
-        /* ================= SUBMIT LOGIC ================= */
+        /* ================= SUBMIT LOGIC DENGAN AUTO-REFRESH KALENDAR ================= */
         async function handleFormSubmit(e) {
             e.preventDefault();
             if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
-            
-            // Validasi berasaskan Global State
             if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
             setLoading(true, "Menyimpan Data...");
 
             try {
-                // Ekstrak data dari Global State Map
                 const names = Array.from(globalSelected.values());
                 const emels = Array.from(globalSelected.keys());
 
@@ -607,9 +595,15 @@
                 }
 
                 showMessage("<strong>Berjaya!</strong> Rekod memo disimpan dengan selamat dan automasi berjaya dipacu.", "success");
-                resetForm();
                 
-                // Clear cache so dashboard refreshes next time
+                // --- SUNTIKAN AUTO-REFRESH KALENDAR ---
+                const calFrame = document.getElementById('calendarFrame');
+                if (calFrame) {
+                    calFrame.src = calFrame.src; // Memaksa pelayar memuat semula src iframe tersebut
+                }
+                // --------------------------------------
+
+                resetForm();
                 allRecords = []; 
 
             } catch (err) {
@@ -740,7 +734,6 @@
             b.classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             
-            // Auto sembunyi mesej success selepas 10 saat
             if(t === 'success') {
                 setTimeout(() => b.classList.add('hidden'), 10000);
             }
@@ -750,7 +743,6 @@
             document.getElementById('mainForm').reset();
             resetFileUpload();
             
-            // Reset Global State
             globalSelected.clear();
             renderTags();
             
