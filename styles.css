@@ -1,0 +1,56 @@
+/* ==============================================================================
+   SISTEM PENGURUSAN MEMO@AG
+   Architect: 0.1% Senior Software Architect
+   Modul: Gaya Persembahan Khusus (Custom Styling)
+   ============================================================================== */
+
+/* 1. UTILITI TEKS */
+.uppercase-input { 
+    text-transform: uppercase; 
+}
+
+/* 2. ANIMASI PEMUATAN (LOADER) */
+.loader {
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #4f46e5; /* Warna tema: Indigo-600 */
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@keyframes spin { 
+    0% { transform: rotate(0deg); } 
+    100% { transform: rotate(360deg); } 
+}
+
+/* 3. UBAHSUAI BENTUK SCROLLBAR KORPORAT */
+.custom-scrollbar::-webkit-scrollbar { 
+    width: 6px; 
+    height: 6px; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-track { 
+    background: #f8fafc; /* slate-50 */
+    border-radius: 4px; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+    background: #cbd5e1; /* slate-300 */
+    border-radius: 4px; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+    background: #94a3b8; /* slate-400 */
+}
+
+/* 4. ANIMASI PERALIHAN LALAI (SMOOTH TRANSITIONS) */
+input, select, textarea { 
+    transition: all 0.2s ease-in-out; 
+}
+
+.tab-btn, .admin-sub-tab, .btnTutupModal { 
+    transition: all 0.3s ease; 
+}

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memo@AG | PPD Alor Gajah</title>
+    
     <!-- Favicon Rasmi -->
     <link rel="icon" href="icoppdag.png" type="image/png">
     
@@ -12,6 +13,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <!-- CSS Khusus (Telah diasingkan) -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Konfigurasi Tailwind untuk Fon Inter -->
@@ -29,74 +34,70 @@
 
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        .uppercase-input { text-transform: uppercase; }
-        .loader {
-            border: 3px solid #e2e8f0;
-            border-top: 3px solid #4f46e5;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        input, select, textarea { transition: all 0.2s ease-in-out; }
-        .tab-btn { transition: all 0.3s ease; }
-    </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
-    <div class="max-w-5xl mx-auto p-4 sm:p-8 my-4 sm:my-8">
+    <div class="max-w-6xl mx-auto p-4 sm:p-8 my-4 sm:my-8 relative">
+        
+        <!-- Butang Akses Admin (Top Right) -->
+        <div class="absolute top-6 right-6 sm:top-10 sm:right-10 z-10 flex space-x-4">
+            <button id="btnBukaLoginAdmin" class="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200">
+                Akses Pentadbir
+            </button>
+            <button id="btnLogKeluarAdmin" class="hidden text-xs font-bold text-red-500 hover:text-white hover:bg-red-500 transition-colors bg-white px-3 py-1.5 rounded-full shadow-sm border border-red-200">
+                Log Keluar
+            </button>
+        </div>
+
         <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
             
             <!-- Header Korporat -->
-            <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50">
+            <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50 relative">
                 <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
                 <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Memo@AG</h2>
                 <p class="text-slate-700 text-base sm:text-lg mt-3 font-semibold">Pejabat Pendidikan Daerah Alor Gajah.</p>
                 <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi rentas sektor.</p>
             </div>
 
-            <!-- SPA Tab Navigation (3 Tab) -->
-            <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-6 pt-4">
-                <button onclick="switchTab('daftar')" id="tabBtnDaftar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
+            <!-- SPA Tab Navigation -->
+            <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-2 sm:px-6 pt-4">
+                <button id="tabBtnDaftar" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
                     Pendaftaran Memo
                 </button>
-                <button onclick="switchTab('analisis')" id="tabBtnAnalisis" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
+                <button id="tabBtnAnalisis" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
                     Semakan & Analisis
                 </button>
-                <button onclick="switchTab('kalendar')" id="tabBtnKalendar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
+                <button id="tabBtnKalendar" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
                     Kalendar Program
+                </button>
+                <!-- Tab Pentadbir Khusus (Disembunyikan secara lalai) -->
+                <button id="tabBtnAdminPanel" class="hidden tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 focus:outline-none">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Panel Pentadbir
+                    </span>
                 </button>
             </div>
 
             <!-- TAB 1: PENDAFTARAN MEMO -->
             <div id="tabDaftar" class="block">
-                <form id="mainForm" class="p-6 sm:p-10" onsubmit="handleFormSubmit(event)">
+                <form id="mainForm" class="p-6 sm:p-10">
                     <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                        <!-- FASA 0: MUAT NAIK FAIL (SENTIASA PAPAR) -->
+                        <!-- FASA 0: MUAT NAIK FAIL -->
                         <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/50 rounded-xl border-2 border-dashed border-indigo-200 mb-2 transition-all hover:border-indigo-400">
                             <label for="salinanSurat" class="block text-sm font-bold text-indigo-700 uppercase tracking-wider mb-2">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
                             <p class="text-xs text-slate-500 mb-4">Sila muat naik dokumen (PDF/Imej) untuk mengaktifkan dan membuka kunci borang maklumat.</p>
                             
                             <div id="uploadContainer" class="relative">
-                                <input id="salinanSurat" type="file" accept=".pdf, image/*" onchange="handleEarlyUpload(this)" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-all">
+                                <input id="salinanSurat" type="file" accept=".pdf, image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-all">
                                 
                                 <div id="uploadStatus" class="mt-4 hidden items-center space-x-3 bg-white p-3 rounded-lg border border-emerald-200 shadow-sm">
                                     <div id="uploadLoader" class="loader"></div>
                                     <span id="uploadText" class="text-sm font-medium text-slate-600">Sedang menyediakan fail...</span>
                                     <a id="fileLink" href="#" target="_blank" class="hidden text-sm font-bold text-emerald-600 underline truncate flex-1 hover:text-emerald-800">Lihat Fail Drive</a>
-                                    <button type="button" id="resetFileBtn" onclick="resetFileUpload()" class="hidden text-xs text-red-500 font-bold hover:bg-red-50 px-3 py-1.5 rounded border border-red-200 transition-colors">Padam / Tukar</button>
+                                    <button type="button" id="resetFileBtn" class="hidden text-xs text-red-500 font-bold hover:bg-red-50 px-3 py-1.5 rounded border border-red-200 transition-colors">Padam / Tukar</button>
                                 </div>
                             </div>
                         </div>
@@ -111,28 +112,23 @@
 
                             <div class="col-span-1">
                                 <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor Utama <span class="text-red-500">*</span></label>
-                                <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" onchange="populateUnit()">
+                                <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100">
                                     <option value="">Sila pilih sektor...</option>
                                 </select>
                             </div>
 
                             <div class="col-span-1">
                                 <label for="unit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Unit <span class="text-red-500">*</span></label>
-                                <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled onchange="populateNama()">
+                                <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled>
                                     <option value="">Pilih Sektor Dahulu</option>
                                 </select>
                             </div>
 
-                            <!-- PENGURUSAN STATE: TAGS DAN NAMA -->
                             <div class="col-span-1 md:col-span-2">
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Penerima Terpilih (Rentas Sektor) <span class="text-red-500">*</span></label>
-                                
-                                <!-- Tags Container -->
                                 <div id="selectedTagsContainer" class="flex flex-wrap gap-2 mb-3 min-h-[44px] p-3 bg-white border border-slate-300 rounded-lg shadow-sm transition-colors focus-within:ring-2 focus-within:ring-indigo-500">
                                     <span class="text-sm text-slate-400 italic">Belum ada penerima dipilih...</span>
                                 </div>
-
-                                <!-- Senarai Checkbox Container -->
                                 <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-52 overflow-y-auto custom-scrollbar shadow-inner relative">
                                     <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
                                 </div>
@@ -143,7 +139,6 @@
                                 <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none"></textarea>
                             </div>
 
-                            <!-- MAKLUMAT PROGRAM -->
                             <div class="col-span-1">
                                 <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
                                 <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
@@ -180,8 +175,7 @@
                                     <span id="btnText" class="flex items-center text-sm tracking-widest uppercase">Simpan & Hantar Rekod</span>
                                 </button>
                             </div>
-                        </div> <!-- End Borang Utama -->
-
+                        </div>
                     </div>
                 </form>
             </div>
@@ -225,7 +219,7 @@
                     <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <h3 class="text-lg font-bold text-slate-700">Senarai Pendaftaran Memo</h3>
                         <div class="relative w-full sm:w-72">
-                            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Cari Tajuk / Penerima..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            <input type="text" id="searchInput" placeholder="Cari Tajuk / Penerima..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                             <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
                     </div>
@@ -251,7 +245,7 @@
                         </table>
                     </div>
                 </div>
-            </div> <!-- End Tab Analisis -->
+            </div>
             
             <!-- TAB 3: KALENDAR PROGRAM -->
             <div id="tabKalendar" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
@@ -274,7 +268,94 @@
                         </iframe>
                     </div>
                 </div>
-            </div> <!-- End Tab Kalendar -->
+            </div>
+
+            <!-- TAB 4: PANEL PENTADBIR (ADMIN) -->
+            <div id="tabAdmin" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Papan Pemuka Pentadbir</h2>
+                    <p class="text-sm text-slate-500">Uruskan rekod memo, pangkalan data pegawai, dan akses sistem.</p>
+                </div>
+
+                <!-- Sub-navigasi Admin -->
+                <div class="flex space-x-2 mb-6 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
+                    <button id="subTabBtnMemo" class="admin-sub-tab px-4 py-2 text-sm font-bold bg-indigo-100 text-indigo-700 rounded-lg">Urus Memo</button>
+                    <button id="subTabBtnPegawai" class="admin-sub-tab px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Urus Pegawai</button>
+                    <button id="subTabBtnSistem" class="admin-sub-tab px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Akses Sistem</button>
+                </div>
+
+                <!-- Seksyen: URUS MEMO -->
+                <div id="adminSectionMemo" class="admin-section block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Pangkalan Data Memo</h3>
+                        <input type="text" id="adminSearchMemo" placeholder="Cari Memo..." class="w-64 px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                                <tr>
+                                    <th class="p-3 border-b">ID</th>
+                                    <th class="p-3 border-b">Tajuk Program</th>
+                                    <th class="p-3 border-b">Tarikh Terima</th>
+                                    <th class="p-3 border-b text-center">Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTableMemoBody" class="text-sm divide-y divide-slate-100">
+                                <tr><td colspan="4" class="p-4 text-center text-slate-500">Memuatkan data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Seksyen: URUS PEGAWAI -->
+                <div id="adminSectionPegawai" class="admin-section hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Pangkalan Data Pegawai</h3>
+                        <div class="flex space-x-2">
+                            <input type="text" id="adminSearchPegawai" placeholder="Cari Pegawai..." class="w-64 px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <button id="btnTambahPegawai" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors">Tambah Pegawai</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto h-[400px] overflow-y-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse relative">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold sticky top-0 shadow-sm">
+                                <tr>
+                                    <th class="p-3 border-b">Nama Pegawai</th>
+                                    <th class="p-3 border-b">Sektor & Unit</th>
+                                    <th class="p-3 border-b">Emel Rasmi</th>
+                                    <th class="p-3 border-b text-center">Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTablePegawaiBody" class="text-sm divide-y divide-slate-100">
+                                <tr><td colspan="4" class="p-4 text-center text-slate-500">Memuatkan data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Seksyen: AKSES SISTEM (ADMIN) -->
+                <div id="adminSectionSistem" class="admin-section hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Pengurusan Akses Pentadbir</h3>
+                        <button id="btnTambahAdmin" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors">Tambah Admin</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                                <tr>
+                                    <th class="p-3 border-b">ID Pentadbir</th>
+                                    <th class="p-3 border-b">Alamat Emel</th>
+                                    <th class="p-3 border-b">Peranan</th>
+                                    <th class="p-3 border-b text-center">Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTableSistemBody" class="text-sm divide-y divide-slate-100">
+                                <tr><td colspan="4" class="p-4 text-center text-slate-500">Memuatkan data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
         </div>
         
@@ -284,470 +365,104 @@
         </div>
     </div>
 
-    <script>
-        // CONFIGURATION
-        const SUPABASE_URL = 'https://app.tech4ag.my';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxrj_wwNOJahEEiz3QGBaNTG9pg6xJNqEDXZXVEag9kHrJXp-n7gKV2wF8Yr17OZdr5/exec';
-        
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        
-        let groupedData = {};
-        let uploadedFileUrl = "";
-        let allRecords = []; // Cache untuk dashboard
-        
-        // PENGURUSAN STATE GLOBAL
-        let globalSelected = new Map(); // Menjejak email -> nama rentas sektor
+    <!-- ================= MODAL COMPONENTS ================= -->
 
-        // Init Data
-        document.addEventListener('DOMContentLoaded', async () => {
-            document.getElementById('currentYear').textContent = new Date().getFullYear();
-            try {
-                // Fetch Data Pegawai untuk Dropdown
-                const { data, error } = await _supabase.from('memo_pegawai').select('*').order('sektor');
-                if (error) throw error;
-                processPegawai(data);
-                populateSektor();
-            } catch (err) {
-                showMessage("Ralat memuatkan pangkalan data pegawai: " + err.message, 'error');
-            }
-        });
+    <!-- Modal Log Masuk Admin -->
+    <div id="modalLoginAdmin" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="bg-indigo-600 p-6 text-center">
+                <h3 class="text-xl font-bold text-white">Log Masuk Pentadbir</h3>
+                <p class="text-indigo-100 text-sm mt-1">Akses terhad untuk penyelenggaraan sistem.</p>
+            </div>
+            <form id="formLoginAdmin" class="p-6 space-y-4">
+                <div id="loginAdminError" class="hidden text-xs text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 text-center font-bold"></div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alamat Emel</label>
+                    <input type="email" id="loginAdminEmail" required class="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kata Laluan</label>
+                    <input type="password" id="loginAdminPassword" required class="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm">
+                </div>
+                <div class="pt-4 flex space-x-3">
+                    <button type="button" id="btnBatalLogin" class="flex-1 px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded hover:bg-slate-200 transition-colors">Batal</button>
+                    <button type="submit" id="btnSubmitLogin" class="flex-1 px-4 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 transition-colors flex justify-center items-center">Log Masuk</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        /* ================= TAB NAVIGATION ================= */
-        function switchTab(tabName) {
-            const tabs = ['daftar', 'analisis', 'kalendar'];
-            
-            tabs.forEach(t => {
-                const divId = 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
-                const btnId = 'tabBtn' + t.charAt(0).toUpperCase() + t.slice(1);
-                
-                const tabDiv = document.getElementById(divId);
-                const tabBtn = document.getElementById(btnId);
-                
-                if (t === tabName) {
-                    tabDiv.classList.remove('hidden');
-                    tabBtn.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none";
-                } else {
-                    tabDiv.classList.add('hidden');
-                    tabBtn.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none";
-                }
-            });
+    <!-- Modal Edit/Tambah Pegawai -->
+    <div id="modalPegawai" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+                <h3 id="modalPegawaiTitle" class="text-lg font-bold text-slate-700">Tambah Pegawai Baharu</h3>
+                <button type="button" class="btnTutupModal text-slate-400 hover:text-red-500 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="formPegawai" class="p-6 space-y-4">
+                <input type="hidden" id="pegawaiId">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Penuh</label>
+                    <input type="text" id="pegawaiNama" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sektor</label>
+                    <input type="text" id="pegawaiSektor" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm placeholder-slate-400" placeholder="Cth: 01 SEKTOR PENGURUSAN">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
+                    <input type="text" id="pegawaiUnit" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm" placeholder="Cth: UNIT PENGURUSAN SUMBER MANUSIA">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Emel Rasmi</label>
+                    <input type="email" id="pegawaiEmel" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
+                </div>
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
+                    <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200">Batal</button>
+                    <button type="submit" id="btnSimpanPegawai" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-            // Hanya muatkan data DB jika buka tab Analisis
-            if (tabName === 'analisis') {
-                loadDashboardData();
-            }
-        }
-
-        /* ================= BORANG: POPULATE DATA & STATE MANAGEMENT ================= */
-        function processPegawai(data) {
-            groupedData = {};
-            data.forEach(p => {
-                if (!groupedData[p.sektor]) groupedData[p.sektor] = {};
-                if (!groupedData[p.sektor][p.unit]) groupedData[p.sektor][p.unit] = [];
-                groupedData[p.sektor][p.unit].push({ nama: p.nama, emel: p.emel_rasmi });
-            });
-        }
-
-        function populateSektor() {
-            const s = document.getElementById('sektor');
-            s.innerHTML = '<option value="">-- PILIH SEKTOR --</option>';
-            Object.keys(groupedData).sort().forEach(sk => {
-                const opt = document.createElement('option');
-                opt.value = sk; opt.textContent = sk;
-                s.appendChild(opt);
-            });
-        }
-
-        function populateUnit() {
-            const sk = document.getElementById('sektor').value;
-            const u = document.getElementById('unit');
-            const nc = document.getElementById('namaContainer');
-            u.innerHTML = '<option value="">-- PILIH UNIT --</option>';
-            
-            if (sk && groupedData[sk]) {
-                Object.keys(groupedData[sk]).sort().forEach(un => {
-                    const opt = document.createElement('option');
-                    opt.value = un; opt.textContent = un;
-                    u.appendChild(opt);
-                });
-                u.disabled = false;
-                nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
-            } else {
-                u.disabled = true;
-                nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
-            }
-        }
-
-        function populateNama() {
-            const sk = document.getElementById('sektor').value;
-            const un = document.getElementById('unit').value;
-            const nc = document.getElementById('namaContainer');
-            nc.innerHTML = '';
-            
-            if (sk && un && groupedData[sk][un]) {
-                nc.innerHTML = `
-                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                        <span class="text-xs font-bold text-slate-500 uppercase">Senarai Pegawai (${un})</span>
-                        <button type="button" onclick="selectAllInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
+    <!-- Modal Edit Memo -->
+    <div id="modalMemo" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-700">Kemaskini Rekod Memo</h3>
+                <button type="button" class="btnTutupModal text-slate-400 hover:text-red-500 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="formMemo" class="p-6 space-y-4">
+                <input type="hidden" id="memoId">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tajuk Program</label>
+                    <input type="text" id="memoTajuk" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Terima</label>
+                        <input type="date" id="memoTarikhTerima" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
                     </div>
-                `;
-
-                groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
-                    const isChecked = globalSelected.has(p.emel) ? 'checked' : '';
-                    nc.innerHTML += `
-                        <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                            <input type="checkbox" id="c_${i}" value="${p.nama}" data-email="${p.emel}" onchange="togglePenerima('${p.nama}', '${p.emel}', this.checked)" class="w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500" ${isChecked}>
-                            <label for="c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
-                        </div>`;
-                });
-            } else {
-                nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
-            }
-        }
-
-        /* --- LOGIK PENGURUSAN TAG & GLOBAL STATE --- */
-        function togglePenerima(nama, emel, isChecked) {
-            if (isChecked) {
-                globalSelected.set(emel, nama);
-            } else {
-                globalSelected.delete(emel);
-            }
-            renderTags();
-        }
-
-        function selectAllInUnit() {
-            const checkboxes = document.querySelectorAll('.unit-checkbox');
-            if (checkboxes.length === 0) return;
-
-            const allChecked = Array.from(checkboxes).every(c => c.checked);
-            
-            checkboxes.forEach(c => {
-                c.checked = !allChecked;
-                togglePenerima(c.value, c.getAttribute('data-email'), !allChecked);
-            });
-        }
-
-        function removeTag(emel) {
-            globalSelected.delete(emel);
-            
-            const cb = document.querySelector(`.unit-checkbox[data-email="${emel}"]`);
-            if (cb) cb.checked = false;
-            
-            renderTags();
-        }
-
-        function renderTags() {
-            const container = document.getElementById('selectedTagsContainer');
-            const emailInput = document.getElementById('email');
-            
-            if (globalSelected.size === 0) {
-                container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
-                emailInput.value = '';
-                return;
-            }
-
-            container.innerHTML = '';
-            const emails = [];
-            
-            globalSelected.forEach((nama, emel) => {
-                emails.push(emel);
-                container.innerHTML += `
-                    <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
-                        <span>${nama}</span>
-                        <button type="button" onclick="removeTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Program</label>
+                        <input type="date" id="memoTarikhProgram" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
                     </div>
-                `;
-            });
-            
-            emailInput.value = emails.join(', ');
-        }
+                </div>
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
+                    <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200">Batal</button>
+                    <button type="submit" id="btnSimpanMemo" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        /* ================= EARLY UPLOAD & FORM LOCK ================= */
-        const formUtamaDiv = document.getElementById('borangUtama');
+    <!-- Pautan Fail JS Luaran -->
+    <script src="app.js"></script>
+    <script src="admin.js"></script>
 
-        async function handleEarlyUpload(input) {
-            if (!input.files || input.files.length === 0) return;
-            
-            const file = input.files[0];
-            const statusDiv = document.getElementById('uploadStatus');
-            const loader = document.getElementById('uploadLoader');
-            const text = document.getElementById('uploadText');
-            const link = document.getElementById('fileLink');
-            const resetBtn = document.getElementById('resetFileBtn');
-
-            statusDiv.classList.remove('hidden');
-            loader.classList.remove('hidden');
-            text.textContent = "Sedang memuat naik fail ke Drive pelayan...";
-            text.classList.replace('text-emerald-600', 'text-slate-600');
-            link.classList.add('hidden');
-            resetBtn.classList.add('hidden');
-            input.disabled = true;
-
-            try {
-                const base64Full = await toBase64(file);
-                const res = await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'upload',
-                        fileBase64: base64Full.split(',')[1],
-                        fileName: file.name,
-                        fileMimeType: file.type
-                    })
-                });
-                const data = await res.json();
-                if (data.status !== 'success') throw new Error(data.message);
-
-                uploadedFileUrl = data.fileUrl;
-                text.textContent = "Fail Sedia: ";
-                text.classList.replace('text-slate-600', 'text-emerald-600');
-                loader.classList.add('hidden');
-                link.href = uploadedFileUrl;
-                link.classList.remove('hidden');
-                resetBtn.classList.remove('hidden');
-                
-                formUtamaDiv.classList.remove('hidden');
-                setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
-
-                showMessage("Muat naik fail disahkan. Borang telah dibuka, sila lengkapkan maklumat di bawah.", "success");
-            } catch (err) {
-                text.textContent = "Ralat pelayan: Sila cuba lagi.";
-                text.classList.replace('text-slate-600', 'text-red-500');
-                loader.classList.add('hidden');
-                input.disabled = false;
-                resetBtn.classList.remove('hidden');
-                showMessage("Gagal muat naik fail: " + err.message, "error");
-            }
-        }
-
-        function resetFileUpload() {
-            uploadedFileUrl = "";
-            const input = document.getElementById('salinanSurat');
-            input.value = "";
-            input.disabled = false;
-            document.getElementById('uploadStatus').classList.add('hidden');
-            
-            formUtamaDiv.classList.add('opacity-0');
-            setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
-        }
-
-        const toBase64 = file => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-
-        /* ================= SUBMIT LOGIC DENGAN AUTO-REFRESH KALENDAR ================= */
-        async function handleFormSubmit(e) {
-            e.preventDefault();
-            if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
-            if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
-
-            setLoading(true, "Menyimpan Data...");
-
-            try {
-                const names = Array.from(globalSelected.values());
-                const emels = Array.from(globalSelected.keys());
-
-                // 1. Simpan ke Supabase
-                const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
-                    sektor: document.getElementById('sektor').value,
-                    unit: document.getElementById('unit').value,
-                    nama_penerima: names.join(', '),
-                    emel_penerima: emels.join(', '),
-                    tarikh_terima: document.getElementById('tarikhTerima').value,
-                    tarikh_program: document.getElementById('tarikhProgram').value,
-                    bilangan_hari: parseInt(document.getElementById('bilanganHari').value),
-                    tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
-                    masa_mula: document.getElementById('masaMula').value,
-                    masa_tamat: document.getElementById('masaTamat').value,
-                    file_url: uploadedFileUrl
-                }]).select();
-
-                if (subError) throw subError;
-
-                setLoading(true, "Menghantar Notifikasi (Emel/Kalendar)...");
-
-                // 2. Notifikasi GAS (Emel & Kalendar)
-                const res = await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'notify',
-                        sektor: document.getElementById('sektor').value,
-                        unit: document.getElementById('unit').value,
-                        namaArray: names,
-                        emailArray: emels,
-                        tarikhProgram: document.getElementById('tarikhProgram').value,
-                        bilanganHari: document.getElementById('bilanganHari').value,
-                        tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
-                        masaMula: document.getElementById('masaMula').value,
-                        masaTamat: document.getElementById('masaTamat').value,
-                        fileUrl: uploadedFileUrl
-                    })
-                });
-                const notify = await res.json();
-
-                if (notify.status === 'success') {
-                    await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
-                }
-
-                showMessage("<strong>Berjaya!</strong> Rekod memo disimpan dengan selamat dan automasi berjaya dipacu.", "success");
-                
-                // --- SUNTIKAN AUTO-REFRESH KALENDAR ---
-                const calFrame = document.getElementById('calendarFrame');
-                if (calFrame) {
-                    calFrame.src = calFrame.src; // Memaksa pelayar memuat semula src iframe tersebut
-                }
-                // --------------------------------------
-
-                resetForm();
-                allRecords = []; 
-
-            } catch (err) {
-                showMessage("Ralat Transaksi: " + err.message, "error");
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        /* ================= DASHBOARD & ANALISIS ================= */
-        async function loadDashboardData() {
-            const tBody = document.getElementById('tableBody');
-            
-            if (allRecords.length > 0) {
-                renderTable(allRecords);
-                return;
-            }
-
-            tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
-
-            try {
-                const { data, error } = await _supabase.from('memo_rekod').select('*').order('tarikh_terima', { ascending: false });
-                if (error) throw error;
-                
-                allRecords = data;
-                calculateKPIs(data);
-                renderTable(data);
-            } catch (err) {
-                tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
-            }
-        }
-
-        function calculateKPIs(data) {
-            document.getElementById('kpiTotal').textContent = data.length;
-            
-            const now = new Date();
-            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-            
-            const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
-            document.getElementById('kpiToday').textContent = todayCount;
-
-            const sektorCounts = {};
-            data.forEach(r => {
-                sektorCounts[r.sektor] = (sektorCounts[r.sektor] || 0) + 1;
-            });
-            
-            let topSektor = "-";
-            let maxCount = 0;
-            for (const s in sektorCounts) {
-                if (sektorCounts[s] > maxCount) {
-                    maxCount = sektorCounts[s];
-                    topSektor = s.replace(/^\d{2}\s/, ''); 
-                }
-            }
-            document.getElementById('kpiTopSektor').textContent = topSektor;
-            document.getElementById('kpiTopSektor').title = topSektor; 
-        }
-
-        function renderTable(dataArray) {
-            const tBody = document.getElementById('tableBody');
-            tBody.innerHTML = '';
-
-            if (dataArray.length === 0) {
-                tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod dijumpai.</td></tr>`;
-                return;
-            }
-
-            dataArray.forEach(row => {
-                let dateStr = row.tarikh_terima;
-                if(dateStr) {
-                    const parts = dateStr.split('-');
-                    if(parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                } else {
-                    dateStr = "-";
-                }
-                
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-indigo-50/30 transition-colors";
-                tr.innerHTML = `
-                    <td class="p-4 align-top">
-                        <div class="font-bold text-slate-700">${dateStr}</div>
-                    </td>
-                    <td class="p-4 align-top">
-                        <div class="text-sm font-semibold text-slate-800 break-words whitespace-normal">${row.sektor.replace(/^\d{2}\s/, '')}</div>
-                        <div class="text-xs text-slate-500 break-words whitespace-normal mt-1">${row.unit}</div>
-                    </td>
-                    <td class="p-4 align-top">
-                        <div class="text-sm font-bold text-indigo-700 break-words whitespace-normal">${row.tajuk_program}</div>
-                        <div class="text-xs text-slate-500 mt-1"><span class="font-semibold">Mula:</span> ${row.tarikh_program} (${row.bilangan_hari} Hari)</div>
-                    </td>
-                    <td class="p-4 align-top">
-                        <div class="text-xs text-slate-600 break-words whitespace-normal leading-relaxed" title="${row.nama_penerima}">${row.nama_penerima}</div>
-                    </td>
-                    <td class="p-4 align-top text-center">
-                        ${row.file_url ? 
-                        `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded hover:bg-indigo-100 transition-colors">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
-                        </a>` : 
-                        `<span class="text-xs text-slate-400">Tiada Fail</span>`}
-                    </td>
-                `;
-                tBody.appendChild(tr);
-            });
-        }
-
-        function filterTable() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allRecords.filter(r => 
-                (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
-                (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
-                (r.sektor && r.sektor.toLowerCase().includes(query))
-            );
-            renderTable(filtered);
-        }
-
-        /* ================= UTILS ================= */
-        function setLoading(status, txt) {
-            const btn = document.getElementById('submitBtn');
-            const bt = document.getElementById('btnText');
-            btn.disabled = status;
-            bt.innerHTML = status ? `<div class="loader mr-2"></div> <span>${txt}</span>` : "Simpan & Hantar Rekod";
-        }
-
-        function showMessage(m, t) {
-            const b = document.getElementById('messageBox');
-            b.innerHTML = m;
-            b.className = `mb-8 p-4 rounded-lg font-medium text-sm border ${t==='error'?'bg-red-50 text-red-800 border-red-200':t==='success'?'bg-emerald-50 text-emerald-800 border-emerald-200':'bg-blue-50 text-blue-800 border-blue-200'}`;
-            b.classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            if(t === 'success') {
-                setTimeout(() => b.classList.add('hidden'), 10000);
-            }
-        }
-
-        function resetForm() {
-            document.getElementById('mainForm').reset();
-            resetFileUpload();
-            
-            globalSelected.clear();
-            renderTags();
-            
-            populateUnit();
-        }
-    </script>
 </body>
 </html>
