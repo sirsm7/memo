@@ -65,13 +65,16 @@
                 <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi rentas sektor.</p>
             </div>
 
-            <!-- SPA Tab Navigation -->
+            <!-- SPA Tab Navigation (Dikemaskini dengan 3 Tab) -->
             <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-6 pt-4">
                 <button onclick="switchTab('daftar')" id="tabBtnDaftar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
                     Pendaftaran Memo
                 </button>
                 <button onclick="switchTab('analisis')" id="tabBtnAnalisis" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
                     Semakan & Analisis
+                </button>
+                <button onclick="switchTab('kalendar')" id="tabBtnKalendar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
+                    Kalendar Program
                 </button>
             </div>
 
@@ -120,7 +123,7 @@
                                 </select>
                             </div>
 
-                            <!-- PENGURUSAN STATE: TAGS DAN NAMA (DIUBAH SUAI) -->
+                            <!-- PENGURUSAN STATE: TAGS DAN NAMA -->
                             <div class="col-span-1 md:col-span-2">
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Penerima Terpilih (Rentas Sektor) <span class="text-red-500">*</span></label>
                                 
@@ -249,6 +252,28 @@
                     </div>
                 </div>
             </div> <!-- End Tab Analisis -->
+            
+            <!-- TAB 3: KALENDAR PROGRAM -->
+            <div id="tabKalendar" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 h-full flex flex-col">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-700">Jadual Program & Taklimat</h3>
+                            <p class="text-sm text-slate-500 mt-1">Paparan kalendar rasmi semua memo yang telah disahkan ke dalam sistem.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full flex-1 min-h-[500px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                        <iframe 
+                            src="https://calendar.google.com/calendar/embed?src=c_f0a44fa5b697d8af04d01f229b28ecb766cb9dd1f5d0c9d287aec3f164524888%40group.calendar.google.com&ctz=Asia%2FKuala_Lumpur" 
+                            class="w-full h-[500px] sm:h-[600px] md:h-[700px]" 
+                            style="border: 0" 
+                            frameborder="0" 
+                            scrolling="no">
+                        </iframe>
+                    </div>
+                </div>
+            </div> <!-- End Tab Kalendar -->
 
         </div>
         
@@ -270,7 +295,7 @@
         let uploadedFileUrl = "";
         let allRecords = []; // Cache untuk dashboard
         
-        // PENGURUSAN STATE GLOBAL (Baru)
+        // PENGURUSAN STATE GLOBAL
         let globalSelected = new Map(); // Menjejak email -> nama rentas sektor
 
         // Init Data
@@ -287,24 +312,29 @@
             }
         });
 
-        /* ================= TAB NAVIGATION ================= */
+        /* ================= TAB NAVIGATION (DIKEMASKINI) ================= */
         function switchTab(tabName) {
-            const tabDaftar = document.getElementById('tabDaftar');
-            const tabAnalisis = document.getElementById('tabAnalisis');
-            const btnDaftar = document.getElementById('tabBtnDaftar');
-            const btnAnalisis = document.getElementById('tabBtnAnalisis');
+            const tabs = ['daftar', 'analisis', 'kalendar'];
+            
+            tabs.forEach(t => {
+                // Bina format ID, cth: 'tabDaftar', 'tabBtnDaftar'
+                const divId = 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
+                const btnId = 'tabBtn' + t.charAt(0).toUpperCase() + t.slice(1);
+                
+                const tabDiv = document.getElementById(divId);
+                const tabBtn = document.getElementById(btnId);
+                
+                if (t === tabName) {
+                    tabDiv.classList.remove('hidden');
+                    tabBtn.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none";
+                } else {
+                    tabDiv.classList.add('hidden');
+                    tabBtn.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none";
+                }
+            });
 
-            if (tabName === 'daftar') {
-                tabDaftar.classList.remove('hidden');
-                tabAnalisis.classList.add('hidden');
-                btnDaftar.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none";
-                btnAnalisis.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none";
-            } else {
-                tabDaftar.classList.add('hidden');
-                tabAnalisis.classList.remove('hidden');
-                btnAnalisis.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none";
-                btnDaftar.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none";
-                // Load Dashboard data only when tab is clicked
+            // Hanya muatkan data DB jika buka tab Analisis
+            if (tabName === 'analisis') {
                 loadDashboardData();
             }
         }
@@ -519,12 +549,12 @@
             reader.onerror = error => reject(error);
         });
 
-        /* ================= SUBMIT LOGIC (DIKEMASKINI UNTUK STATE) ================= */
+        /* ================= SUBMIT LOGIC ================= */
         async function handleFormSubmit(e) {
             e.preventDefault();
             if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
             
-            // Validasi berasaskan Global State, bukan lagi DOM element
+            // Validasi berasaskan Global State
             if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
             setLoading(true, "Menyimpan Data...");
@@ -593,7 +623,6 @@
         async function loadDashboardData() {
             const tBody = document.getElementById('tableBody');
             
-            // Avoid refetching if already loaded in this session (unless new record added)
             if (allRecords.length > 0) {
                 renderTable(allRecords);
                 return;
@@ -602,7 +631,6 @@
             tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
 
             try {
-                // Update Logik: Susun mengikut 'tarikh_terima' secara menurun
                 const { data, error } = await _supabase.from('memo_rekod').select('*').order('tarikh_terima', { ascending: false });
                 if (error) throw error;
                 
@@ -617,11 +645,9 @@
         function calculateKPIs(data) {
             document.getElementById('kpiTotal').textContent = data.length;
             
-            // Update Logik: Dapatkan string tarikh hari ini (Zon masa tempatan pelayar pengguna)
             const now = new Date();
             const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             
-            // Kira Memo Hari Ini berdasarkan 'tarikh_terima'
             const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
             document.getElementById('kpiToday').textContent = todayCount;
 
@@ -652,7 +678,6 @@
             }
 
             dataArray.forEach(row => {
-                // Format Date: Tukar 'YYYY-MM-DD' dari tarikh_terima kepada 'DD/MM/YYYY'
                 let dateStr = row.tarikh_terima;
                 if(dateStr) {
                     const parts = dateStr.split('-');
