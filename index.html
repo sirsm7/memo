@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Pengurusan Dokumen & Acara | PPD Alor Gajah</title>
+    <title>Memo@AG | PPD Alor Gajah</title>
     <!-- Favicon Rasmi -->
     <link rel="icon" href="icoppdag.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,12 +40,12 @@
             <!-- Header Korporat -->
             <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50">
                 <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
-                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Sistem Pengurusan Dokumen & Acara</h2>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Memo@AG</h2>
                 <p class="text-slate-500 text-sm sm:text-base mt-2 max-w-2xl mx-auto font-medium">Pejabat Pendidikan Daerah Alor Gajah. Platform berpusat pengurusan memo dan log program rasmi.</p>
             </div>
 
             <!-- SPA Tab Navigation -->
-            <div class="flex flex-wrap border-b border-slate-200 bg-white px-6 pt-4">
+            <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-6 pt-4">
                 <button onclick="switchTab('daftar')" id="tabBtnDaftar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
                     Pendaftaran Memo
                 </button>
@@ -179,9 +179,9 @@
                         <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                         </div>
-                        <div>
+                        <div class="w-full">
                             <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Sektor Teraktif</p>
-                            <p id="kpiTopSektor" class="text-lg font-extrabold text-slate-800 truncate max-w-[150px]">-</p>
+                            <p id="kpiTopSektor" class="text-lg font-extrabold text-slate-800 break-words">-</p>
                         </div>
                     </div>
                 </div>
@@ -530,7 +530,7 @@
                 }
             }
             document.getElementById('kpiTopSektor').textContent = topSektor;
-            document.getElementById('kpiTopSektor').title = topSektor; // For tooltip on truncate
+            document.getElementById('kpiTopSektor').title = topSektor; // For tooltip mapping just in case
         }
 
         function renderTable(dataArray) {
@@ -556,15 +556,15 @@
                         <div class="text-xs text-slate-500">${timeStr}</div>
                     </td>
                     <td class="p-4 align-top">
-                        <div class="text-sm font-semibold text-slate-800">${row.sektor.replace(/^\d{2}\s/, '')}</div>
-                        <div class="text-xs text-slate-500">${row.unit}</div>
+                        <div class="text-sm font-semibold text-slate-800 break-words whitespace-normal">${row.sektor.replace(/^\d{2}\s/, '')}</div>
+                        <div class="text-xs text-slate-500 break-words whitespace-normal mt-1">${row.unit}</div>
                     </td>
                     <td class="p-4 align-top">
-                        <div class="text-sm font-bold text-indigo-700">${row.tajuk_program}</div>
+                        <div class="text-sm font-bold text-indigo-700 break-words whitespace-normal">${row.tajuk_program}</div>
                         <div class="text-xs text-slate-500 mt-1"><span class="font-semibold">Mula:</span> ${row.tarikh_program} (${row.bilangan_hari} Hari)</div>
                     </td>
-                    <td class="p-4 align-top max-w-[200px]">
-                        <div class="text-xs text-slate-600 truncate" title="${row.nama_penerima}">${row.nama_penerima}</div>
+                    <td class="p-4 align-top">
+                        <div class="text-xs text-slate-600 break-words whitespace-normal leading-relaxed" title="${row.nama_penerima}">${row.nama_penerima}</div>
                     </td>
                     <td class="p-4 align-top text-center">
                         ${row.file_url ? 
