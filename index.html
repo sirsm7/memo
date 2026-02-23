@@ -6,7 +6,27 @@
     <title>Memo@AG | PPD Alor Gajah</title>
     <!-- Favicon Rasmi -->
     <link rel="icon" href="icoppdag.png" type="image/png">
+    
+    <!-- Integrasi Fon Korporat (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Konfigurasi Tailwind untuk Fon Inter -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -37,11 +57,12 @@
     <div class="max-w-5xl mx-auto p-4 sm:p-8 my-4 sm:my-8">
         <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Header Korporat -->
+            <!-- Header Korporat (Telah Dikemas Kini) -->
             <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50">
                 <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
                 <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Memo@AG</h2>
-                <p class="text-slate-500 text-sm sm:text-base mt-2 max-w-2xl mx-auto font-medium">Pejabat Pendidikan Daerah Alor Gajah. Platform berpusat pengurusan memo dan log program rasmi.</p>
+                <p class="text-slate-700 text-base sm:text-lg mt-3 font-semibold">Pejabat Pendidikan Daerah Alor Gajah.</p>
+                <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi.</p>
             </div>
 
             <!-- SPA Tab Navigation -->
@@ -221,8 +242,9 @@
 
         </div>
         
+        <!-- Footer Korporat (Telah Dikemas Kini) -->
         <div class="text-center mt-6 mb-8">
-            <p class="text-xs font-medium text-slate-400">&copy; <span id="currentYear"></span> Pejabat Pendidikan Daerah Alor Gajah.</p>
+            <p class="text-xs font-medium text-slate-400">Hakcipta terpelihara USTP &copy; Pejabat Pendidikan Daerah Alor Gajah <span id="currentYear"></span>.</p>
         </div>
     </div>
 
