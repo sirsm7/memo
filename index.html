@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Pengurusan Dokumen & Acara</title>
+    <title>Sistem Pengurusan Dokumen & Acara | PPD Alor Gajah</title>
+    <!-- Favicon Rasmi -->
+    <link rel="icon" href="icoppdag.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .uppercase-input { text-transform: uppercase; }
         /* Loader Spinner */
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #4f46e5; /* Indigo 600 */
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
             display: inline-block;
             vertical-align: middle;
@@ -23,12 +25,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Custom Scrollbar for Checkbox List */
+        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1; 
+            background: #f8fafc; 
             border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
@@ -38,109 +40,148 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #94a3b8; 
         }
+        /* Smooth Input Transition */
+        input, select, textarea {
+            transition: all 0.2s ease-in-out;
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+<body class="bg-slate-50 min-h-screen font-sans text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
-    <div class="max-w-4xl mx-auto p-4 sm:p-8 mt-6">
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="bg-blue-600 px-6 py-4">
-                <h2 class="text-xl font-bold text-white">Borang Pendaftaran Program & Dokumen</h2>
-                <p class="text-blue-100 text-sm mt-1">Sila lengkapkan maklumat di bawah. Anda boleh memilih lebih dari seorang penerima. Semua medan yang bertanda * adalah wajib.</p>
+    <div class="max-w-4xl mx-auto p-4 sm:p-8 my-4 sm:my-8">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+            
+            <!-- Header Korporat -->
+            <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50">
+                <!-- Logo Rasmi -->
+                <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Sistem Pengurusan Dokumen & Acara</h2>
+                <p class="text-slate-500 text-sm sm:text-base mt-2 max-w-2xl mx-auto font-medium">Pejabat Pendidikan Daerah Alor Gajah. Sila lengkapkan maklumat pendaftaran program dan muat naik dokumen sokongan di bawah. (<span class="text-red-500">*</span> Wajib)</p>
             </div>
 
-            <form id="mainForm" class="p-6 sm:p-8" onsubmit="handleFormSubmit(event)">
+            <form id="mainForm" class="p-6 sm:p-10" onsubmit="handleFormSubmit(event)">
                 
                 <!-- Notifikasi / Mesej (Sembunyi secara lalai) -->
-                <div id="messageBox" class="hidden mb-6 p-4 rounded-md font-medium text-sm"></div>
+                <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     
                     <!-- Dropdown Sektor -->
                     <div class="col-span-1 md:col-span-2">
-                        <label for="sektor" class="block text-sm font-semibold text-gray-700 mb-1">Sektor *</label>
-                        <select id="sektor" name="sektor" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100" onchange="populateUnit()">
+                        <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor <span class="text-red-500">*</span></label>
+                        <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" onchange="populateUnit()">
                             <option value="">Memuatkan data...</option>
                         </select>
                     </div>
 
                     <!-- Dropdown Unit -->
                     <div class="col-span-1 md:col-span-2">
-                        <label for="unit" class="block text-sm font-semibold text-gray-700 mb-1">Unit *</label>
-                        <select id="unit" name="unit" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100" disabled onchange="populateNama()">
+                        <label for="unit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Unit <span class="text-red-500">*</span></label>
+                        <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" disabled onchange="populateNama()">
                             <option value="">Pilih Sektor Dahulu</option>
                         </select>
                     </div>
 
                     <!-- Checkbox Nama Penerima (Multi-select) -->
                     <div class="col-span-1 md:col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Penerima (Boleh pilih lebih dari seorang) *</label>
-                        <div id="namaContainer" class="w-full px-4 py-3 border border-gray-300 rounded-md bg-white h-40 overflow-y-auto custom-scrollbar">
-                            <div class="text-gray-500 italic text-sm mt-1">Pilih Unit Dahulu</div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Penerima (Berbilang Pilihan) <span class="text-red-500">*</span></label>
+                        <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-48 overflow-y-auto custom-scrollbar focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 focus-within:bg-white transition-colors">
+                            <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
                         </div>
                     </div>
 
                     <!-- Emel (Auto Populate & Readonly) -->
                     <div class="col-span-1 md:col-span-2">
-                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Alamat Emel (Janaan Automatik) *</label>
-                        <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed text-gray-600 custom-scrollbar"></textarea>
+                        <label for="email" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat Emel (Janaan Automatik) <span class="text-red-500">*</span></label>
+                        <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none"></textarea>
                     </div>
 
                     <!-- Tarikh Terima Surat -->
-                    <div class="col-span-1 md:col-span-2">
-                        <label for="tarikhTerima" class="block text-sm font-semibold text-gray-700 mb-1">Tarikh Terima Surat *</label>
-                        <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    <div class="col-span-1 md:col-span-2 mt-2">
+                        <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
+                        <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700">
                     </div>
 
                     <!-- Tarikh Program -->
                     <div>
-                        <label for="tarikhProgram" class="block text-sm font-semibold text-gray-700 mb-1">Tarikh Mula Program *</label>
-                        <input type="date" id="tarikhProgram" name="tarikhProgram" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <label for="tarikhProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Mula Program <span class="text-red-500">*</span></label>
+                        <input type="date" id="tarikhProgram" name="tarikhProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700">
                     </div>
 
                     <!-- Bilangan Hari -->
                     <div>
-                        <label for="bilanganHari" class="block text-sm font-semibold text-gray-700 mb-1">Bilangan Hari Program *</label>
-                        <input type="number" id="bilanganHari" name="bilanganHari" min="1" value="1" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <label for="bilanganHari" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bilangan Hari Program <span class="text-red-500">*</span></label>
+                        <input type="number" id="bilanganHari" name="bilanganHari" min="1" value="1" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700">
                     </div>
 
                     <!-- Masa Mula -->
                     <div>
-                        <label for="masaMula" class="block text-sm font-semibold text-gray-700 mb-1">Masa Mula *</label>
-                        <input type="time" id="masaMula" name="masaMula" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <label for="masaMula" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Mula <span class="text-red-500">*</span></label>
+                        <input type="time" id="masaMula" name="masaMula" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700">
                     </div>
 
                     <!-- Masa Tamat -->
                     <div>
-                        <label for="masaTamat" class="block text-sm font-semibold text-gray-700 mb-1">Masa Tamat *</label>
-                        <input type="time" id="masaTamat" name="masaTamat" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <label for="masaTamat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Tamat <span class="text-red-500">*</span></label>
+                        <input type="time" id="masaTamat" name="masaTamat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700">
                     </div>
 
                     <!-- Tajuk Program -->
-                    <div class="col-span-1 md:col-span-2">
-                        <label for="tajukProgram" class="block text-sm font-semibold text-gray-700 mb-1">Tajuk Program (Rujuk Surat) *</label>
-                        <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 uppercase-input" placeholder="TAIP TAJUK PROGRAM DI SINI">
+                    <div class="col-span-1 md:col-span-2 mt-2">
+                        <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tajuk Program (Rujuk Surat) <span class="text-red-500">*</span></label>
+                        <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-800 uppercase-input placeholder-slate-400 font-medium" placeholder="Cth: TAKLIMAT PENGURUSAN DOKUMEN 2024">
                     </div>
 
                     <!-- Muat Naik Salinan Surat -->
                     <div class="col-span-1 md:col-span-2">
-                        <label for="salinanSurat" class="block text-sm font-semibold text-gray-700 mb-1">Salinan Surat (PDF atau Imej sahaja) *</label>
-                        <input type="file" id="salinanSurat" name="salinanSurat" accept=".pdf, image/*" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <p class="text-xs text-gray-500 mt-1">Sila muat naik dokumen sokongan.</p>
+                        <label for="salinanSurat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Salinan Dokumen (PDF / Imej) <span class="text-red-500">*</span></label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg hover:border-indigo-400 bg-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <div class="space-y-1 text-center w-full">
+                                <svg class="mx-auto h-12 w-12 text-slate-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="flex text-sm text-slate-600 justify-center mt-2">
+                                    <label for="salinanSurat" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 px-1">
+                                        <span>Muat Naik Fail</span>
+                                        <input id="salinanSurat" name="salinanSurat" type="file" accept=".pdf, image/*" required class="sr-only">
+                                    </label>
+                                    <p class="pl-1">atau seret dan lepas</p>
+                                </div>
+                                <p class="text-xs text-slate-500" id="fileNameDisplay">Hanya fail PDF, JPG, PNG diterima.</p>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
 
-                <div class="mt-8 flex justify-end">
-                    <button type="submit" id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center">
-                        <span id="btnText">Hantar Borang</span>
+                <div class="mt-10 flex justify-end border-t border-slate-100 pt-6">
+                    <button type="submit" id="submitBtn" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center transform hover:-translate-y-0.5">
+                        <span id="btnText" class="flex items-center text-sm tracking-wide uppercase">Hantar Rekod Sistem</span>
                     </button>
                 </div>
             </form>
         </div>
+        
+        <!-- Footer -->
+        <div class="text-center mt-6 mb-8">
+            <p class="text-xs font-medium text-slate-400">&copy; <span id="currentYear"></span> Pejabat Pendidikan Daerah Alor Gajah. Hak Cipta Terpelihara.</p>
+        </div>
     </div>
 
     <script>
+        // Set tahun semasa untuk footer
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Papar nama fail apabila dipilih
+        document.getElementById('salinanSurat').addEventListener('change', function(e) {
+            const fileNameDisplay = document.getElementById('fileNameDisplay');
+            if (this.files && this.files.length > 0) {
+                fileNameDisplay.innerHTML = `<span class="font-bold text-indigo-600">${this.files[0].name}</span>`;
+            } else {
+                fileNameDisplay.textContent = 'Hanya fail PDF, JPG, PNG diterima.';
+            }
+        });
+
         // CONFIGURATION: Google Apps Script Web App URL
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzjygoZPwqWRz3I4JyuABWJxznc-CzF5l3F2yrrYlke-N5bVopGCDx5yCmbKKUBZdRh/exec';
         
@@ -158,7 +199,7 @@
                     }
                 })
                 .catch(error => {
-                    onDataError("Gagal berhubung dengan pelayan. Sila semak sambungan internet anda.");
+                    onDataError("Gagal berhubung dengan pelayan pusat. Sila semak sambungan rangkaian anda.");
                 });
         });
 
@@ -166,7 +207,7 @@
             globalData = data;
             const sektorSelect = document.getElementById('sektor');
             
-            sektorSelect.innerHTML = '<option value="">-- Sila Pilih Sektor --</option>';
+            sektorSelect.innerHTML = '<option value="">-- SILA PILIH SEKTOR --</option>';
             
             const sektorList = Object.keys(data).sort();
             sektorList.forEach(sektor => {
@@ -180,9 +221,9 @@
         }
 
         function onDataError(error) {
-            showMessage("Ralat memuatkan data dari pangkalan data: " + error, 'error');
+            showMessage("Ralat sistem backend: " + error, 'error');
             const sektorSelect = document.getElementById('sektor');
-            sektorSelect.innerHTML = '<option value="">Tiada Sambungan</option>';
+            sektorSelect.innerHTML = '<option value="">RALAT RANGKAIAN</option>';
         }
 
         function populateUnit() {
@@ -192,9 +233,9 @@
             const emailInput = document.getElementById('email');
 
             // Reset
-            unitSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
+            unitSelect.innerHTML = '<option value="">-- SILA PILIH UNIT --</option>';
             unitSelect.disabled = true;
-            namaContainer.innerHTML = '<div class="text-gray-500 italic text-sm mt-1">Pilih Unit Dahulu</div>';
+            namaContainer.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
             emailInput.value = '';
 
             if (sektorValue && globalData[sektorValue]) {
@@ -226,26 +267,26 @@
                 pegawaiList.sort((a, b) => a.nama.localeCompare(b.nama));
                 
                 if (pegawaiList.length === 0) {
-                    namaContainer.innerHTML = '<div class="text-gray-500 italic text-sm mt-1">Tiada pegawai dalam unit ini.</div>';
+                    namaContainer.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Tiada rekod pegawai dalam unit ini.</div>';
                     return;
                 }
 
                 pegawaiList.forEach((pegawai, index) => {
                     const wrapperDiv = document.createElement('div');
-                    wrapperDiv.className = 'flex items-start mb-2 hover:bg-gray-50 p-1 rounded transition-colors';
+                    wrapperDiv.className = 'flex items-start mb-2 hover:bg-indigo-50/50 p-2 rounded-md transition-colors border border-transparent hover:border-indigo-100';
                     
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.id = 'chk_' + index;
                     checkbox.name = 'penerimaCheckbox';
                     checkbox.value = pegawai.nama;
-                    checkbox.className = 'w-4 h-4 mt-1 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer';
+                    checkbox.className = 'w-4 h-4 mt-0.5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 cursor-pointer';
                     checkbox.setAttribute('data-email', pegawai.emel);
                     checkbox.onchange = updateSelectedEmails;
 
                     const label = document.createElement('label');
                     label.htmlFor = 'chk_' + index;
-                    label.className = 'ml-3 text-sm font-medium text-gray-700 cursor-pointer select-none';
+                    label.className = 'ml-3 text-sm font-semibold text-slate-700 cursor-pointer select-none';
                     label.textContent = pegawai.nama;
 
                     wrapperDiv.appendChild(checkbox);
@@ -253,7 +294,7 @@
                     namaContainer.appendChild(wrapperDiv);
                 });
             } else {
-                namaContainer.innerHTML = '<div class="text-gray-500 italic text-sm mt-1">Pilih Unit Dahulu</div>';
+                namaContainer.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
             }
         }
 
@@ -273,18 +314,19 @@
 
         function showMessage(msg, type) {
             const messageBox = document.getElementById('messageBox');
-            messageBox.textContent = msg;
-            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-blue-100', 'text-blue-700');
+            messageBox.innerHTML = msg; // membenarkan HTML parsing seperti <strong>
+            messageBox.classList.remove('hidden', 'bg-red-50', 'text-red-800', 'border-red-200', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'bg-blue-50', 'text-blue-800', 'border-blue-200');
             
             if (type === 'error') {
-                messageBox.classList.add('bg-red-100', 'text-red-700');
+                messageBox.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
             } else if (type === 'success') {
-                messageBox.classList.add('bg-green-100', 'text-green-700');
+                messageBox.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
             } else {
-                messageBox.classList.add('bg-blue-100', 'text-blue-700');
+                messageBox.classList.add('bg-blue-50', 'text-blue-800', 'border-blue-200');
             }
             
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Tatal lancar ke atas borang
+            document.getElementById('mainForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function setLoadingState(isLoading) {
@@ -295,8 +337,9 @@
             
             if (isLoading) {
                 btn.disabled = true;
-                btn.classList.add('opacity-70', 'cursor-not-allowed');
-                btnText.innerHTML = '<div class="loader"></div> Sedang Memproses...';
+                btn.classList.add('opacity-75', 'cursor-wait');
+                btn.classList.remove('hover:-translate-y-0.5', 'hover:shadow-lg');
+                btnText.innerHTML = '<div class="loader"></div> <span class="text-sm tracking-wide uppercase">Sistem Sedang Memproses...</span>';
                 
                 for (let i = 0; i < formElements.length; i++) {
                     formElements[i].disabled = true;
@@ -304,8 +347,9 @@
                 checkboxes.forEach(chk => chk.disabled = true);
             } else {
                 btn.disabled = false;
-                btn.classList.remove('opacity-70', 'cursor-not-allowed');
-                btnText.textContent = 'Hantar Borang';
+                btn.classList.remove('opacity-75', 'cursor-wait');
+                btn.classList.add('hover:-translate-y-0.5', 'hover:shadow-lg');
+                btnText.innerHTML = '<span class="text-sm tracking-wide uppercase">Hantar Rekod Sistem</span>';
                 
                 for (let i = 0; i < formElements.length; i++) {
                     if (formElements[i].id !== 'unit' && formElements[i].id !== 'email') {
@@ -323,13 +367,13 @@
             
             const checkedBoxes = document.querySelectorAll('input[name="penerimaCheckbox"]:checked');
             if (checkedBoxes.length === 0) {
-                showMessage("Sila pilih sekurang-kurangnya seorang Nama Penerima.", 'error');
+                showMessage("<strong>Ralat Borang:</strong> Sila pilih sekurang-kurangnya seorang (1) Nama Penerima.", 'error');
                 return;
             }
             
             const fileInput = document.getElementById('salinanSurat');
             if (fileInput.files.length === 0) {
-                showMessage("Sila muat naik salinan surat.", 'error');
+                showMessage("<strong>Ralat Borang:</strong> Sila muat naik fail salinan dokumen rasmi.", 'error');
                 return;
             }
 
@@ -337,7 +381,7 @@
             const senaraiEmel = Array.from(checkedBoxes).map(chk => chk.getAttribute('data-email')).filter(Boolean);
 
             setLoadingState(true);
-            showMessage("Sedang memuat naik dan memproses data. Sila tunggu...", 'info');
+            showMessage("Sistem sedang memuat naik fail selamat dan memproses data rekod. Sila tunggu sebentar...", 'info');
 
             const file = fileInput.files[0];
             const reader = new FileReader();
@@ -382,7 +426,7 @@
             
             reader.onerror = function() {
                 setLoadingState(false);
-                showMessage("Ralat semasa membaca fail. Sila cuba lagi.", 'error');
+                showMessage("<strong>Ralat Sistem:</strong> Gagal membaca data fail fizikal. Sila cuba fail lain.", 'error');
             };
 
             reader.readAsDataURL(file);
@@ -391,23 +435,26 @@
         function onSubmissionSuccess(response) {
             setLoadingState(false);
             if (response.status === 'success') {
-                showMessage(response.message, 'success');
+                showMessage(`<strong>Berjaya!</strong> ${response.message}`, 'success');
                 document.getElementById('mainForm').reset();
                 
+                // Reset elemen manual
                 document.getElementById('unit').innerHTML = '<option value="">Pilih Sektor Dahulu</option>';
                 document.getElementById('unit').disabled = true;
-                document.getElementById('namaContainer').innerHTML = '<div class="text-gray-500 italic text-sm mt-1">Pilih Unit Dahulu</div>';
+                document.getElementById('namaContainer').innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
                 document.getElementById('email').value = '';
+                document.getElementById('fileNameDisplay').textContent = 'Hanya fail PDF, JPG, PNG diterima.';
+                
                 // Defaultkan semula bilangan hari
                 document.getElementById('bilanganHari').value = 1;
             } else {
-                showMessage("Ralat Sistem: " + response.message, 'error');
+                showMessage(`<strong>Ralat Logik Backend:</strong> ${response.message}`, 'error');
             }
         }
 
         function onSubmissionError(error) {
             setLoadingState(false);
-            showMessage("Berlaku ralat pelayan: " + error.message, 'error');
+            showMessage(`<strong>Ralat Pelayan:</strong> Transmisi data terputus. ${error.message}`, 'error');
         }
     </script>
 </body>
