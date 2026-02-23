@@ -23,116 +23,202 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
         input, select, textarea { transition: all 0.2s ease-in-out; }
+        .tab-btn { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
-    <div class="max-w-4xl mx-auto p-4 sm:p-8 my-4 sm:my-8">
+    <div class="max-w-5xl mx-auto p-4 sm:p-8 my-4 sm:my-8">
         <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
             
             <!-- Header Korporat -->
             <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50">
                 <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
                 <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Sistem Pengurusan Dokumen & Acara</h2>
-                <p class="text-slate-500 text-sm sm:text-base mt-2 max-w-2xl mx-auto font-medium">Pejabat Pendidikan Daerah Alor Gajah. Sila muat naik dokumen dahulu, kemudian lengkapkan maklumat pendaftaran di bawah. (<span class="text-red-500">*</span> Wajib)</p>
+                <p class="text-slate-500 text-sm sm:text-base mt-2 max-w-2xl mx-auto font-medium">Pejabat Pendidikan Daerah Alor Gajah. Platform berpusat pengurusan memo dan log program rasmi.</p>
             </div>
 
-            <form id="mainForm" class="p-6 sm:p-10" onsubmit="handleFormSubmit(event)">
-                
-                <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
+            <!-- SPA Tab Navigation -->
+            <div class="flex flex-wrap border-b border-slate-200 bg-white px-6 pt-4">
+                <button onclick="switchTab('daftar')" id="tabBtnDaftar" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
+                    Pendaftaran Memo
+                </button>
+                <button onclick="switchTab('analisis')" id="tabBtnAnalisis" class="tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
+                    Semakan & Analisis
+                </button>
+            </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                    
-                    <!-- FASA 0: MUAT NAIK FAIL (EARLY UPLOAD) -->
-                    <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/30 rounded-xl border border-indigo-100 mb-2">
-                        <label for="salinanSurat" class="block text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
-                        <div id="uploadContainer" class="relative">
-                            <input id="salinanSurat" type="file" accept=".pdf, image/*" onchange="handleEarlyUpload(this)" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
+            <!-- TAB 1: PENDAFTARAN MEMO -->
+            <div id="tabDaftar" class="block">
+                <form id="mainForm" class="p-6 sm:p-10" onsubmit="handleFormSubmit(event)">
+                    <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <!-- FASA 0: MUAT NAIK FAIL (SENTIASA PAPAR) -->
+                        <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/50 rounded-xl border-2 border-dashed border-indigo-200 mb-2 transition-all hover:border-indigo-400">
+                            <label for="salinanSurat" class="block text-sm font-bold text-indigo-700 uppercase tracking-wider mb-2">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
+                            <p class="text-xs text-slate-500 mb-4">Sila muat naik dokumen (PDF/Imej) untuk mengaktifkan dan membuka kunci borang maklumat.</p>
                             
-                            <div id="uploadStatus" class="mt-4 hidden items-center space-x-3 bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
-                                <div id="uploadLoader" class="loader"></div>
-                                <span id="uploadText" class="text-sm font-medium text-slate-600">Sedang menyediakan fail...</span>
-                                <a id="fileLink" href="#" target="_blank" class="hidden text-sm font-bold text-emerald-600 underline truncate flex-1">Lihat Fail Drive</a>
-                                <button type="button" id="resetFileBtn" onclick="resetFileUpload()" class="hidden text-xs text-red-500 font-bold hover:bg-red-50 px-2 py-1 rounded">Padam</button>
+                            <div id="uploadContainer" class="relative">
+                                <input id="salinanSurat" type="file" accept=".pdf, image/*" onchange="handleEarlyUpload(this)" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-all">
+                                
+                                <div id="uploadStatus" class="mt-4 hidden items-center space-x-3 bg-white p-3 rounded-lg border border-emerald-200 shadow-sm">
+                                    <div id="uploadLoader" class="loader"></div>
+                                    <span id="uploadText" class="text-sm font-medium text-slate-600">Sedang menyediakan fail...</span>
+                                    <a id="fileLink" href="#" target="_blank" class="hidden text-sm font-bold text-emerald-600 underline truncate flex-1 hover:text-emerald-800">Lihat Fail Drive</a>
+                                    <button type="button" id="resetFileBtn" onclick="resetFileUpload()" class="hidden text-xs text-red-500 font-bold hover:bg-red-50 px-3 py-1.5 rounded border border-red-200 transition-colors">Padam / Tukar</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- FASA 1: MAKLUMAT SEKTOR & UNIT -->
-                    <div class="col-span-1">
-                        <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor <span class="text-red-500">*</span></label>
-                        <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" onchange="populateUnit()">
-                            <option value="">Sila pilih sektor...</option>
-                        </select>
-                    </div>
+                        <!-- FASA 1 - 4: BORANG MAKLUMAT (DIKUNCI SECARA LALAI) -->
+                        <div id="borangUtama" class="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 hidden opacity-0 transition-opacity duration-500">
+                            
+                            <div class="col-span-1 md:col-span-2 border-b border-slate-100 pb-2 mt-4">
+                                <h3 class="text-lg font-bold text-slate-700">Langkah 2: Maklumat Pendaftaran</h3>
+                            </div>
 
-                    <div class="col-span-1">
-                        <label for="unit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Unit <span class="text-red-500">*</span></label>
-                        <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled onchange="populateNama()">
-                            <option value="">Pilih Sektor Dahulu</option>
-                        </select>
-                    </div>
+                            <div class="col-span-1">
+                                <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor <span class="text-red-500">*</span></label>
+                                <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" onchange="populateUnit()">
+                                    <option value="">Sila pilih sektor...</option>
+                                </select>
+                            </div>
 
-                    <!-- FASA 2: PENERIMA -->
-                    <div class="col-span-1 md:col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Penerima (Berbilang Pilihan) <span class="text-red-500">*</span></label>
-                        <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-40 overflow-y-auto custom-scrollbar focus-within:bg-white transition-colors">
-                            <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
+                            <div class="col-span-1">
+                                <label for="unit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Unit <span class="text-red-500">*</span></label>
+                                <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled onchange="populateNama()">
+                                    <option value="">Pilih Sektor Dahulu</option>
+                                </select>
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Penerima (Berbilang Pilihan) <span class="text-red-500">*</span></label>
+                                <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-40 overflow-y-auto custom-scrollbar focus-within:bg-white transition-colors shadow-inner">
+                                    <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
+                                </div>
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
+                                <label for="email" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat Emel Penerima (Auto) <span class="text-red-500">*</span></label>
+                                <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar"></textarea>
+                            </div>
+
+                            <div class="col-span-1">
+                                <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
+                                <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="col-span-1">
+                                <label for="tarikhProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Mula Program <span class="text-red-500">*</span></label>
+                                <input type="date" id="tarikhProgram" name="tarikhProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="col-span-1">
+                                <label for="bilanganHari" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bilangan Hari <span class="text-red-500">*</span></label>
+                                <input type="number" id="bilanganHari" name="bilanganHari" min="1" value="1" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="col-span-1 flex space-x-2">
+                                <div class="flex-1">
+                                    <label for="masaMula" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Mula <span class="text-red-500">*</span></label>
+                                    <input type="time" id="masaMula" name="masaMula" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                </div>
+                                <div class="flex-1">
+                                    <label for="masaTamat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Tamat <span class="text-red-500">*</span></label>
+                                    <input type="time" id="masaTamat" name="masaTamat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                </div>
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
+                                <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tajuk Program (Huruf Besar) <span class="text-red-500">*</span></label>
+                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="Cth: TAKLIMAT PENGURUSAN DOKUMEN 2024">
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2 mt-6 flex justify-end border-t border-slate-100 pt-6">
+                                <button type="submit" id="submitBtn" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-4 px-10 rounded-xl shadow-md hover:shadow-xl transition-all duration-200 flex items-center transform hover:-translate-y-0.5">
+                                    <span id="btnText" class="flex items-center text-sm tracking-widest uppercase">Simpan & Hantar Rekod</span>
+                                </button>
+                            </div>
+                        </div> <!-- End Borang Utama -->
+
+                    </div>
+                </form>
+            </div>
+
+            <!-- TAB 2: ANALISIS & SEMAKAN -->
+            <div id="tabAnalisis" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
+                
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
+                        <div class="p-3 rounded-full bg-indigo-100 text-indigo-600 mr-4">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Jumlah Memo</p>
+                            <p id="kpiTotal" class="text-3xl font-extrabold text-slate-800">0</p>
                         </div>
                     </div>
-
-                    <div class="col-span-1 md:col-span-2">
-                        <label for="email" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat Emel Penerima (Auto) <span class="text-red-500">*</span></label>
-                        <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar"></textarea>
-                    </div>
-
-                    <!-- FASA 3: TARIKH & MASA -->
-                    <div class="col-span-1">
-                        <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
-                        <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white">
-                    </div>
-
-                    <div class="col-span-1">
-                        <label for="tarikhProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Mula Program <span class="text-red-500">*</span></label>
-                        <input type="date" id="tarikhProgram" name="tarikhProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white">
-                    </div>
-
-                    <div class="col-span-1">
-                        <label for="bilanganHari" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bilangan Hari <span class="text-red-500">*</span></label>
-                        <input type="number" id="bilanganHari" name="bilanganHari" min="1" value="1" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white">
-                    </div>
-
-                    <div class="col-span-1 flex space-x-2">
-                        <div class="flex-1">
-                            <label for="masaMula" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mula <span class="text-red-500">*</span></label>
-                            <input type="time" id="masaMula" name="masaMula" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
+                        <div class="p-3 rounded-full bg-emerald-100 text-emerald-600 mr-4">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
-                        <div class="flex-1">
-                            <label for="masaTamat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tamat <span class="text-red-500">*</span></label>
-                            <input type="time" id="masaTamat" name="masaTamat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white">
+                        <div>
+                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Memo Hari Ini</p>
+                            <p id="kpiToday" class="text-3xl font-extrabold text-slate-800">0</p>
                         </div>
                     </div>
-
-                    <!-- FASA 4: TAJUK -->
-                    <div class="col-span-1 md:col-span-2">
-                        <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tajuk Program (Huruf Besar) <span class="text-red-500">*</span></label>
-                        <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white uppercase-input placeholder-slate-400 font-medium" placeholder="Cth: TAKLIMAT PENGURUSAN DOKUMEN 2024">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Sektor Teraktif</p>
+                            <p id="kpiTopSektor" class="text-lg font-extrabold text-slate-800 truncate max-w-[150px]">-</p>
+                        </div>
                     </div>
-
                 </div>
 
-                <div class="mt-10 flex justify-end border-t border-slate-100 pt-6">
-                    <button type="submit" id="submitBtn" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-4 px-10 rounded-xl shadow-md hover:shadow-xl transition-all duration-200 flex items-center transform hover:-translate-y-0.5">
-                        <span id="btnText" class="flex items-center text-sm tracking-widest uppercase">Simpan & Hantar Rekod</span>
-                    </button>
+                <!-- Carian dan Jadual -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h3 class="text-lg font-bold text-slate-700">Senarai Pendaftaran Memo</h3>
+                        <div class="relative w-full sm:w-72">
+                            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Cari Tajuk / Penerima..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                                    <th class="p-4 border-b border-slate-200">Tarikh Daftar</th>
+                                    <th class="p-4 border-b border-slate-200">Sektor / Unit</th>
+                                    <th class="p-4 border-b border-slate-200">Tajuk Program</th>
+                                    <th class="p-4 border-b border-slate-200">Penerima</th>
+                                    <th class="p-4 border-b border-slate-200 text-center">Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody" class="text-sm divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="5" class="p-8 text-center text-slate-400">
+                                        <div class="loader mr-2 border-slate-300 border-top-slate-500"></div> Memuatkan data pelayan...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </form>
+            </div> <!-- End Tab Analisis -->
+
         </div>
         
         <div class="text-center mt-6 mb-8">
@@ -147,22 +233,48 @@
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxdxhnRfdGgo-6cAOGP3cTS4gm9wicFy3Df_6a9GPAb49TUbCcUEH93ncy_ikUIuJY/exec';
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
         let groupedData = {};
         let uploadedFileUrl = "";
+        let allRecords = []; // Cache untuk dashboard
 
-        // Init Data dari Supabase
+        // Init Data
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('currentYear').textContent = new Date().getFullYear();
             try {
+                // Fetch Data Pegawai untuk Dropdown
                 const { data, error } = await _supabase.from('memo_pegawai').select('*').order('sektor');
                 if (error) throw error;
                 processPegawai(data);
                 populateSektor();
             } catch (err) {
-                showMessage("Ralat pangkalan data: " + err.message, 'error');
+                showMessage("Ralat memuatkan pangkalan data pegawai: " + err.message, 'error');
             }
         });
 
+        /* ================= TAB NAVIGATION ================= */
+        function switchTab(tabName) {
+            const tabDaftar = document.getElementById('tabDaftar');
+            const tabAnalisis = document.getElementById('tabAnalisis');
+            const btnDaftar = document.getElementById('tabBtnDaftar');
+            const btnAnalisis = document.getElementById('tabBtnAnalisis');
+
+            if (tabName === 'daftar') {
+                tabDaftar.classList.remove('hidden');
+                tabAnalisis.classList.add('hidden');
+                btnDaftar.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none";
+                btnAnalisis.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none";
+            } else {
+                tabDaftar.classList.add('hidden');
+                tabAnalisis.classList.remove('hidden');
+                btnAnalisis.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none";
+                btnDaftar.className = "tab-btn py-3 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none";
+                // Load Dashboard data only when tab is clicked
+                loadDashboardData();
+            }
+        }
+
+        /* ================= BORANG: POPULATE DATA ================= */
         function processPegawai(data) {
             groupedData = {};
             data.forEach(p => {
@@ -224,7 +336,9 @@
             document.getElementById('email').value = Array.from(chks).map(c => c.getAttribute('data-email')).join(', ');
         }
 
-        // EARLY UPLOAD LOGIC
+        /* ================= EARLY UPLOAD & FORM LOCK ================= */
+        const formUtamaDiv = document.getElementById('borangUtama');
+
         async function handleEarlyUpload(input) {
             if (!input.files || input.files.length === 0) return;
             
@@ -235,9 +349,11 @@
             const link = document.getElementById('fileLink');
             const resetBtn = document.getElementById('resetFileBtn');
 
+            // Reset UI
             statusDiv.classList.remove('hidden');
             loader.classList.remove('hidden');
-            text.textContent = "Sedang memuat naik fail ke Drive...";
+            text.textContent = "Sedang memuat naik fail ke Drive pelayan...";
+            text.classList.replace('text-emerald-600', 'text-slate-600');
             link.classList.add('hidden');
             resetBtn.classList.add('hidden');
             input.disabled = true;
@@ -256,18 +372,26 @@
                 const data = await res.json();
                 if (data.status !== 'success') throw new Error(data.message);
 
+                // Success Upload
                 uploadedFileUrl = data.fileUrl;
-                text.textContent = "Berjaya: ";
+                text.textContent = "Fail Sedia: ";
+                text.classList.replace('text-slate-600', 'text-emerald-600');
                 loader.classList.add('hidden');
                 link.href = uploadedFileUrl;
                 link.classList.remove('hidden');
                 resetBtn.classList.remove('hidden');
                 
-                showMessage("Muat naik fail berjaya. Sila lengkapkan maklumat lain.", "info");
+                // UNLOCK FORM ANIMATION
+                formUtamaDiv.classList.remove('hidden');
+                setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
+
+                showMessage("Muat naik fail disahkan. Borang telah dibuka, sila lengkapkan maklumat di bawah.", "success");
             } catch (err) {
-                text.textContent = "Ralat: " + err.message;
+                text.textContent = "Ralat pelayan: Sila cuba lagi.";
+                text.classList.replace('text-slate-600', 'text-red-500');
                 loader.classList.add('hidden');
                 input.disabled = false;
+                resetBtn.classList.remove('hidden'); // allow to clear
                 showMessage("Gagal muat naik fail: " + err.message, "error");
             }
         }
@@ -278,6 +402,10 @@
             input.value = "";
             input.disabled = false;
             document.getElementById('uploadStatus').classList.add('hidden');
+            
+            // LOCK FORM
+            formUtamaDiv.classList.add('opacity-0');
+            setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
         }
 
         const toBase64 = file => new Promise((resolve, reject) => {
@@ -287,10 +415,10 @@
             reader.onerror = error => reject(error);
         });
 
-        // SUBMIT LOGIC
+        /* ================= SUBMIT LOGIC ================= */
         async function handleFormSubmit(e) {
             e.preventDefault();
-            if (!uploadedFileUrl) return showMessage("Sila muat naik dokumen dahulu (Langkah 1).", "error");
+            if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
             
             const checked = document.querySelectorAll('input[name="penerima"]:checked');
             if (checked.length === 0) return showMessage("Pilih sekurang-kurangnya 1 penerima.", "error");
@@ -318,7 +446,7 @@
 
                 if (subError) throw subError;
 
-                setLoading(true, "Menghantar Notifikasi...");
+                setLoading(true, "Menghantar Notifikasi (Emel/Kalendar)...");
 
                 // 2. Notifikasi GAS (Emel & Kalendar)
                 const res = await fetch(GAS_URL, {
@@ -343,20 +471,129 @@
                     await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
                 }
 
-                showMessage("<strong>Berjaya!</strong> Data disimpan, emel dihantar, dan kalendar dikemas kini.", "success");
+                showMessage("<strong>Berjaya!</strong> Rekod memo disimpan dengan selamat dan automasi berjaya dipacu.", "success");
                 resetForm();
+                
+                // Clear cache so dashboard refreshes next time
+                allRecords = []; 
+
             } catch (err) {
-                showMessage("Ralat Simpanan: " + err.message, "error");
+                showMessage("Ralat Transaksi: " + err.message, "error");
             } finally {
                 setLoading(false);
             }
         }
 
+        /* ================= DASHBOARD & ANALISIS ================= */
+        async function loadDashboardData() {
+            const tBody = document.getElementById('tableBody');
+            
+            // Avoid refetching if already loaded in this session (unless new record added)
+            if (allRecords.length > 0) {
+                renderTable(allRecords);
+                return;
+            }
+
+            tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
+
+            try {
+                const { data, error } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                
+                allRecords = data;
+                calculateKPIs(data);
+                renderTable(data);
+            } catch (err) {
+                tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
+            }
+        }
+
+        function calculateKPIs(data) {
+            document.getElementById('kpiTotal').textContent = data.length;
+            
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayCount = data.filter(r => r.created_at && r.created_at.startsWith(todayStr)).length;
+            document.getElementById('kpiToday').textContent = todayCount;
+
+            const sektorCounts = {};
+            data.forEach(r => {
+                sektorCounts[r.sektor] = (sektorCounts[r.sektor] || 0) + 1;
+            });
+            
+            let topSektor = "-";
+            let maxCount = 0;
+            for (const s in sektorCounts) {
+                if (sektorCounts[s] > maxCount) {
+                    maxCount = sektorCounts[s];
+                    // Ringkaskan nama sektor (buang nombor kod jika ada "01 SEKTOR...")
+                    topSektor = s.replace(/^\d{2}\s/, ''); 
+                }
+            }
+            document.getElementById('kpiTopSektor').textContent = topSektor;
+            document.getElementById('kpiTopSektor').title = topSektor; // For tooltip on truncate
+        }
+
+        function renderTable(dataArray) {
+            const tBody = document.getElementById('tableBody');
+            tBody.innerHTML = '';
+
+            if (dataArray.length === 0) {
+                tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod dijumpai.</td></tr>`;
+                return;
+            }
+
+            dataArray.forEach(row => {
+                // Format Date: DD/MM/YYYY HH:MM
+                const dt = new Date(row.created_at);
+                const dateStr = dt.toLocaleDateString('ms-MY', { day:'2-digit', month:'2-digit', year:'numeric' });
+                const timeStr = dt.toLocaleTimeString('ms-MY', { hour:'2-digit', minute:'2-digit' });
+                
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-indigo-50/30 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-4 align-top">
+                        <div class="font-bold text-slate-700">${dateStr}</div>
+                        <div class="text-xs text-slate-500">${timeStr}</div>
+                    </td>
+                    <td class="p-4 align-top">
+                        <div class="text-sm font-semibold text-slate-800">${row.sektor.replace(/^\d{2}\s/, '')}</div>
+                        <div class="text-xs text-slate-500">${row.unit}</div>
+                    </td>
+                    <td class="p-4 align-top">
+                        <div class="text-sm font-bold text-indigo-700">${row.tajuk_program}</div>
+                        <div class="text-xs text-slate-500 mt-1"><span class="font-semibold">Mula:</span> ${row.tarikh_program} (${row.bilangan_hari} Hari)</div>
+                    </td>
+                    <td class="p-4 align-top max-w-[200px]">
+                        <div class="text-xs text-slate-600 truncate" title="${row.nama_penerima}">${row.nama_penerima}</div>
+                    </td>
+                    <td class="p-4 align-top text-center">
+                        ${row.file_url ? 
+                        `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded hover:bg-indigo-100 transition-colors">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
+                        </a>` : 
+                        `<span class="text-xs text-slate-400">Tiada Fail</span>`}
+                    </td>
+                `;
+                tBody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allRecords.filter(r => 
+                (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
+                (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
+                (r.sektor && r.sektor.toLowerCase().includes(query))
+            );
+            renderTable(filtered);
+        }
+
+        /* ================= UTILS ================= */
         function setLoading(status, txt) {
             const btn = document.getElementById('submitBtn');
             const bt = document.getElementById('btnText');
             btn.disabled = status;
-            bt.innerHTML = status ? `<div class="loader"></div> <span class="ml-2">${txt}</span>` : "Simpan & Hantar Rekod";
+            bt.innerHTML = status ? `<div class="loader mr-2"></div> <span>${txt}</span>` : "Simpan & Hantar Rekod";
         }
 
         function showMessage(m, t) {
@@ -365,12 +602,18 @@
             b.className = `mb-8 p-4 rounded-lg font-medium text-sm border ${t==='error'?'bg-red-50 text-red-800 border-red-200':t==='success'?'bg-emerald-50 text-emerald-800 border-emerald-200':'bg-blue-50 text-blue-800 border-blue-200'}`;
             b.classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // Auto sembunyi mesej success selepas 10 saat
+            if(t === 'success') {
+                setTimeout(() => b.classList.add('hidden'), 10000);
+            }
         }
 
         function resetForm() {
             document.getElementById('mainForm').reset();
             resetFileUpload();
             populateUnit();
+            document.getElementById('email').value = '';
         }
     </script>
 </body>
