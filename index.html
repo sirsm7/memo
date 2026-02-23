@@ -200,7 +200,7 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
-                                    <th class="p-4 border-b border-slate-200">Tarikh Daftar</th>
+                                    <th class="p-4 border-b border-slate-200">Tarikh Terima</th>
                                     <th class="p-4 border-b border-slate-200">Sektor / Unit</th>
                                     <th class="p-4 border-b border-slate-200">Tajuk Program</th>
                                     <th class="p-4 border-b border-slate-200">Penerima</th>
@@ -497,7 +497,8 @@
             tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
 
             try {
-                const { data, error } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
+                // Update Logik: Susun mengikut 'tarikh_terima' secara menurun
+                const { data, error } = await _supabase.from('memo_rekod').select('*').order('tarikh_terima', { ascending: false });
                 if (error) throw error;
                 
                 allRecords = data;
@@ -511,8 +512,12 @@
         function calculateKPIs(data) {
             document.getElementById('kpiTotal').textContent = data.length;
             
-            const todayStr = new Date().toISOString().split('T')[0];
-            const todayCount = data.filter(r => r.created_at && r.created_at.startsWith(todayStr)).length;
+            // Update Logik: Dapatkan string tarikh hari ini (Zon masa tempatan pelayar pengguna)
+            const now = new Date();
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            
+            // Kira Memo Hari Ini berdasarkan 'tarikh_terima'
+            const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
             document.getElementById('kpiToday').textContent = todayCount;
 
             const sektorCounts = {};
@@ -525,12 +530,11 @@
             for (const s in sektorCounts) {
                 if (sektorCounts[s] > maxCount) {
                     maxCount = sektorCounts[s];
-                    // Ringkaskan nama sektor (buang nombor kod jika ada "01 SEKTOR...")
                     topSektor = s.replace(/^\d{2}\s/, ''); 
                 }
             }
             document.getElementById('kpiTopSektor').textContent = topSektor;
-            document.getElementById('kpiTopSektor').title = topSektor; // For tooltip mapping just in case
+            document.getElementById('kpiTopSektor').title = topSektor; 
         }
 
         function renderTable(dataArray) {
@@ -543,17 +547,20 @@
             }
 
             dataArray.forEach(row => {
-                // Format Date: DD/MM/YYYY HH:MM
-                const dt = new Date(row.created_at);
-                const dateStr = dt.toLocaleDateString('ms-MY', { day:'2-digit', month:'2-digit', year:'numeric' });
-                const timeStr = dt.toLocaleTimeString('ms-MY', { hour:'2-digit', minute:'2-digit' });
+                // Format Date: Tukar 'YYYY-MM-DD' dari tarikh_terima kepada 'DD/MM/YYYY'
+                let dateStr = row.tarikh_terima;
+                if(dateStr) {
+                    const parts = dateStr.split('-');
+                    if(parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                } else {
+                    dateStr = "-";
+                }
                 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-indigo-50/30 transition-colors";
                 tr.innerHTML = `
                     <td class="p-4 align-top">
                         <div class="font-bold text-slate-700">${dateStr}</div>
-                        <div class="text-xs text-slate-500">${timeStr}</div>
                     </td>
                     <td class="p-4 align-top">
                         <div class="text-sm font-semibold text-slate-800 break-words whitespace-normal">${row.sektor.replace(/^\d{2}\s/, '')}</div>
