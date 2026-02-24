@@ -125,7 +125,7 @@ function handleLogout() {
     sessionStorage.removeItem('memo_admin_session');
     currentAdmin = null;
     showAdminUI(false);
-    window.switchTab('daftar');
+    window.switchTab('utama'); // Diubah dari 'daftar' ke 'utama'
     window.location.reload(); 
 }
 

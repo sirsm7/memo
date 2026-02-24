@@ -61,7 +61,11 @@
 
             <!-- SPA Tab Navigation -->
             <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-2 sm:px-6 pt-4">
-                <button id="tabBtnDaftar" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none">
+                <button id="tabBtnUtama" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    Laman Utama
+                </button>
+                <button id="tabBtnDaftar" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
                     Pendaftaran Memo
                 </button>
                 <button id="tabBtnAnalisis" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
@@ -79,8 +83,47 @@
                 </button>
             </div>
 
+            <!-- TAB 0: LAMAN UTAMA (LANDING PAGE) -->
+            <div id="tabUtama" class="block bg-slate-50 p-6 sm:p-10 min-h-[500px]">
+                <div class="max-w-4xl mx-auto">
+                    <div class="text-center mb-10">
+                        <h3 class="text-2xl font-bold text-slate-800">Selamat Datang ke Sistem Memo@AG</h3>
+                        <p class="text-slate-500 mt-2">Sila pilih modul operasi yang ingin diakses di bawah.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Menu 1 -->
+                        <div onclick="switchTab('daftar')" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-indigo-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
+                            <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </div>
+                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">Daftar Memo</h4>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Muat naik salinan dokumen dan daftar rekod pengedaran memo merentas sektor.</p>
+                        </div>
+
+                        <!-- Menu 2 -->
+                        <div onclick="switchTab('analisis')" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-emerald-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
+                            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            </div>
+                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-emerald-700 transition-colors">Semakan & Analisis</h4>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Akses pangkalan data untuk analisis, carian, dan jejak dokumen memo dalam sistem.</p>
+                        </div>
+
+                        <!-- Menu 3 -->
+                        <div onclick="switchTab('kalendar')" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-amber-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
+                            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-amber-700 transition-colors">Kalendar Program</h4>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Lihat jadual dan tarikh-tarikh penting program yang diintegrasi terus ke kalendar rasmi.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- TAB 1: PENDAFTARAN MEMO -->
-            <div id="tabDaftar" class="block">
+            <div id="tabDaftar" class="hidden">
                 <form id="mainForm" class="p-6 sm:p-10">
                     <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
 
@@ -444,7 +487,7 @@
         </div>
     </div>
 
-    <!-- Modal Edit/Tambah Pegawai (DIPERBAIKI) -->
+    <!-- Modal Edit/Tambah Pegawai -->
     <div id="modalPegawai" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">

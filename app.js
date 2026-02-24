@@ -38,10 +38,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Daftarkan Event Listeners bagi Elemen HTML Statik
     setupEventListeners();
+
+    // 4. Paksa paparan lalai ke Laman Utama
+    switchTab('utama');
 });
 
 function setupEventListeners() {
     // Navigasi Tab Utama
+    document.getElementById('tabBtnUtama')?.addEventListener('click', () => switchTab('utama'));
     document.getElementById('tabBtnDaftar')?.addEventListener('click', () => switchTab('daftar'));
     document.getElementById('tabBtnAnalisis')?.addEventListener('click', () => switchTab('analisis'));
     document.getElementById('tabBtnKalendar')?.addEventListener('click', () => switchTab('kalendar'));
@@ -69,7 +73,7 @@ function setupEventListeners() {
 
 // ================= PENGURUSAN TAB NAVIGASI =================
 window.switchTab = function(tabName) {
-    const tabs = ['daftar', 'analisis', 'kalendar', 'admin'];
+    const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin'];
     
     tabs.forEach(t => {
         const divId = t === 'admin' ? 'tabAdmin' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
