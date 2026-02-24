@@ -316,7 +316,7 @@ function updateSortIcons(type) {
     }
 }
 
-// ================= CRUD LOGIC: PEGAWAI (DIPERBAIKI) =================
+// ================= CRUD LOGIC: PEGAWAI =================
 window.openPegawaiModal = function(pegawai = null) {
     const form = document.getElementById('formPegawai');
     const sSelect = document.getElementById('pegawaiSektorSelect');
@@ -415,7 +415,7 @@ window.deletePegawai = async function(id) {
     }
 }
 
-// ================= CRUD LOGIC: MEMO =================
+// ================= CRUD LOGIC: MEMO (Surgical Update) =================
 window.editMemo = function(id) {
     const m = adminMemoData.find(x => x.id === id);
     if (!m) return;
@@ -445,14 +445,53 @@ async function handleMemoSubmit(e) {
     }
 }
 
+/**
+ * Pemadaman Memo & Calendar Event (Terintegrasi)
+ */
 window.deleteMemo = async function(id) {
-    if (!confirm("AMARAN: Memadam rekod memo akan menghilangkan bukti pendaftaran selamanya. Teruskan?")) return;
+    const m = adminMemoData.find(x => x.id === id);
+    if (!m) return;
+
+    const confirmMsg = "AMARAN: Memadam rekod memo akan menghilangkan bukti pendaftaran selamanya. " +
+                       (m.calendar_event_id ? "Acara Google Calendar yang berkaitan juga akan dipadamkan. " : "") +
+                       "Teruskan?";
+
+    if (!confirm(confirmMsg)) return;
+
     try {
-        await _supabase.from('memo_rekod').delete().eq('id', id);
+        // 1. Cuba padam acara di Google Calendar terlebih dahulu
+        if (m.calendar_event_id) {
+            console.log("Menghantar arahan padam kalendar bagi ID:", m.calendar_event_id);
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'deleteEvent',
+                        eventId: m.calendar_event_id
+                    })
+                });
+                const result = await res.json();
+                console.log("Status Kalendar:", result.status, result.message);
+            } catch (errGas) {
+                console.error("Gagal berkomunikasi dengan GAS untuk pemadaman kalendar:", errGas);
+                // Kita teruskan pemadaman pangkalan data walaupun kalendar gagal
+            }
+        }
+
+        // 2. Padam rekod dari Supabase
+        const { error } = await _supabase.from('memo_rekod').delete().eq('id', id);
+        if (error) throw error;
+
+        // 3. Refresh data & paparan
         loadAdminMemo();
-        window.showMessage("Rekod memo telah dipadam.", "success");
+        window.showMessage("Rekod memo dan pautan kalendar telah dipadam sepenuhnya.", "success");
+        
+        // Segarkan iframe kalendar jika sedang dipaparkan
+        const calFrame = document.getElementById('calendarFrame');
+        if (calFrame) calFrame.src = calFrame.src;
+
     } catch (err) {
-        window.showMessage("Ralat padam rekod: " + err.message, "error");
+        window.showMessage("Ralat semasa proses pemadaman: " + err.message, "error");
     }
 }
 
