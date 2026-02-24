@@ -58,8 +58,13 @@ function setupEventListeners() {
     // Penghantaran Borang
     document.getElementById('mainForm')?.addEventListener('submit', handleFormSubmit);
     
-    // Carian Jadual Analisis
+    // Modul Tapisan Jadual Analisis
     document.getElementById('searchInput')?.addEventListener('keyup', filterTable);
+    document.getElementById('filterSektor')?.addEventListener('change', filterTable);
+    document.getElementById('filterUnit')?.addEventListener('change', filterTable);
+    document.getElementById('filterBulan')?.addEventListener('change', filterTable);
+    document.getElementById('filterTarikh')?.addEventListener('change', filterTable);
+    document.getElementById('btnResetFilter')?.addEventListener('click', resetAnalisisFilters);
 }
 
 // ================= PENGURUSAN TAB NAVIGASI =================
@@ -381,6 +386,7 @@ async function loadDashboardData() {
     
     if (allRecords.length > 0) {
         renderTable(allRecords);
+        populateAnalisisFilters(allRecords);
         return;
     }
 
@@ -393,6 +399,7 @@ async function loadDashboardData() {
         allRecords = data;
         calculateKPIs(data);
         renderTable(data);
+        populateAnalisisFilters(data);
     } catch (err) {
         tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
     }
@@ -424,12 +431,64 @@ function calculateKPIs(data) {
     document.getElementById('kpiTopSektor').title = topSektor; 
 }
 
+// Populate Dropdown Tapisan Dinamik
+function populateAnalisisFilters(data) {
+    const fSektor = document.getElementById('filterSektor');
+    const fUnit = document.getElementById('filterUnit');
+    const fBulan = document.getElementById('filterBulan');
+    const fTarikh = document.getElementById('filterTarikh');
+
+    if (!fSektor || !fUnit || !fBulan || !fTarikh) return;
+
+    const setSektor = new Set();
+    const setUnit = new Set();
+    const setBulan = new Set();
+    const setTarikh = new Set();
+
+    data.forEach(r => {
+        if (r.sektor) setSektor.add(r.sektor);
+        if (r.unit) setUnit.add(r.unit);
+        if (r.tarikh_terima) {
+            setTarikh.add(r.tarikh_terima);
+            const parts = r.tarikh_terima.split('-');
+            if (parts.length >= 2) {
+                setBulan.add(`${parts[0]}-${parts[1]}`); // Ekstrak YYYY-MM
+            }
+        }
+    });
+
+    const genOptions = (set, defaultText, formatFn = (val) => val) => {
+        let html = `<option value="">${defaultText}</option>`;
+        Array.from(set).sort().forEach(val => {
+            html += `<option value="${val}">${formatFn(val)}</option>`;
+        });
+        return html;
+    };
+
+    // Kekalkan nilai sedia ada jika telah dipilih sebelum refresh
+    const currentSektor = fSektor.value;
+    const currentUnit = fUnit.value;
+    const currentBulan = fBulan.value;
+    const currentTarikh = fTarikh.value;
+
+    fSektor.innerHTML = genOptions(setSektor, "Semua Sektor", (v) => v.replace(/^\d{2}\s/, ''));
+    fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
+    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; }); // MM/YYYY
+    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; }); // DD/MM/YYYY
+
+    // Re-apply existing values
+    if (currentSektor) fSektor.value = currentSektor;
+    if (currentUnit) fUnit.value = currentUnit;
+    if (currentBulan) fBulan.value = currentBulan;
+    if (currentTarikh) fTarikh.value = currentTarikh;
+}
+
 function renderTable(dataArray) {
     const tBody = document.getElementById('tableBody');
     tBody.innerHTML = '';
 
     if (dataArray.length === 0) {
-        tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod dijumpai.</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod dijumpai berdasarkan tapisan.</td></tr>`;
         return;
     }
 
@@ -472,13 +531,48 @@ function renderTable(dataArray) {
 }
 
 function filterTable() {
-    const query = document.getElementById('searchInput').value.toLowerCase();
-    const filtered = allRecords.filter(r => 
-        (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
-        (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
-        (r.sektor && r.sektor.toLowerCase().includes(query))
-    );
+    // Menangkap nilai input teks
+    const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
+    
+    // Menangkap nilai dari 4 tapisan dropdown
+    const vSektor = document.getElementById('filterSektor')?.value || "";
+    const vUnit = document.getElementById('filterUnit')?.value || "";
+    const vBulan = document.getElementById('filterBulan')?.value || "";
+    const vTarikh = document.getElementById('filterTarikh')?.value || "";
+
+    const filtered = allRecords.filter(r => {
+        // Padanan Carian Teks (OR Logic untuk teks)
+        const textMatch = 
+            (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
+            (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
+            (r.sektor && r.sektor.toLowerCase().includes(query));
+
+        // Padanan Tapisan Dropdown (AND Logic bersyarat)
+        const sektorMatch = vSektor === "" || r.sektor === vSektor;
+        const unitMatch = vUnit === "" || r.unit === vUnit;
+        const tarikhMatch = vTarikh === "" || r.tarikh_terima === vTarikh;
+        
+        let bulanMatch = true;
+        if (vBulan !== "") {
+            bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
+        }
+
+        // Kesemua syarat (AND) perlu ditepati untuk memaparkan baris tersebut
+        return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch;
+    });
+
     renderTable(filtered);
+}
+
+function resetAnalisisFilters() {
+    if(document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
+    if(document.getElementById('filterSektor')) document.getElementById('filterSektor').value = "";
+    if(document.getElementById('filterUnit')) document.getElementById('filterUnit').value = "";
+    if(document.getElementById('filterBulan')) document.getElementById('filterBulan').value = "";
+    if(document.getElementById('filterTarikh')) document.getElementById('filterTarikh').value = "";
+    
+    // Jalankan semula tapisan dengan nilai kosong (papar semua data)
+    filterTable();
 }
 
 // ================= UTILITI SISTEM =================
