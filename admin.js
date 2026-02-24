@@ -12,6 +12,12 @@ let adminMemoData = [];
 let adminPegawaiData = [];
 let adminSistemData = [];
 
+// STATE SUSUNAN (SORTING)
+let adminSortState = {
+    memo: { column: 'created_at', direction: 'desc' },
+    pegawai: { column: 'nama', direction: 'asc' }
+};
+
 // ================= INISIALISASI ADMIN =================
 document.addEventListener('DOMContentLoaded', () => {
     checkAdminSession();
@@ -169,13 +175,23 @@ async function loadAdminData() {
 async function loadAdminMemo() {
     const { data } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
     adminMemoData = data || [];
-    renderAdminMemoTable(adminMemoData);
+    
+    // Tetapkan susunan lalai ke state
+    adminSortState.memo = { column: 'id', direction: 'desc' };
+    
+    filterAdminTable('memo', document.getElementById('adminSearchMemo')?.value || '');
+    updateSortIcons('memo');
 }
 
 async function loadAdminPegawai() {
     const { data } = await _supabase.from('memo_pegawai').select('*').order('nama');
     adminPegawaiData = data || [];
-    renderAdminPegawaiTable(adminPegawaiData);
+    
+    // Tetapkan susunan lalai ke state
+    adminSortState.pegawai = { column: 'nama', direction: 'asc' };
+    
+    filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
+    updateSortIcons('pegawai');
 }
 
 async function loadAdminSistem() {
@@ -230,6 +246,74 @@ function renderAdminSistemTable(data) {
             </td>
         </tr>
     `).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
+}
+
+// ================= FUNGSI SUSUNAN (SORTING) =================
+window.handleSort = function(type, column) {
+    const state = adminSortState[type];
+    
+    // Tentukan arah susunan baharu
+    let newDirection = 'asc';
+    if (state.column === column) {
+        newDirection = state.direction === 'asc' ? 'desc' : 'asc';
+    }
+    
+    // Kemaskini state
+    adminSortState[type] = { column: column, direction: newDirection };
+    
+    // Pilih data yang betul
+    const dataArray = type === 'memo' ? adminMemoData : adminPegawaiData;
+    
+    // Algoritma Susunan (In-Memory Array Sorting)
+    dataArray.sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+        
+        // Pengendalian null/undefined
+        if (valA === null || valA === undefined) valA = "";
+        if (valB === null || valB === undefined) valB = "";
+        
+        // Susunan berangka (untuk ID)
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return newDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        
+        // Susunan teks (Case Insensitive)
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+        
+        if (valA < valB) return newDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return newDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Rendarkan semula jadual berdasarkan carian semasa
+    const searchInputId = type === 'memo' ? 'adminSearchMemo' : 'adminSearchPegawai';
+    const currentQuery = document.getElementById(searchInputId)?.value || '';
+    filterAdminTable(type, currentQuery);
+    
+    // Kemaskini visual ikon susunan
+    updateSortIcons(type);
+};
+
+function updateSortIcons(type) {
+    // Kosongkan semua ikon dalam kumpulan jadual ini
+    const allIcons = document.querySelectorAll(`[id^="sort-${type}-"]`);
+    allIcons.forEach(icon => {
+        icon.innerHTML = '';
+    });
+
+    // Masukkan ikon pada lajur yang aktif
+    const state = adminSortState[type];
+    const activeIconContainer = document.getElementById(`sort-${type}-${state.column}`);
+    
+    if (activeIconContainer) {
+        if (state.direction === 'asc') {
+            activeIconContainer.innerHTML = `<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>`;
+        } else {
+            activeIconContainer.innerHTML = `<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+        }
+    }
 }
 
 // ================= CRUD LOGIC: PEGAWAI (DIPERBAIKI) =================

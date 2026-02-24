@@ -294,9 +294,24 @@
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
                                 <tr>
-                                    <th class="p-3 border-b">ID</th>
-                                    <th class="p-3 border-b">Tajuk Program</th>
-                                    <th class="p-3 border-b">Tarikh Terima</th>
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'id')">
+                                        <div class="flex items-center space-x-1">
+                                            <span>ID</span>
+                                            <span id="sort-memo-id" class="w-4 h-4 text-slate-400"></span>
+                                        </div>
+                                    </th>
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'tajuk_program')">
+                                        <div class="flex items-center space-x-1">
+                                            <span>Tajuk Program</span>
+                                            <span id="sort-memo-tajuk_program" class="w-4 h-4 text-slate-400"></span>
+                                        </div>
+                                    </th>
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'tarikh_terima')">
+                                        <div class="flex items-center space-x-1">
+                                            <span>Tarikh Terima</span>
+                                            <span id="sort-memo-tarikh_terima" class="w-4 h-4 text-slate-400"></span>
+                                        </div>
+                                    </th>
                                     <th class="p-3 border-b text-center">Tindakan</th>
                                 </tr>
                             </thead>
@@ -318,11 +333,26 @@
                     </div>
                     <div class="overflow-x-auto h-[400px] overflow-y-auto custom-scrollbar">
                         <table class="w-full text-left border-collapse relative">
-                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold sticky top-0 shadow-sm">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold sticky top-0 shadow-sm z-10">
                                 <tr>
-                                    <th class="p-3 border-b">Nama Pegawai</th>
-                                    <th class="p-3 border-b">Sektor & Unit</th>
-                                    <th class="p-3 border-b">Emel Rasmi</th>
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'nama')">
+                                        <div class="flex items-center space-x-1">
+                                            <span>Nama Pegawai</span>
+                                            <span id="sort-pegawai-nama" class="w-4 h-4 text-slate-400"></span>
+                                        </div>
+                                    </th>
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'sektor')">
+                                        <div class="flex items-center space-x-1">
+                                            <span>Sektor & Unit</span>
+                                            <span id="sort-pegawai-sektor" class="w-4 h-4 text-slate-400"></span>
+                                        </div>
+                                    </th>
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'emel_rasmi')">
+                                        <div class="flex items-center space-x-1">
+                                            <span>Emel Rasmi</span>
+                                            <span id="sort-pegawai-emel_rasmi" class="w-4 h-4 text-slate-400"></span>
+                                        </div>
+                                    </th>
                                     <th class="p-3 border-b text-center">Tindakan</th>
                                 </tr>
                             </thead>
