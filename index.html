@@ -44,7 +44,7 @@
             <button id="btnBukaLoginAdmin" class="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200">
                 Akses Pentadbir
             </button>
-            <button id="btnLogKeluarAdmin" class="hidden text-xs font-bold text-red-500 hover:text-white hover:bg-red-500 transition-colors bg-white px-3 py-1.5 rounded-full shadow-sm border border-red-200">
+            <button id="btnLogKeluarAdmin" class="hidden text-xs font-bold text-red-500 hover:text-white hover:bg-red-50 transition-colors bg-white px-3 py-1.5 rounded-full shadow-sm border border-red-200">
                 Log Keluar
             </button>
         </div>
@@ -59,22 +59,8 @@
                 <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi rentas sektor.</p>
             </div>
 
-            <!-- SPA Tab Navigation -->
-            <div class="flex flex-wrap justify-center border-b border-slate-200 bg-white px-2 sm:px-6 pt-4">
-                <button id="tabBtnUtama" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 focus:outline-none flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                    Laman Utama
-                </button>
-                <button id="tabBtnDaftar" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
-                    Pendaftaran Memo
-                </button>
-                <button id="tabBtnAnalisis" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
-                    Semakan & Analisis
-                </button>
-                <button id="tabBtnKalendar" class="tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-indigo-500 focus:outline-none">
-                    Kalendar Program
-                </button>
-                <!-- Tab Pentadbir Khusus -->
+            <!-- SPA Tab Navigation (Hanya Untuk Pentadbir) -->
+            <div class="flex flex-wrap justify-center bg-white px-2 sm:px-6 border-b border-slate-100">
                 <button id="tabBtnAdminPanel" class="hidden tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 focus:outline-none">
                     <span class="flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -124,10 +110,19 @@
 
             <!-- TAB 1: PENDAFTARAN MEMO -->
             <div id="tabDaftar" class="hidden">
-                <form id="mainForm" class="p-6 sm:p-10">
+                <form id="mainForm" class="p-6 sm:p-10 bg-slate-50">
+                    
+                    <!-- Butang Navigasi Kembali -->
+                    <div class="mb-6">
+                        <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
+                            <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                            Kembali ke Menu Utama
+                        </button>
+                    </div>
+
                     <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
                         <!-- FASA 0: MUAT NAIK FAIL -->
                         <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/50 rounded-xl border-2 border-dashed border-indigo-200 mb-2 transition-all hover:border-indigo-400">
                             <label for="salinanSurat" class="block text-sm font-bold text-indigo-700 uppercase tracking-wider mb-2">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
@@ -226,6 +221,14 @@
             <!-- TAB 2: ANALISIS & SEMAKAN -->
             <div id="tabAnalisis" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
                 
+                <!-- Butang Navigasi Kembali -->
+                <div class="mb-6">
+                    <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
+                        <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Kembali ke Menu Utama
+                    </button>
+                </div>
+
                 <!-- KPI Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
@@ -314,6 +317,15 @@
             
             <!-- TAB 3: KALENDAR PROGRAM -->
             <div id="tabKalendar" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
+                
+                <!-- Butang Navigasi Kembali -->
+                <div class="mb-6">
+                    <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
+                        <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Kembali ke Menu Utama
+                    </button>
+                </div>
+
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 h-full flex flex-col">
                     <div class="mb-4 flex items-center justify-between">
                         <div>

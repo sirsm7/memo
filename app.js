@@ -44,11 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    // Navigasi Tab Utama
-    document.getElementById('tabBtnUtama')?.addEventListener('click', () => switchTab('utama'));
-    document.getElementById('tabBtnDaftar')?.addEventListener('click', () => switchTab('daftar'));
-    document.getElementById('tabBtnAnalisis')?.addEventListener('click', () => switchTab('analisis'));
-    document.getElementById('tabBtnKalendar')?.addEventListener('click', () => switchTab('kalendar'));
+    // Navigasi Tab Pentadbir (Satu-satunya butang tab yang tinggal di navigasi atas)
     document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
 
     // Interaksi Borang Pendaftaran
@@ -77,33 +73,30 @@ window.switchTab = function(tabName) {
     
     tabs.forEach(t => {
         const divId = t === 'admin' ? 'tabAdmin' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
-        const btnId = t === 'admin' ? 'tabBtnAdminPanel' : 'tabBtn' + t.charAt(0).toUpperCase() + t.slice(1);
-        
         const tabDiv = document.getElementById(divId);
-        const tabBtn = document.getElementById(btnId);
         
-        if (!tabDiv || !tabBtn) return; // Langkau jika elemen tiada
+        if (!tabDiv) return;
 
         if (t === tabName) {
             tabDiv.classList.remove('hidden');
-            if (t === 'admin') {
-                tabBtn.classList.add('border-red-600', 'text-red-700');
-                tabBtn.classList.remove('border-transparent', 'text-red-500');
-            } else {
-                tabBtn.classList.add('border-indigo-600', 'text-indigo-600');
-                tabBtn.classList.remove('border-transparent', 'text-slate-500');
-            }
+            // Menambah logik skrol secara automatik ke atas setiap kali menukar modul
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
             tabDiv.classList.add('hidden');
-            if (t === 'admin') {
-                tabBtn.classList.remove('border-red-600', 'text-red-700');
-                tabBtn.classList.add('border-transparent', 'text-red-500');
-            } else {
-                tabBtn.classList.remove('border-indigo-600', 'text-indigo-600');
-                tabBtn.classList.add('border-transparent', 'text-slate-500');
-            }
         }
     });
+
+    // Pengurusan khas visual Butang Panel Pentadbir
+    const tabBtnAdmin = document.getElementById('tabBtnAdminPanel');
+    if (tabBtnAdmin) {
+        if (tabName === 'admin') {
+            tabBtnAdmin.classList.add('border-red-600', 'text-red-700');
+            tabBtnAdmin.classList.remove('border-transparent', 'text-red-500');
+        } else {
+            tabBtnAdmin.classList.remove('border-red-600', 'text-red-700');
+            tabBtnAdmin.classList.add('border-transparent', 'text-red-500');
+        }
+    }
 
     if (tabName === 'analisis') {
         loadDashboardData();
