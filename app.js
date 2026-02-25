@@ -69,7 +69,8 @@ function setupEventListeners() {
 
 // ================= PENGURUSAN TAB NAVIGASI =================
 window.switchTab = function(tabName) {
-    const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin'];
+    // Ditambah parameter 'about' pada tatasusunan tabs
+    const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about'];
     
     tabs.forEach(t => {
         const divId = t === 'admin' ? 'tabAdmin' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
@@ -95,6 +96,18 @@ window.switchTab = function(tabName) {
         } else {
             tabBtnAdmin.classList.remove('border-red-600', 'text-red-700');
             tabBtnAdmin.classList.add('border-transparent', 'text-red-500');
+        }
+    }
+
+    // Tukar reka bentuk Butang Tentang Sistem (Visual Feedback)
+    const tabBtnTentang = document.getElementById('btnTentang');
+    if (tabBtnTentang) {
+        if (tabName === 'about') {
+            tabBtnTentang.classList.add('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
+            tabBtnTentang.classList.remove('bg-white', 'text-slate-500', 'border-slate-200');
+        } else {
+            tabBtnTentang.classList.remove('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
+            tabBtnTentang.classList.add('bg-white', 'text-slate-500', 'border-slate-200');
         }
     }
 
