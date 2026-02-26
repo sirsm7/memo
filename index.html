@@ -87,8 +87,8 @@
                             <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             </div>
-                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">Daftar Memo</h4>
-                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Muat naik salinan dokumen dan daftar rekod pengedaran memo merentas sektor.</p>
+                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">Daftar Surat / Memo</h4>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Muat naik salinan dokumen dan daftar rekod surat menyurat rentas sektor.</p>
                         </div>
 
                         <!-- Menu 2 -->
@@ -105,8 +105,8 @@
                             <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             </div>
-                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-amber-700 transition-colors">Kalendar Program</h4>
-                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Lihat jadual dan tarikh-tarikh penting program yang diintegrasi terus ke kalendar rasmi.</p>
+                            <h4 class="text-lg font-bold text-slate-700 group-hover:text-amber-700 transition-colors">Kalendar Pemantauan</h4>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">Lihat jadual pengurusan memo yang diintegrasi terus ke kalendar rasmi dengan SLA 8 Jam.</p>
                         </div>
                     </div>
                 </div>
@@ -130,7 +130,7 @@
                         <!-- FASA 0: MUAT NAIK FAIL -->
                         <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/50 rounded-xl border-2 border-dashed border-indigo-200 mb-2 transition-all hover:border-indigo-400">
                             <label for="salinanSurat" class="block text-sm font-bold text-indigo-700 uppercase tracking-wider mb-2">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
-                            <p class="text-xs text-slate-500 mb-4">Sila muat naik dokumen (PDF/Imej) untuk mengaktifkan dan membuka kunci borang maklumat.</p>
+                            <p class="text-xs text-slate-500 mb-4">Sila muat naik dokumen (PDF/Imej) untuk mengaktifkan dan membuka kunci borang maklumat. Masa rekod akan ditetapkan secara automatik.</p>
                             
                             <div id="uploadContainer" class="relative">
                                 <input id="salinanSurat" type="file" accept=".pdf, image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-all">
@@ -149,7 +149,7 @@
                             
                             <div class="col-span-1 md:col-span-2 border-b border-slate-100 pb-2 mt-4">
                                 <h3 class="text-lg font-bold text-slate-700">Langkah 2: Maklumat Pendaftaran</h3>
-                                <p class="text-xs text-slate-500 mt-1">Sektor yang dipilih di bawah akan dijadikan rujukan utama program.</p>
+                                <p class="text-xs text-slate-500 mt-1">Sektor yang dipilih di bawah akan dijadikan rujukan utama surat menyurat.</p>
                             </div>
 
                             <div class="col-span-1">
@@ -181,35 +181,30 @@
                                 <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none"></textarea>
                             </div>
 
+                            <!-- MEDAN BAHARU -->
+                            <div class="col-span-1 md:col-span-2 border-t border-slate-100 pt-6 mt-2">
+                                <h3 class="text-md font-bold text-slate-700 mb-4">Langkah 3: Butiran Surat & Masa SLA</h3>
+                            </div>
+
+                            <div class="col-span-1">
+                                <label for="noRujukan" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">No. Rujukan Surat <span class="text-red-500">*</span></label>
+                                <input type="text" id="noRujukan" name="noRujukan" required pattern="[A-Za-z0-9/\-_\s\.]+" title="Sila masukkan aksara abjad angka (alphanumeric), titik, palang, atau sengkang sahaja" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: PPDAG.100-1/1/1">
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
+                                <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Perkara / Tajuk Surat (Huruf Besar) <span class="text-red-500">*</span></label>
+                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="Cth: SURAT ARAHAN PENGURUSAN DOKUMEN 2024">
+                            </div>
+
                             <div class="col-span-1">
                                 <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
                                 <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                             </div>
 
                             <div class="col-span-1">
-                                <label for="tarikhProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Mula Program <span class="text-red-500">*</span></label>
-                                <input type="date" id="tarikhProgram" name="tarikhProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                            </div>
-
-                            <div class="col-span-1">
-                                <label for="bilanganHari" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bilangan Hari <span class="text-red-500">*</span></label>
-                                <input type="number" id="bilanganHari" name="bilanganHari" min="1" value="1" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                            </div>
-
-                            <div class="col-span-1 flex space-x-2">
-                                <div class="flex-1">
-                                    <label for="masaMula" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Mula <span class="text-red-500">*</span></label>
-                                    <input type="time" id="masaMula" name="masaMula" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                                </div>
-                                <div class="flex-1">
-                                    <label for="masaTamat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Tamat <span class="text-red-500">*</span></label>
-                                    <input type="time" id="masaTamat" name="masaTamat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                                </div>
-                            </div>
-
-                            <div class="col-span-1 md:col-span-2">
-                                <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tajuk Program (Huruf Besar) <span class="text-red-500">*</span></label>
-                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="Cth: TAKLIMAT PENGURUSAN DOKUMEN 2024">
+                                <label for="masaRekod" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Mula Tindakan (Auto) <span class="text-red-500">*</span></label>
+                                <input type="time" id="masaRekod" name="masaRekod" required readonly class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 focus:outline-none">
+                                <p class="text-xs text-indigo-500 mt-1 font-semibold">* SLA tamat selepas 8 Jam (Auto Kalendar)</p>
                             </div>
 
                             <div class="col-span-1 md:col-span-2 mt-6 flex justify-end border-t border-slate-100 pt-6">
@@ -240,7 +235,7 @@
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         </div>
                         <div>
-                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Jumlah Memo</p>
+                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Jumlah Surat</p>
                             <p id="kpiTotal" class="text-3xl font-extrabold text-slate-800">0</p>
                         </div>
                     </div>
@@ -249,7 +244,7 @@
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
                         <div>
-                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Memo Hari Ini</p>
+                            <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Tindakan Hari Ini</p>
                             <p id="kpiToday" class="text-3xl font-extrabold text-slate-800">0</p>
                         </div>
                     </div>
@@ -268,9 +263,9 @@
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-4">
                         <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <h3 class="text-lg font-bold text-slate-700 w-full sm:w-auto">Senarai Pendaftaran Memo</h3>
+                            <h3 class="text-lg font-bold text-slate-700 w-full sm:w-auto">Senarai Surat Masuk</h3>
                             <div class="relative w-full sm:w-72">
-                                <input type="text" id="searchInput" placeholder="Cari Tajuk / Penerima..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                                <input type="text" id="searchInput" placeholder="Cari Rujukan / Perkara / Penerima..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                                 <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                             </div>
                         </div>
@@ -300,9 +295,9 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
-                                    <th class="p-4 border-b border-slate-200">Tarikh Terima</th>
+                                    <th class="p-4 border-b border-slate-200">Tarikh & Masa</th>
                                     <th class="p-4 border-b border-slate-200">Sektor / Unit</th>
-                                    <th class="p-4 border-b border-slate-200">Tajuk Program</th>
+                                    <th class="p-4 border-b border-slate-200">Perkara & Rujukan</th>
                                     <th class="p-4 border-b border-slate-200">Penerima</th>
                                     <th class="p-4 border-b border-slate-200 text-center">Tindakan</th>
                                 </tr>
@@ -333,8 +328,8 @@
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 h-full flex flex-col">
                     <div class="mb-4 flex items-center justify-between">
                         <div>
-                            <h3 class="text-lg font-bold text-slate-700">Jadual Program & Taklimat</h3>
-                            <p class="text-sm text-slate-500 mt-1">Paparan kalendar rasmi semua memo yang telah disahkan ke dalam sistem.</p>
+                            <h3 class="text-lg font-bold text-slate-700">Kalendar Tindakan 8 Jam</h3>
+                            <p class="text-sm text-slate-500 mt-1">Paparan kalendar rasmi semua memo yang telah disahkan ke dalam sistem berserta notifikasi SLA.</p>
                         </div>
                     </div>
                     
@@ -360,17 +355,44 @@
 
                 <!-- Sub-navigasi Admin -->
                 <div class="flex space-x-2 mb-6 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
-                    <button id="subTabBtnMemo" class="admin-sub-tab px-4 py-2 text-sm font-bold bg-indigo-100 text-indigo-700 rounded-lg">Urus Memo</button>
+                    <button id="subTabBtnMemo" class="admin-sub-tab px-4 py-2 text-sm font-bold bg-indigo-100 text-indigo-700 rounded-lg">Urus Memo & Kalendar</button>
                     <button id="subTabBtnPegawai" class="admin-sub-tab px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Urus Pegawai</button>
                     <button id="subTabBtnSistem" class="admin-sub-tab px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Akses Sistem</button>
                 </div>
 
                 <!-- Seksyen: URUS MEMO -->
                 <div id="adminSectionMemo" class="admin-section block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                        <h3 class="font-bold text-slate-700">Pangkalan Data Memo</h3>
-                        <input type="text" id="adminSearchMemo" placeholder="Cari Memo..." class="w-64 px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <div class="p-4 border-b border-slate-200 flex flex-wrap justify-between items-center bg-slate-50 gap-3">
+                        <h3 class="font-bold text-slate-700">Pangkalan Data Surat</h3>
+                        <div class="flex space-x-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
+                            <input type="text" id="adminSearchMemo" placeholder="Cari Rujukan/Perkara..." class="flex-1 min-w-[150px] px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <button id="btnPukalSegerak" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm whitespace-nowrap flex items-center">
+                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                Segerak Kalendar
+                            </button>
+                            <button id="btnPukalPadam" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm whitespace-nowrap flex items-center">
+                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                Padam Kalendar
+                            </button>
+                        </div>
                     </div>
+                    
+                    <!-- Progress Bar Modul Pukal -->
+                    <div id="adminBatchProgressContainer" class="hidden bg-indigo-50 p-3 border-b border-indigo-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-3 w-full">
+                            <div class="loader border-indigo-300 border-top-indigo-600 w-4 h-4"></div>
+                            <div class="flex-1">
+                                <div class="flex justify-between text-xs font-bold text-indigo-800 mb-1">
+                                    <span id="batchStatusText">Memproses 0/0 rekod...</span>
+                                    <span id="batchPercentage">0%</span>
+                                </div>
+                                <div class="w-full bg-indigo-200 rounded-full h-1.5">
+                                    <div id="batchProgressBar" class="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
@@ -381,23 +403,24 @@
                                             <span id="sort-memo-id" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'tajuk_program')">
+                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'no_rujukan')">
                                         <div class="flex items-center space-x-1">
-                                            <span>Tajuk Program</span>
-                                            <span id="sort-memo-tajuk_program" class="w-4 h-4 text-slate-400"></span>
+                                            <span>No. Rujukan & Perkara</span>
+                                            <span id="sort-memo-no_rujukan" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
                                     <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'tarikh_terima')">
                                         <div class="flex items-center space-x-1">
-                                            <span>Tarikh Terima</span>
+                                            <span>Tarikh Terima & Masa</span>
                                             <span id="sort-memo-tarikh_terima" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b text-center">Tindakan</th>
+                                    <th class="p-3 border-b text-center">Tindakan Kalendar</th>
+                                    <th class="p-3 border-b text-center">Tindakan Data</th>
                                 </tr>
                             </thead>
                             <tbody id="adminTableMemoBody" class="text-sm divide-y divide-slate-100">
-                                <tr><td colspan="4" class="p-4 text-center text-slate-500">Memuatkan data...</td></tr>
+                                <tr><td colspan="5" class="p-4 text-center text-slate-500">Memuatkan data...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -483,7 +506,7 @@
                     <!-- Header -->
                     <div class="text-center mb-10">
                         <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Mengenai Sistem Memo@AG</h2>
-                        <p class="text-slate-500 mt-3 max-w-2xl mx-auto text-sm sm:text-base">Platform berpusat pengurusan memo, penyelarasan surat rasmi, dan penjadualan program merentas sektor di Pejabat Pendidikan Daerah (PPD) Alor Gajah.</p>
+                        <p class="text-slate-500 mt-3 max-w-2xl mx-auto text-sm sm:text-base">Platform berpusat pengurusan memo, penyelarasan surat rasmi, dan penetapan SLA masa tindakan merentas sektor di Pejabat Pendidikan Daerah (PPD) Alor Gajah.</p>
                     </div>
 
                     <!-- Objektif & Latar Belakang -->
@@ -493,7 +516,7 @@
                             Objektif & Latar Belakang
                         </h3>
                         <p class="text-slate-600 leading-relaxed text-sm sm:text-base">
-                            Sistem ini dibangunkan dengan seni bina berskala <em>Single Page Application</em> (SPA) khusus untuk menyelesaikan isu pertindihan jadual program dan memastikan penyampaian surat rasmi / memo lebih berkesan. Sistem ini disokong oleh pangkalan data masa nyata dan dilengkapi dengan automasi Google Workspace (Google Drive, Calendar, dan Gmail) bagi meminimumkan keciciran maklumat.
+                            Sistem ini dibangunkan dengan seni bina berskala <em>Single Page Application</em> (SPA) khusus untuk menyelesaikan isu pemantauan tempoh tindakan surat rasmi. Sistem ini disokong oleh pangkalan data masa nyata dan dilengkapi dengan automasi Google Workspace (Google Drive, Calendar, dan Gmail) bagi memastikan semua surat diminit dan diuruskan mengikut masa yang ditetapkan.
                         </p>
                     </div>
 
@@ -504,8 +527,8 @@
                             <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
                                 <span class="font-bold">1</span>
                             </div>
-                            <h4 class="font-bold text-slate-800 mb-2">Pendaftaran Memo</h4>
-                            <p class="text-xs text-slate-500 leading-relaxed">Muat naik salinan dokumen untuk membuka kunci borang. Lengkapkan maklumat penerima rentas sektor dan butiran program. Sistem akan mengedarkan notifikasi emel dan merekodkan ke Kalendar Google.</p>
+                            <h4 class="font-bold text-slate-800 mb-2">Pendaftaran Surat</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">Muat naik salinan dokumen untuk merekodkan masa permulaan. Lengkapkan maklumat penerima rentas sektor dan no rujukan. Sistem akan mengedarkan notifikasi emel secara automatik.</p>
                         </div>
                         <!-- Card 2 -->
                         <div class="bg-white p-6 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-sm">
@@ -513,15 +536,15 @@
                                 <span class="font-bold">2</span>
                             </div>
                             <h4 class="font-bold text-slate-800 mb-2">Semakan & Analisis</h4>
-                            <p class="text-xs text-slate-500 leading-relaxed">Pangkalan data terbuka membolehkan anda mencari rekod memo berdasarkan kata kunci, serta menapis carian mengikut sektor dan tarikh. Salinan memo asal juga sedia untuk dimuat turun.</p>
+                            <p class="text-xs text-slate-500 leading-relaxed">Pangkalan data terbuka membolehkan anda mencari rekod surat berdasarkan kata kunci, serta menapis carian mengikut sektor dan tarikh. Salinan asal sedia untuk dimuat turun.</p>
                         </div>
                         <!-- Card 3 -->
                         <div class="bg-white p-6 rounded-xl border border-slate-200 hover:border-amber-300 transition-colors shadow-sm">
                             <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mb-4">
                                 <span class="font-bold">3</span>
                             </div>
-                            <h4 class="font-bold text-slate-800 mb-2">Kalendar & Pemantauan</h4>
-                            <p class="text-xs text-slate-500 leading-relaxed">Kalendar bersepadu menyusun semua program secara visual bagi mengelakkan pertindihan jadual. Pentadbir pula mempunyai kuasa penuh mengurus data melalui Modul Pentadbir.</p>
+                            <h4 class="font-bold text-slate-800 mb-2">SLA 8 Jam & Kalendar</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">Pendaftaran surat akan didaftarkan ke kalendar bermula dari masa rekod sehingga tamat tempoh 8 jam tindakan. Pentadbir mempunyai kuasa penuh melalui panel Admin.</p>
                         </div>
                     </div>
 
@@ -628,28 +651,32 @@
     <div id="modalMemo" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-slate-700">Kemaskini Rekod Memo</h3>
+                <h3 class="text-lg font-bold text-slate-700">Kemaskini Maklumat Surat</h3>
                 <button type="button" class="btnTutupModal text-slate-400 hover:text-red-500 focus:outline-none">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <form id="formMemo" class="p-6 space-y-4">
                 <input type="hidden" id="memoId">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tajuk Program</label>
-                    <input type="text" id="memoTajuk" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
-                </div>
                 <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">No. Rujukan</label>
+                        <input type="text" id="memoNoRujukan" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm font-bold">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Perkara / Tajuk Surat</label>
+                        <input type="text" id="memoTajuk" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
+                    </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Terima</label>
                         <input type="date" id="memoTarikhTerima" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Program</label>
-                        <input type="date" id="memoTarikhProgram" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Masa Rekod</label>
+                        <input type="time" id="memoMasaRekod" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-slate-50">
                     </div>
                 </div>
-                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100 mt-2">
                     <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200 transition-colors">Batal</button>
                     <button type="submit" id="btnSimpanMemo" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center shadow-md">Simpan Perubahan</button>
                 </div>

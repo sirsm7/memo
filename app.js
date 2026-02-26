@@ -2,7 +2,7 @@
  * ==============================================================================
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
- * Modul: app.js (Enjin Utama Pengguna Awam)
+ * Modul: app.js (Enjin Utama Pengguna Awam - SLA 8 Jam)
  * ==============================================================================
  */
 
@@ -243,7 +243,7 @@ function renderTags() {
     emailInput.value = emails.join(', ');
 }
 
-// ================= MUAT NAIK FAIL (EARLY UPLOAD) =================
+// ================= MUAT NAIK FAIL (EARLY UPLOAD) & SET MASA =================
 const toBase64 = file => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -261,6 +261,7 @@ async function handleEarlyUpload(input) {
     const link = document.getElementById('fileLink');
     const resetBtn = document.getElementById('resetFileBtn');
     const formUtamaDiv = document.getElementById('borangUtama');
+    const masaRekodInput = document.getElementById('masaRekod');
 
     statusDiv.classList.remove('hidden');
     loader.classList.remove('hidden');
@@ -292,10 +293,18 @@ async function handleEarlyUpload(input) {
         link.classList.remove('hidden');
         resetBtn.classList.remove('hidden');
         
+        // Auto Set Masa Rekod kepada waktu sistem masa muat naik selesai
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        if (masaRekodInput) {
+            masaRekodInput.value = `${hours}:${minutes}`;
+        }
+
         formUtamaDiv.classList.remove('hidden');
         setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
 
-        showMessage("Muat naik fail disahkan. Borang telah dibuka, sila lengkapkan maklumat di bawah.", "success");
+        showMessage("Muat naik fail disahkan. Masa rekod telah ditetapkan, sila lengkapkan maklumat borang.", "success");
     } catch (err) {
         text.textContent = "Ralat pelayan: Sila cuba lagi.";
         text.classList.replace('text-slate-600', 'text-red-500');
@@ -312,6 +321,10 @@ function resetFileUpload() {
     input.value = "";
     input.disabled = false;
     document.getElementById('uploadStatus').classList.add('hidden');
+    
+    // Reset masa rekod
+    const masaRekodInput = document.getElementById('masaRekod');
+    if (masaRekodInput) masaRekodInput.value = "";
     
     const formUtamaDiv = document.getElementById('borangUtama');
     formUtamaDiv.classList.add('opacity-0');
@@ -336,20 +349,18 @@ async function handleFormSubmit(e) {
             unit: document.getElementById('unit').value,
             nama_penerima: names.join(', '),
             emel_penerima: emels.join(', '),
-            tarikh_terima: document.getElementById('tarikhTerima').value,
-            tarikh_program: document.getElementById('tarikhProgram').value,
-            bilangan_hari: parseInt(document.getElementById('bilanganHari').value),
+            no_rujukan: document.getElementById('noRujukan').value.toUpperCase(),
             tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
-            masa_mula: document.getElementById('masaMula').value,
-            masa_tamat: document.getElementById('masaTamat').value,
+            tarikh_terima: document.getElementById('tarikhTerima').value,
+            masa_rekod: document.getElementById('masaRekod').value,
             file_url: uploadedFileUrl
         }]).select();
 
         if (subError) throw subError;
 
-        setLoading(true, "Menghantar Notifikasi (Emel/Kalendar)...");
+        setLoading(true, "Menghantar Notifikasi SLA & Kalendar...");
 
-        // 2. Notifikasi GAS (Emel & Kalendar)
+        // 2. Notifikasi GAS (Emel & Kalendar 8 Jam)
         const res = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -358,11 +369,10 @@ async function handleFormSubmit(e) {
                 unit: document.getElementById('unit').value,
                 namaArray: names,
                 emailArray: emels,
-                tarikhProgram: document.getElementById('tarikhProgram').value,
-                bilanganHari: document.getElementById('bilanganHari').value,
+                noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
                 tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
-                masaMula: document.getElementById('masaMula').value,
-                masaTamat: document.getElementById('masaTamat').value,
+                tarikhTerima: document.getElementById('tarikhTerima').value,
+                masaRekod: document.getElementById('masaRekod').value,
                 fileUrl: uploadedFileUrl
             })
         });
@@ -372,7 +382,7 @@ async function handleFormSubmit(e) {
             await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
         }
 
-        showMessage("<strong>Berjaya!</strong> Rekod memo disimpan dengan selamat dan automasi berjaya dipacu.", "success");
+        showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan kiraan mula SLA 8 Jam telah direkod ke kalendar.", "success");
         
         // Refresh Kalendar
         const calFrame = document.getElementById('calendarFrame');
@@ -403,7 +413,7 @@ async function loadDashboardData() {
     tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
 
     try {
-        const { data, error } = await _supabase.from('memo_rekod').select('*').order('tarikh_terima', { ascending: false });
+        const { data, error } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
         if (error) throw error;
         
         allRecords = data;
@@ -421,6 +431,7 @@ function calculateKPIs(data) {
     const now = new Date();
     const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     
+    // Mengira surat yang diterima atau direkodkan hari ini
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
     document.getElementById('kpiToday').textContent = todayCount;
 
@@ -516,14 +527,15 @@ function renderTable(dataArray) {
         tr.innerHTML = `
             <td class="p-4 align-top">
                 <div class="font-bold text-slate-700">${dateStr}</div>
+                <div class="text-xs font-semibold text-indigo-600 mt-1">${row.masa_rekod || '-'}</div>
             </td>
             <td class="p-4 align-top">
                 <div class="text-sm font-semibold text-slate-800 break-words whitespace-normal">${row.sektor.replace(/^\d{2}\s/, '')}</div>
                 <div class="text-xs text-slate-500 break-words whitespace-normal mt-1">${row.unit}</div>
             </td>
             <td class="p-4 align-top">
+                <div class="text-xs font-bold text-slate-500 mb-1">${row.no_rujukan || 'TIADA RUJUKAN'}</div>
                 <div class="text-sm font-bold text-indigo-700 break-words whitespace-normal">${row.tajuk_program}</div>
-                <div class="text-xs text-slate-500 mt-1"><span class="font-semibold">Mula:</span> ${row.tarikh_program} (${row.bilangan_hari} Hari)</div>
             </td>
             <td class="p-4 align-top">
                 <div class="text-xs text-slate-600 break-words whitespace-normal leading-relaxed" title="${row.nama_penerima}">${row.nama_penerima}</div>
@@ -551,8 +563,9 @@ function filterTable() {
     const vTarikh = document.getElementById('filterTarikh')?.value || "";
 
     const filtered = allRecords.filter(r => {
-        // Padanan Carian Teks (OR Logic untuk teks)
+        // Padanan Carian Teks (OR Logic untuk teks) - Tambah carian rujukan
         const textMatch = 
+            (r.no_rujukan && r.no_rujukan.toLowerCase().includes(query)) ||
             (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
             (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
             (r.sektor && r.sektor.toLowerCase().includes(query));
