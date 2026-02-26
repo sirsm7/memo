@@ -2,7 +2,7 @@
  * ==============================================================================
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
- * Modul: app.js (Enjin Utama Pengguna Awam - SLA 8 Jam)
+ * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar)
  * ==============================================================================
  */
 
@@ -358,9 +358,9 @@ async function handleFormSubmit(e) {
 
         if (subError) throw subError;
 
-        setLoading(true, "Menghantar Notifikasi SLA & Kalendar...");
+        setLoading(true, "Menghantar Notifikasi RSVP & Kalendar...");
 
-        // 2. Notifikasi GAS (Emel & Kalendar 8 Jam)
+        // 2. Notifikasi GAS (Emel & Kalendar RSVP)
         const res = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -382,7 +382,7 @@ async function handleFormSubmit(e) {
             await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
         }
 
-        showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan kiraan mula SLA 8 Jam telah direkod ke kalendar.", "success");
+        showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan jemputan kalendar (RSVP) telah dihantar kepada penerima.", "success");
         
         // Refresh Kalendar
         const calFrame = document.getElementById('calendarFrame');
