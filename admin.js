@@ -451,8 +451,11 @@ window.editMemo = function(id) {
     if (!m) return;
     document.getElementById('memoId').value = m.id;
     document.getElementById('memoNoRujukan').value = m.no_rujukan || '';
-    document.getElementById('memoTajuk').value = m.tajuk_program;
-    document.getElementById('memoTarikhTerima').value = m.tarikh_terima;
+    document.getElementById('memoNoTambahan').value = m.no_tambahan || '';
+    document.getElementById('memoDari').value = m.dari || '';
+    document.getElementById('memoTajuk').value = m.tajuk_program || '';
+    document.getElementById('memoTarikhSurat').value = m.tarikh_surat || '';
+    document.getElementById('memoTarikhTerima').value = m.tarikh_terima || '';
     document.getElementById('memoMasaRekod').value = m.masa_rekod || '';
     toggleModal('modalMemo', true);
 }
@@ -462,7 +465,10 @@ async function handleMemoSubmit(e) {
     const id = document.getElementById('memoId').value;
     const payload = {
         no_rujukan: document.getElementById('memoNoRujukan').value.toUpperCase(),
+        no_tambahan: document.getElementById('memoNoTambahan').value.toUpperCase(),
+        dari: document.getElementById('memoDari').value.toUpperCase(),
         tajuk_program: document.getElementById('memoTajuk').value.toUpperCase(),
+        tarikh_surat: document.getElementById('memoTarikhSurat').value,
         tarikh_terima: document.getElementById('memoTarikhTerima').value,
         masa_rekod: document.getElementById('memoMasaRekod').value
     };
@@ -785,7 +791,9 @@ function filterAdminTable(type, query) {
     if (type === 'memo') {
         const filtered = adminMemoData.filter(m => 
             (m.tajuk_program && m.tajuk_program.toLowerCase().includes(q)) ||
-            (m.no_rujukan && m.no_rujukan.toLowerCase().includes(q))
+            (m.no_rujukan && m.no_rujukan.toLowerCase().includes(q)) ||
+            (m.no_tambahan && m.no_tambahan.toLowerCase().includes(q)) ||
+            (m.dari && m.dari.toLowerCase().includes(q))
         );
         renderAdminMemoTable(filtered);
     } else if (type === 'pegawai') {

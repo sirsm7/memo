@@ -2,7 +2,7 @@
  * ==============================================================================
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
- * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar)
+ * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
  * ==============================================================================
  */
 
@@ -18,6 +18,7 @@ const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let groupedData = {};
 let uploadedFileUrl = "";
 let allRecords = []; 
+let currentFilteredRecords = []; // BARU: Menyimpan rujukan state paparan jadual semasa untuk fungsi eksport
 let globalSelected = new Map(); // Menjejak email -> nama rentas sektor
 
 // ================= INISIALISASI SISTEM =================
@@ -343,13 +344,16 @@ async function handleFormSubmit(e) {
         const names = Array.from(globalSelected.values());
         const emels = Array.from(globalSelected.keys());
 
-        // 1. Simpan ke Supabase (Tanpa RLS)
+        // 1. Simpan ke Supabase (Tanpa RLS - Disuntik Tiga Medan Baharu)
         const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
             sektor: document.getElementById('sektor').value,
             unit: document.getElementById('unit').value,
             nama_penerima: names.join(', '),
             emel_penerima: emels.join(', '),
             no_rujukan: document.getElementById('noRujukan').value.toUpperCase(),
+            no_tambahan: document.getElementById('noTambahan').value.toUpperCase(), // BARU
+            tarikh_surat: document.getElementById('tarikhSurat').value, // BARU
+            dari: document.getElementById('dari').value.toUpperCase(), // BARU
             tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
             tarikh_terima: document.getElementById('tarikhTerima').value,
             masa_rekod: document.getElementById('masaRekod').value,
@@ -360,7 +364,7 @@ async function handleFormSubmit(e) {
 
         setLoading(true, "Menghantar Notifikasi RSVP & Kalendar...");
 
-        // 2. Notifikasi GAS (Emel & Kalendar RSVP)
+        // 2. Notifikasi GAS (Emel & Kalendar RSVP - Dikekalkan struktur asal seperti arahan)
         const res = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -410,18 +414,20 @@ async function loadDashboardData() {
         return;
     }
 
-    tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
+    // Ubah colspan kepada 9 mengikut struktur jadual baharu
+    tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
 
     try {
         const { data, error } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
         if (error) throw error;
         
         allRecords = data;
+        currentFilteredRecords = data; // Set rujukan awal untuk Eksport
         calculateKPIs(data);
         renderTable(data);
         populateAnalisisFilters(data);
     } catch (err) {
-        tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
     }
 }
 
@@ -504,41 +510,58 @@ function populateAnalisisFilters(data) {
     if (currentTarikh) fTarikh.value = currentTarikh;
 }
 
+// Pembantu format tarikh global
+const formatDt = (dateStr) => {
+    if(!dateStr) return "-";
+    const parts = dateStr.split('-');
+    if(parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dateStr;
+};
+
+// Merombak fungsi jadual dengan elemen baharu dan Auto-Bil
 function renderTable(dataArray) {
     const tBody = document.getElementById('tableBody');
     tBody.innerHTML = '';
 
     if (dataArray.length === 0) {
-        tBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod dijumpai berdasarkan tapisan.</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Tiada rekod dijumpai berdasarkan tapisan.</td></tr>`;
         return;
     }
 
-    dataArray.forEach(row => {
-        let dateStr = row.tarikh_terima;
-        if(dateStr) {
-            const parts = dateStr.split('-');
-            if(parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-        } else {
-            dateStr = "-";
-        }
+    dataArray.forEach((row, index) => {
+        const bilAuto = index + 1; // Penjanaan 'Bil' berasaskan keadaan carian/tapis semasa
+        const tarikhTerimaStr = formatDt(row.tarikh_terima);
+        const tarikhSuratStr = formatDt(row.tarikh_surat);
         
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
+        
         tr.innerHTML = `
+            <td class="p-4 align-top text-center">
+                <span class="inline-block w-7 h-7 bg-slate-100 text-slate-600 font-bold rounded-full text-xs leading-7">${bilAuto}</span>
+            </td>
             <td class="p-4 align-top">
-                <div class="font-bold text-slate-700">${dateStr}</div>
+                <div class="font-bold text-slate-700">${tarikhTerimaStr}</div>
                 <div class="text-xs font-semibold text-indigo-600 mt-1">${row.masa_rekod || '-'}</div>
             </td>
             <td class="p-4 align-top">
-                <div class="text-sm font-semibold text-slate-800 break-words whitespace-normal">${row.sektor.replace(/^\d{2}\s/, '')}</div>
-                <div class="text-xs text-slate-500 break-words whitespace-normal mt-1">${row.unit}</div>
+                <div class="text-sm font-bold text-slate-800 break-words whitespace-normal uppercase">${row.no_rujukan || '-'}</div>
             </td>
             <td class="p-4 align-top">
-                <div class="text-xs font-bold text-slate-500 mb-1">${row.no_rujukan || 'TIADA RUJUKAN'}</div>
-                <div class="text-sm font-bold text-indigo-700 break-words whitespace-normal">${row.tajuk_program}</div>
+                <div class="text-sm font-semibold text-slate-600 break-words whitespace-normal uppercase">${row.no_tambahan || '-'}</div>
             </td>
             <td class="p-4 align-top">
-                <div class="text-xs text-slate-600 break-words whitespace-normal leading-relaxed" title="${row.nama_penerima}">${row.nama_penerima}</div>
+                <div class="font-bold text-slate-700">${tarikhSuratStr}</div>
+            </td>
+            <td class="p-4 align-top">
+                <div class="text-sm font-bold text-slate-800 break-words whitespace-normal uppercase">${row.dari || '-'}</div>
+            </td>
+            <td class="p-4 align-top">
+                <div class="text-sm font-bold text-indigo-700 break-words whitespace-normal uppercase">${row.tajuk_program || '-'}</div>
+            </td>
+            <td class="p-4 align-top">
+                <div class="text-xs font-bold text-slate-800 break-words whitespace-normal bg-indigo-50 px-2 py-1 rounded inline-block mb-1">${row.sektor.replace(/^\d{2}\s/, '')}</div>
+                <div class="text-xs text-slate-600 break-words whitespace-normal leading-relaxed italic border-l-2 border-indigo-200 pl-2 mt-1" title="${row.nama_penerima}">${row.nama_penerima || '-'}</div>
             </td>
             <td class="p-4 align-top text-center">
                 ${row.file_url ? 
@@ -563,9 +586,11 @@ function filterTable() {
     const vTarikh = document.getElementById('filterTarikh')?.value || "";
 
     const filtered = allRecords.filter(r => {
-        // Padanan Carian Teks (OR Logic untuk teks) - Tambah carian rujukan
+        // Padanan Carian Teks (OR Logic untuk teks) - Penambahan carian medan baharu
         const textMatch = 
             (r.no_rujukan && r.no_rujukan.toLowerCase().includes(query)) ||
+            (r.no_tambahan && r.no_tambahan.toLowerCase().includes(query)) ||
+            (r.dari && r.dari.toLowerCase().includes(query)) ||
             (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
             (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
             (r.sektor && r.sektor.toLowerCase().includes(query));
@@ -584,6 +609,7 @@ function filterTable() {
         return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch;
     });
 
+    currentFilteredRecords = filtered; // Kemaskini rujukan state untuk Eksport Excel
     renderTable(filtered);
 }
 
@@ -597,6 +623,67 @@ function resetAnalisisFilters() {
     // Jalankan semula tapisan dengan nilai kosong (papar semua data)
     filterTable();
 }
+
+// ================= FUNGSI EKSPORT EXCEL (SheetJS) =================
+window.exportToExcel = function() {
+    if (!currentFilteredRecords || currentFilteredRecords.length === 0) {
+        return window.showMessage("Tiada rekod sedia ada untuk dieksport.", "error");
+    }
+
+    try {
+        // Susun semula pemetaan array data berdasarkan spesifikasi tangkapan skrin
+        const exportData = currentFilteredRecords.map((row, index) => ({
+            "Bil": index + 1,
+            "Tarikh Penerimaan": formatDt(row.tarikh_terima),
+            "No.Fail Kementerian Ibu Pejabat": row.no_rujukan || '-',
+            "Nombor-Nombor Yang Lain": row.no_tambahan || '-',
+            "Tarikh Surat": formatDt(row.tarikh_surat),
+            "Daripada Siapa": row.dari || '-',
+            "Perkara": row.tajuk_program || '-',
+            "Dirujukkan Kepada (Penerima)": row.nama_penerima || '-',
+            "Sektor Utama": row.sektor || '-',
+            "Masa Rekod": row.masa_rekod || '-',
+            "Pautan Salinan Dokumen": row.file_url || 'Tiada Fail Disertakan'
+        }));
+
+        // Wujudkan Lembaran Kerja (Worksheet)
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        
+        // Tetapan lebar minimum lajur untuk memperkemas paparan sel Excel
+        const wscols = [
+            {wch: 5},   // Bil
+            {wch: 18},  // Tarikh Penerimaan
+            {wch: 35},  // No Rujukan
+            {wch: 25},  // No Tambahan
+            {wch: 15},  // Tarikh Surat
+            {wch: 35},  // Dari
+            {wch: 45},  // Perkara
+            {wch: 50},  // Penerima
+            {wch: 30},  // Sektor
+            {wch: 12},  // Masa
+            {wch: 60}   // Pautan Fail
+        ];
+        ws['!cols'] = wscols;
+
+        // Wujudkan Buku Kerja (Workbook) & Cantumkan
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rekod Surat Masuk");
+        
+        // Janakan Nama Fail Dinamik berdasarkan Tarikh Sistem (YYYYMMDD)
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const fileName = `Eksport_MemoAG_${yyyy}${mm}${dd}.xlsx`;
+
+        // Lancarkan Muat Turun
+        XLSX.writeFile(wb, fileName);
+        window.showMessage("Fail Excel berjaya dijana dan dimuat turun.", "success");
+
+    } catch (err) {
+        window.showMessage("Ralat semasa mengeksport Excel: " + err.message, "error");
+    }
+};
 
 // ================= UTILITI SISTEM =================
 function setLoading(status, txt) {

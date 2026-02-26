@@ -34,6 +34,9 @@
 
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- SheetJS (Excel Export) CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
@@ -181,27 +184,42 @@
                                 <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none"></textarea>
                             </div>
 
-                            <!-- MEDAN BAHARU -->
+                            <!-- MEDAN BAHARU: MAKLUMAT SURAT -->
                             <div class="col-span-1 md:col-span-2 border-t border-slate-100 pt-6 mt-2">
                                 <h3 class="text-md font-bold text-slate-700 mb-4">Langkah 3: Butiran Surat & Rekod Masa</h3>
                             </div>
 
                             <div class="col-span-1">
-                                <label for="noRujukan" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">No. Rujukan Surat <span class="text-red-500">*</span></label>
+                                <label for="noRujukan" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">No. Fail Kementerian Ibu Pejabat <span class="text-red-500">*</span></label>
                                 <input type="text" id="noRujukan" name="noRujukan" required pattern="[A-Za-z0-9/\-_\s\.]+" title="Sila masukkan aksara abjad angka (alphanumeric), titik, palang, atau sengkang sahaja" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: PPDAG.100-1/1/1">
                             </div>
 
-                            <div class="col-span-1 md:col-span-2">
-                                <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Perkara / Tajuk Surat (Huruf Besar) <span class="text-red-500">*</span></label>
-                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="Cth: SURAT ARAHAN PENGURUSAN DOKUMEN 2024">
+                            <div class="col-span-1">
+                                <label for="noTambahan" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombor-Nombor Yang Lain (EXT)</label>
+                                <input type="text" id="noTambahan" name="noTambahan" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="PILIHAN: JIKA ADA">
                             </div>
 
                             <div class="col-span-1">
-                                <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Terima Surat <span class="text-red-500">*</span></label>
+                                <label for="tarikhSurat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Surat <span class="text-red-500">*</span></label>
+                                <input type="date" id="tarikhSurat" name="tarikhSurat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="col-span-1">
+                                <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Penerimaan <span class="text-red-500">*</span></label>
                                 <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                             </div>
 
-                            <div class="col-span-1">
+                            <div class="col-span-1 md:col-span-2">
+                                <label for="dari" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Daripada Siapa <span class="text-red-500">*</span></label>
+                                <input type="text" id="dari" name="dari" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: KEMENTERIAN PENDIDIKAN MALAYSIA">
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
+                                <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Perkara / Tajuk Surat <span class="text-red-500">*</span></label>
+                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: SURAT ARAHAN PENGURUSAN DOKUMEN 2024">
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
                                 <label for="masaRekod" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Mula Tindakan (Auto) <span class="text-red-500">*</span></label>
                                 <input type="time" id="masaRekod" name="masaRekod" required readonly class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 focus:outline-none">
                                 <p class="text-xs text-indigo-500 mt-1 font-semibold">* Jemputan kalendar akan dijana secara automatik</p>
@@ -270,8 +288,8 @@
                             </div>
                         </div>
 
-                        <!-- MODUL TAPISAN BAHARU -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-2">
+                        <!-- MODUL TAPISAN BAHARU & EKSPORT -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mt-2">
                             <select id="filterSektor" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-600 bg-white">
                                 <option value="">Semua Sektor</option>
                             </select>
@@ -288,23 +306,31 @@
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                                 Set Semula
                             </button>
+                            <button id="btnExportExcel" onclick="exportToExcel()" class="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors text-sm flex items-center justify-center shadow-sm">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                Eksport Excel
+                            </button>
                         </div>
                     </div>
                     
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="w-full text-left border-collapse min-w-[1200px]">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
-                                    <th class="p-4 border-b border-slate-200">Tarikh & Masa</th>
-                                    <th class="p-4 border-b border-slate-200">Sektor / Unit</th>
-                                    <th class="p-4 border-b border-slate-200">Perkara & Rujukan</th>
-                                    <th class="p-4 border-b border-slate-200">Penerima</th>
+                                    <th class="p-4 border-b border-slate-200 text-center w-12">Bil</th>
+                                    <th class="p-4 border-b border-slate-200">Tarikh Penerimaan</th>
+                                    <th class="p-4 border-b border-slate-200">No.Fail Kementerian Ibu Pejabat</th>
+                                    <th class="p-4 border-b border-slate-200">Nombor-Nombor Yang Lain</th>
+                                    <th class="p-4 border-b border-slate-200">Tarikh Surat</th>
+                                    <th class="p-4 border-b border-slate-200">Daripada Siapa</th>
+                                    <th class="p-4 border-b border-slate-200">Perkara</th>
+                                    <th class="p-4 border-b border-slate-200">Dirujukkan Kepada</th>
                                     <th class="p-4 border-b border-slate-200 text-center">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody" class="text-sm divide-y divide-slate-100">
                                 <tr>
-                                    <td colspan="5" class="p-8 text-center text-slate-400">
+                                    <td colspan="9" class="p-8 text-center text-slate-400">
                                         <div class="loader mr-2 border-slate-300 border-top-slate-500"></div> Memuatkan data pelayan...
                                     </td>
                                 </tr>
@@ -656,22 +682,34 @@
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <form id="formMemo" class="p-6 space-y-4">
+            <form id="formMemo" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                 <input type="hidden" id="memoId">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">No. Rujukan</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">No. Fail Kementerian Ibu Pejabat</label>
                         <input type="text" id="memoNoRujukan" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm font-bold">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nombor-Nombor Yang Lain (EXT)</label>
+                        <input type="text" id="memoNoTambahan" class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Daripada Siapa</label>
+                        <input type="text" id="memoDari" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
                     </div>
                     <div class="col-span-2">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Perkara / Tajuk Surat</label>
                         <input type="text" id="memoTajuk" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
                     </div>
                     <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Surat</label>
+                        <input type="date" id="memoTarikhSurat" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Terima</label>
                         <input type="date" id="memoTarikhTerima" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
                     </div>
-                    <div>
+                    <div class="col-span-2">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Masa Rekod</label>
                         <input type="time" id="memoMasaRekod" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-slate-50">
                     </div>
