@@ -3,6 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
  * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
+ * Logik Intercept: Seamless Deferred Assignment (TPPD)
  * ==============================================================================
  */
 
@@ -45,8 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    // Navigasi Tab Pentadbir (Satu-satunya butang tab yang tinggal di navigasi atas)
+    // Navigasi Tab Pentadbir & TPPD
     document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
+    document.getElementById('tabBtnTppdPanel')?.addEventListener('click', () => switchTab('tppd'));
 
     // Interaksi Borang Pendaftaran
     document.getElementById('sektor')?.addEventListener('change', populateUnit);
@@ -70,11 +72,11 @@ function setupEventListeners() {
 
 // ================= PENGURUSAN TAB NAVIGASI =================
 window.switchTab = function(tabName) {
-    // Ditambah parameter 'about' pada tatasusunan tabs
-    const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about'];
+    // Ditambah parameter 'about' dan 'tppd' pada tatasusunan tabs
+    const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about', 'tppd'];
     
     tabs.forEach(t => {
-        const divId = t === 'admin' ? 'tabAdmin' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
+        const divId = t === 'admin' ? 'tabAdmin' : (t === 'tppd' ? 'tabTppd' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1));
         const tabDiv = document.getElementById(divId);
         
         if (!tabDiv) return;
@@ -97,6 +99,18 @@ window.switchTab = function(tabName) {
         } else {
             tabBtnAdmin.classList.remove('border-red-600', 'text-red-700');
             tabBtnAdmin.classList.add('border-transparent', 'text-red-500');
+        }
+    }
+
+    // Pengurusan khas visual Butang Panel TPPD
+    const tabBtnTppd = document.getElementById('tabBtnTppdPanel');
+    if (tabBtnTppd) {
+        if (tabName === 'tppd') {
+            tabBtnTppd.classList.add('border-indigo-600', 'text-indigo-800');
+            tabBtnTppd.classList.remove('border-transparent', 'text-indigo-600');
+        } else {
+            tabBtnTppd.classList.remove('border-indigo-600', 'text-indigo-800');
+            tabBtnTppd.classList.add('border-transparent', 'text-indigo-600');
         }
     }
 
@@ -332,7 +346,7 @@ function resetFileUpload() {
     setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
 }
 
-// ================= HANTAR BORANG (SUBMIT) =================
+// ================= HANTAR BORANG (SUBMIT) DENGAN PINTASAN TPPD =================
 async function handleFormSubmit(e) {
     e.preventDefault();
     if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
@@ -343,17 +357,21 @@ async function handleFormSubmit(e) {
     try {
         const names = Array.from(globalSelected.values());
         const emels = Array.from(globalSelected.keys());
+        
+        // Logik Pintasan (Intercept Logic) untuk Tugasan Tertunda (Deferred Assignment)
+        const currentUnit = document.getElementById('unit').value;
+        const isTppdDeferred = currentUnit.toUpperCase() === 'TPPD';
 
         // 1. Simpan ke Supabase (Tanpa RLS - Disuntik Tiga Medan Baharu)
         const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
             sektor: document.getElementById('sektor').value,
-            unit: document.getElementById('unit').value,
+            unit: currentUnit,
             nama_penerima: names.join(', '),
             emel_penerima: emels.join(', '),
             no_rujukan: document.getElementById('noRujukan').value.toUpperCase(),
-            no_tambahan: document.getElementById('noTambahan').value.toUpperCase(), // BARU
-            tarikh_surat: document.getElementById('tarikhSurat').value, // BARU
-            dari: document.getElementById('dari').value.toUpperCase(), // BARU
+            no_tambahan: document.getElementById('noTambahan').value.toUpperCase(),
+            tarikh_surat: document.getElementById('tarikhSurat').value,
+            dari: document.getElementById('dari').value.toUpperCase(),
             tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
             tarikh_terima: document.getElementById('tarikhTerima').value,
             masa_rekod: document.getElementById('masaRekod').value,
@@ -362,31 +380,37 @@ async function handleFormSubmit(e) {
 
         if (subError) throw subError;
 
-        setLoading(true, "Menghantar Notifikasi RSVP & Kalendar...");
+        if (isTppdDeferred) {
+            // Jika unit adalah TPPD, abaikan hantaran emel & kalendar. Hanya simpan log sahaja.
+            showMessage("<strong>Berjaya!</strong> Rekod surat disimpan. Notifikasi emel ditangguhkan sementara menunggu penetapan pegawai oleh TPPD sektor berkenaan.", "success");
+        } else {
+            // Jika unit spesifik, tembak fungsi notifikasi kalendar GAS seperti biasa
+            setLoading(true, "Menghantar Notifikasi RSVP & Kalendar...");
 
-        // 2. Notifikasi GAS (Emel & Kalendar RSVP - Dikekalkan struktur asal seperti arahan)
-        const res = await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'notify',
-                sektor: document.getElementById('sektor').value,
-                unit: document.getElementById('unit').value,
-                namaArray: names,
-                emailArray: emels,
-                noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
-                tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
-                tarikhTerima: document.getElementById('tarikhTerima').value,
-                masaRekod: document.getElementById('masaRekod').value,
-                fileUrl: uploadedFileUrl
-            })
-        });
-        const notify = await res.json();
+            // 2. Notifikasi GAS (Emel & Kalendar RSVP)
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'notify',
+                    sektor: document.getElementById('sektor').value,
+                    unit: currentUnit,
+                    namaArray: names,
+                    emailArray: emels,
+                    noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
+                    tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
+                    tarikhTerima: document.getElementById('tarikhTerima').value,
+                    masaRekod: document.getElementById('masaRekod').value,
+                    fileUrl: uploadedFileUrl
+                })
+            });
+            const notify = await res.json();
 
-        if (notify.status === 'success') {
-            await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
+            if (notify.status === 'success') {
+                await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
+            }
+
+            showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan jemputan kalendar (RSVP) telah dihantar kepada penerima.", "success");
         }
-
-        showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan jemputan kalendar (RSVP) telah dihantar kepada penerima.", "success");
         
         // Refresh Kalendar
         const calFrame = document.getElementById('calendarFrame');

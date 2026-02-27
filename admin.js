@@ -2,16 +2,20 @@
  * ==============================================================================
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
- * Modul: admin.js (Enjin Kawalan Pentadbir & Operasi CRUD Pukal)
+ * Modul: admin.js (Enjin Kawalan Pentadbir, RBAC TPPD & Operasi CRUD Pukal)
  * ==============================================================================
  */
 
-// STATE PENTADBIR
+// STATE PENTADBIR & TPPD
 let currentAdmin = null;
 let adminMemoData = [];
 let adminPegawaiData = [];
 let adminSistemData = [];
 let isProcessingBatch = false;
+
+// STATE TPPD KHUSUS
+let tppdMemoData = [];
+let tppdSelected = new Map(); // Menjejak email -> nama rentas pegawai untuk modal TPPD
 
 // STATE SUSUNAN (SORTING)
 let adminSortState = {
@@ -68,6 +72,10 @@ function setupAdminEventListeners() {
     document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => filterAdminTable('memo', e.target.value));
     document.getElementById('adminSearchPegawai')?.addEventListener('input', (e) => filterAdminTable('pegawai', e.target.value));
 
+    // EVENT LISTENER KHUSUS TPPD
+    document.getElementById('tppdUnitSelect')?.addEventListener('change', populateTppdNama);
+    document.getElementById('formTppdAssign')?.addEventListener('submit', handleTppdAssignSubmit);
+
     // Tutup sebarang modal
     document.querySelectorAll('.btnTutupModal').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -75,11 +83,12 @@ function setupAdminEventListeners() {
             toggleModal('modalLoginAdmin', false);
             toggleModal('modalPegawai', false);
             toggleModal('modalMemo', false);
+            toggleModal('modalTppdAssign', false);
         });
     });
 }
 
-// ================= PENGURUSAN SESI =================
+// ================= PENGURUSAN SESI & RBAC (Role-Based Access Control) =================
 function checkAdminSession() {
     const session = sessionStorage.getItem('memo_admin_session');
     if (session) {
@@ -110,13 +119,28 @@ async function handleLogin(e) {
 
         if (error || !data) throw new Error("Emel atau Kata Laluan salah.");
 
-        currentAdmin = data;
-        sessionStorage.setItem('memo_admin_session', JSON.stringify(data));
+        // RBAC: Pengesanan Silang untuk Profil TPPD
+        let tppdSektor = null;
+        if (data.role === 'TPPD') {
+            const { data: pData, error: pError } = await _supabase
+                .from('memo_pegawai')
+                .select('sektor')
+                .eq('emel_rasmi', email)
+                .single();
+            
+            if (pError || !pData) throw new Error("Profil Sektor bagi TPPD ini tidak dijumpai dalam pangkalan data pegawai.");
+            tppdSektor = pData.sektor;
+        }
+
+        currentAdmin = { ...data, tppdSektor };
+        sessionStorage.setItem('memo_admin_session', JSON.stringify(currentAdmin));
         
         toggleModal('modalLoginAdmin', false);
         showAdminUI(true);
         loadAdminData();
-        window.showMessage(`Selamat Datang, ${data.role}!`, 'success');
+        
+        const welcomeMsg = currentAdmin.role === 'TPPD' ? `Selamat Datang, TPPD ${tppdSektor}` : `Selamat Datang, ${data.role}!`;
+        window.showMessage(welcomeMsg, 'success');
 
     } catch (err) {
         errorDiv.textContent = err.message;
@@ -143,43 +167,41 @@ function showAdminUI(isLoggedIn) {
     const btnLogin = document.getElementById('btnBukaLoginAdmin');
     const btnLogout = document.getElementById('btnLogKeluarAdmin');
     const tabAdmin = document.getElementById('tabBtnAdminPanel');
+    const tabTppd = document.getElementById('tabBtnTppdPanel');
 
     if (isLoggedIn) {
         btnLogin.classList.add('hidden');
         btnLogout.classList.remove('hidden');
-        tabAdmin.classList.remove('hidden');
+        
+        // Asingkan paparan antara TPPD dan Admin Biasa
+        if (currentAdmin.role === 'TPPD') {
+            if (tabTppd) tabTppd.classList.remove('hidden');
+            if (tabAdmin) tabAdmin.classList.add('hidden');
+            window.switchTab('tppd');
+        } else {
+            if (tabAdmin) tabAdmin.classList.remove('hidden');
+            if (tabTppd) tabTppd.classList.add('hidden');
+            window.switchTab('admin');
+        }
     } else {
         btnLogin.classList.remove('hidden');
         btnLogout.classList.add('hidden');
-        tabAdmin.classList.add('hidden');
+        if (tabAdmin) tabAdmin.classList.add('hidden');
+        if (tabTppd) tabTppd.classList.add('hidden');
     }
 }
 
-// ================= NAVIGASI ADMIN =================
-function switchAdminSection(section) {
-    document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
-    document.querySelectorAll('.admin-sub-tab').forEach(t => {
-        t.classList.remove('bg-indigo-100', 'text-indigo-700');
-        t.classList.add('text-slate-600');
-    });
-
-    const targetSection = 'adminSection' + section.charAt(0).toUpperCase() + section.slice(1);
-    const targetBtn = 'subTabBtn' + section.charAt(0).toUpperCase() + section.slice(1);
-    
-    const div = document.getElementById(targetSection);
-    const btn = document.getElementById(targetBtn);
-    if(div) div.classList.remove('hidden');
-    if(btn) {
-        btn.classList.add('bg-indigo-100', 'text-indigo-700');
-        btn.classList.remove('text-slate-600');
-    }
-}
-
-// ================= DATA FETCHING =================
+// ================= DATA FETCHING (PENGASINGAN LOGIK) =================
 async function loadAdminData() {
-    loadAdminMemo();
-    loadAdminPegawai();
-    loadAdminSistem();
+    // TPPD juga memerlukan data pegawai untuk dropdown modal mereka
+    await loadAdminPegawai(); 
+
+    if (currentAdmin.role === 'TPPD') {
+        loadTppdMemo();
+    } else {
+        loadAdminMemo();
+        loadAdminSistem();
+    }
 }
 
 async function loadAdminMemo() {
@@ -197,11 +219,12 @@ async function loadAdminPegawai() {
     const { data } = await _supabase.from('memo_pegawai').select('*').order('nama');
     adminPegawaiData = data || [];
     
-    // Tetapkan susunan lalai ke state
-    adminSortState.pegawai = { column: 'nama', direction: 'asc' };
-    
-    filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
-    updateSortIcons('pegawai');
+    if (currentAdmin && currentAdmin.role !== 'TPPD') {
+        // Tetapkan susunan lalai ke state jika admin
+        adminSortState.pegawai = { column: 'nama', direction: 'asc' };
+        filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
+        updateSortIcons('pegawai');
+    }
 }
 
 async function loadAdminSistem() {
@@ -210,7 +233,7 @@ async function loadAdminSistem() {
     renderAdminSistemTable(adminSistemData);
 }
 
-// ================= RENDERING TABLES =================
+// ================= RENDERING TABLES (ADMIN) =================
 function renderAdminMemoTable(data) {
     const tbody = document.getElementById('adminTableMemoBody');
     tbody.innerHTML = data.map(row => {
@@ -220,8 +243,8 @@ function renderAdminMemoTable(data) {
         <tr>
             <td class="p-3 border-b text-xs font-mono text-slate-400 align-top">#${row.id}</td>
             <td class="p-3 border-b align-top">
-                <div class="font-bold text-slate-700">${row.no_rujukan || 'TIADA'}</div>
-                <div class="text-xs text-slate-500 mt-1">${row.tajuk_program}</div>
+                <div class="font-bold text-slate-700 uppercase">${row.no_rujukan || 'TIADA'}</div>
+                <div class="text-xs text-slate-500 mt-1 uppercase">${row.tajuk_program}</div>
             </td>
             <td class="p-3 border-b align-top">
                 <div class="font-semibold text-slate-700">${row.tarikh_terima}</div>
@@ -270,12 +293,249 @@ function renderAdminSistemTable(data) {
         <tr>
             <td class="p-3 border-b text-slate-400">#${row.id}</td>
             <td class="p-3 border-b font-medium">${row.email}</td>
-            <td class="p-3 border-b"><span class="px-2 py-1 ${row.role === 'SUPER ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'} text-xs font-bold rounded">${row.role}</span></td>
+            <td class="p-3 border-b"><span class="px-2 py-1 ${row.role === 'SUPER ADMIN' ? 'bg-purple-100 text-purple-700' : (row.role === 'TPPD' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600')} text-xs font-bold rounded">${row.role}</span></td>
             <td class="p-3 border-b text-center">
                 ${row.role !== 'SUPER ADMIN' ? `<button onclick="deleteAdmin(${row.id})" class="text-red-500 hover:text-red-700 font-bold">Gugurkan</button>` : '<span class="text-xs text-slate-300 italic">Tiada Tindakan</span>'}
             </td>
         </tr>
     `).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
+}
+
+// ================= MODUL KHUSUS TPPD (DEFERRED ASSIGNMENT) =================
+async function loadTppdMemo() {
+    if (!currentAdmin || currentAdmin.role !== 'TPPD') return;
+
+    // Tarik memo KHUSUS untuk sektor TPPD tersebut DAN yang berstatus unit 'TPPD'
+    const { data } = await _supabase
+        .from('memo_rekod')
+        .select('*')
+        .eq('sektor', currentAdmin.tppdSektor)
+        .eq('unit', 'TPPD')
+        .order('created_at', { ascending: false });
+
+    tppdMemoData = data || [];
+    renderTppdTable(tppdMemoData);
+}
+
+function renderTppdTable(data) {
+    const tbody = document.getElementById('tppdTableBody');
+    tbody.innerHTML = data.map(row => `
+        <tr class="hover:bg-indigo-50/30 transition-colors">
+            <td class="p-4 border-b align-top">
+                <div class="font-bold text-slate-700 uppercase">${row.no_rujukan || 'TIADA'}</div>
+                <div class="text-sm text-slate-500 mt-1 uppercase">${row.tajuk_program}</div>
+            </td>
+            <td class="p-4 border-b text-sm font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
+            <td class="p-4 border-b align-top">
+                <div class="font-semibold text-slate-700">${row.tarikh_terima}</div>
+                <div class="text-xs text-indigo-600 font-bold mt-1">${row.masa_rekod || '-'}</div>
+            </td>
+            <td class="p-4 border-b text-center align-top">
+                ${row.file_url ? `<a href="${row.file_url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold underline">Lihat Fail</a>` : '-'}
+            </td>
+            <td class="p-4 border-b text-center align-top">
+                <button onclick="openTppdAssignModal(${row.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    Tetapkan Penerima
+                </button>
+            </td>
+        </tr>
+    `).join('') || '<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu pada sektor anda.</td></tr>';
+}
+
+window.openTppdAssignModal = function(id) {
+    const m = tppdMemoData.find(x => x.id === id);
+    if (!m) return;
+
+    // Reset Form & State
+    document.getElementById('formTppdAssign').reset();
+    tppdSelected.clear();
+    renderTppdTags();
+    document.getElementById('tppdNamaContainer').innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+
+    // Isi Maklumat Header
+    document.getElementById('tppdMemoId').value = m.id;
+    document.getElementById('tppdDisplayTajuk').textContent = m.tajuk_program;
+    document.getElementById('tppdDisplayRujukan').textContent = m.no_rujukan || 'TIADA RUJUKAN';
+
+    // Populate Dropdown Unit berdasarkan Sektor TPPD
+    const uSelect = document.getElementById('tppdUnitSelect');
+    uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
+    
+    // Cari unit yang wujud dalam sektor TPPD (Abaikan unit 'TPPD' sendiri)
+    const unitSektor = adminPegawaiData.filter(p => p.sektor === currentAdmin.tppdSektor && p.unit !== 'TPPD').map(p => p.unit);
+    const unikUnit = [...new Set(unitSektor)].sort();
+
+    unikUnit.forEach(u => {
+        uSelect.innerHTML += `<option value="${u}">${u}</option>`;
+    });
+
+    toggleModal('modalTppdAssign', true);
+}
+
+function populateTppdNama() {
+    const un = document.getElementById('tppdUnitSelect').value;
+    const nc = document.getElementById('tppdNamaContainer');
+    nc.innerHTML = '';
+    
+    if (un) {
+        nc.innerHTML = `
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
+                <span class="text-xs font-bold text-slate-500 uppercase">Pegawai Seliaan Anda (${un})</span>
+                <button type="button" onclick="selectAllTppdInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
+            </div>
+        `;
+
+        const pegs = adminPegawaiData.filter(p => p.sektor === currentAdmin.tppdSektor && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
+        
+        pegs.forEach((p, i) => {
+            const isChecked = tppdSelected.has(p.emel_rasmi) ? 'checked' : '';
+            nc.innerHTML += `
+                <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
+                    <input type="checkbox" id="tppd_c_${i}" value="${p.nama}" data-email="${p.emel_rasmi}" onchange="toggleTppdPenerima('${p.nama}', '${p.emel_rasmi}', this.checked)" class="w-4 h-4 text-indigo-600 rounded tppd-checkbox focus:ring-indigo-500" ${isChecked}>
+                    <label for="tppd_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
+                </div>`;
+        });
+    } else {
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+    }
+}
+
+window.toggleTppdPenerima = function(nama, emel, isChecked) {
+    if (isChecked) {
+        tppdSelected.set(emel, nama);
+    } else {
+        tppdSelected.delete(emel);
+    }
+    renderTppdTags();
+};
+
+window.selectAllTppdInUnit = function() {
+    const checkboxes = document.querySelectorAll('.tppd-checkbox');
+    if (checkboxes.length === 0) return;
+
+    const allChecked = Array.from(checkboxes).every(c => c.checked);
+    checkboxes.forEach(c => {
+        c.checked = !allChecked;
+        toggleTppdPenerima(c.value, c.getAttribute('data-email'), !allChecked);
+    });
+};
+
+window.removeTppdTag = function(emel) {
+    tppdSelected.delete(emel);
+    const cb = document.querySelector(`.tppd-checkbox[data-email="${emel}"]`);
+    if (cb) cb.checked = false;
+    renderTppdTags();
+};
+
+function renderTppdTags() {
+    const container = document.getElementById('tppdSelectedTagsContainer');
+    const hiddenCheck = document.getElementById('tppdHiddenEmailCheck');
+    
+    if (tppdSelected.size === 0) {
+        container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
+        hiddenCheck.value = '';
+        return;
+    }
+
+    container.innerHTML = '';
+    hiddenCheck.value = 'OK'; // Lulus form validation HTML
+    
+    tppdSelected.forEach((nama, emel) => {
+        container.innerHTML += `
+            <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
+                <span>${nama}</span>
+                <button type="button" onclick="removeTppdTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        `;
+    });
+}
+
+async function handleTppdAssignSubmit(e) {
+    e.preventDefault();
+    if (tppdSelected.size === 0) return window.showMessage("Sila pilih sekurang-kurangnya 1 pegawai PIC.", "error");
+
+    const btn = document.getElementById('btnSubmitTppdAssign');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loader border-white border-top-indigo-600 w-4 h-4 mr-2"></div> Memproses...';
+
+    const id = document.getElementById('tppdMemoId').value;
+    const unit = document.getElementById('tppdUnitSelect').value;
+    const names = Array.from(tppdSelected.values());
+    const emails = Array.from(tppdSelected.keys());
+
+    const m = tppdMemoData.find(x => x.id == id);
+    if (!m) {
+        btn.disabled = false;
+        btn.textContent = 'Sahkan & Hantar Kalendar';
+        return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
+    }
+
+    try {
+        // 1. Update Supabase Data dengan unit dan PIC sebenar
+        const { error: updateError } = await _supabase.from('memo_rekod').update({
+            unit: unit,
+            nama_penerima: names.join(', '),
+            emel_penerima: emails.join(', ')
+        }).eq('id', id);
+
+        if (updateError) throw updateError;
+
+        // 2. Lancarkan API GAS untuk Emel & Kalendar
+        const res = await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'notify',
+                sektor: m.sektor,
+                unit: unit,
+                namaArray: names,
+                emailArray: emails,
+                noRujukan: m.no_rujukan || 'TIADA',
+                tajukProgram: m.tajuk_program,
+                tarikhTerima: m.tarikh_terima,
+                masaRekod: m.masa_rekod || '08:00',
+                fileUrl: m.file_url || 'Tiada Salinan'
+            })
+        });
+        const notify = await res.json();
+
+        // 3. Simpan ID Kalendar jika berjaya
+        if (notify.status === 'success') {
+            await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
+        }
+
+        toggleModal('modalTppdAssign', false);
+        loadTppdMemo(); // Refresh data TPPD
+        window.showMessage("Pengesahan berjaya. Sistem telah menghantar notifikasi dan mengemaskini rekod rasmi.", "success");
+
+    } catch (err) {
+        window.showMessage("Gagal mengesahkan penerima: " + err.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sahkan & Hantar Kalendar';
+    }
+}
+
+// ================= NAVIGASI ADMIN =================
+function switchAdminSection(section) {
+    document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll('.admin-sub-tab').forEach(t => {
+        t.classList.remove('bg-indigo-100', 'text-indigo-700');
+        t.classList.add('text-slate-600');
+    });
+
+    const targetSection = 'adminSection' + section.charAt(0).toUpperCase() + section.slice(1);
+    const targetBtn = 'subTabBtn' + section.charAt(0).toUpperCase() + section.slice(1);
+    
+    const div = document.getElementById(targetSection);
+    const btn = document.getElementById(targetBtn);
+    if(div) div.classList.remove('hidden');
+    if(btn) {
+        btn.classList.add('bg-indigo-100', 'text-indigo-700');
+        btn.classList.remove('text-slate-600');
+    }
 }
 
 // ================= FUNGSI SUSUNAN (SORTING) =================
