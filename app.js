@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
  * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
- * Logik Intercept: Hierarchical Deferred Assignment (TPPD / KS / KU)
+ * Logik Intercept: Database-Driven Hierarchical Deferred Assignment (memo_admin)
  * Patch: CORS Strict-Origin / Preflight Bypass (text/plain)
  * ==============================================================================
  */
@@ -13,14 +13,14 @@ const SUPABASE_URL = 'https://app.tech4ag.my';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxrj_wwNOJahEEiz3QGBaNTG9pg6xJNqEDXZXVEag9kHrJXp-n7gKV2wF8Yr17OZdr5/exec';
 
-// INISIALISASI SUPABASE KLIEN (Boleh diakses oleh admin.js nanti)
+// INISIALISASI SUPABASE KLIEN
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // PENGURUSAN STATE GLOBAL
 let groupedData = {};
 let uploadedFileUrl = "";
 let allRecords = []; 
-let currentFilteredRecords = []; // BARU: Menyimpan rujukan state paparan jadual semasa untuk fungsi eksport
+let currentFilteredRecords = []; 
 let globalSelected = new Map(); // Menjejak email -> nama rentas sektor
 
 // ================= INISIALISASI SISTEM =================
@@ -39,30 +39,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         showMessage("Ralat memuatkan pangkalan data pegawai: " + err.message, 'error');
     }
 
-    // 3. Daftarkan Event Listeners bagi Elemen HTML Statik
+    // 3. Daftarkan Event Listeners
     setupEventListeners();
 
-    // 4. Paksa paparan lalai ke Laman Utama
+    // 4. Paparan Lalai
     switchTab('utama');
 });
 
 function setupEventListeners() {
-    // Navigasi Tab Pentadbir & Panel Pengurus (Sebelumnya TPPD)
     document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
     document.getElementById('tabBtnTppdPanel')?.addEventListener('click', () => switchTab('tppd'));
 
-    // Interaksi Borang Pendaftaran
     document.getElementById('sektor')?.addEventListener('change', populateUnit);
     document.getElementById('unit')?.addEventListener('change', populateNama);
     
-    // Muat Naik Fail & Lompatan Borang
     document.getElementById('salinanSurat')?.addEventListener('change', function() { handleEarlyUpload(this); });
     document.getElementById('resetFileBtn')?.addEventListener('click', resetFileUpload);
     
-    // Penghantaran Borang
     document.getElementById('mainForm')?.addEventListener('submit', handleFormSubmit);
     
-    // Modul Tapisan Jadual Analisis
     document.getElementById('searchInput')?.addEventListener('keyup', filterTable);
     document.getElementById('filterSektor')?.addEventListener('change', filterTable);
     document.getElementById('filterUnit')?.addEventListener('change', filterTable);
@@ -72,6 +67,11 @@ function setupEventListeners() {
 }
 
 // ================= UTILITI GLOBAL: HIERARKI PENGURUSAN =================
+/**
+ * Logik pengesanan peranan pengurusan.
+ * Kini disokong oleh semakan pangkalan data di handleFormSubmit,
+ * namun dikekalkan untuk kegunaan UI (Client-Side Feedback).
+ */
 window.isManagerRole = function(unitName) {
     if (!unitName) return false;
     const u = unitName.toUpperCase();
@@ -80,7 +80,6 @@ window.isManagerRole = function(unitName) {
 
 // ================= PENGURUSAN TAB NAVIGASI =================
 window.switchTab = function(tabName) {
-    // Ditambah parameter 'about' dan 'tppd' pada tatasusunan tabs
     const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about', 'tppd'];
     
     tabs.forEach(t => {
@@ -91,14 +90,12 @@ window.switchTab = function(tabName) {
 
         if (t === tabName) {
             tabDiv.classList.remove('hidden');
-            // Menambah logik skrol secara automatik ke atas setiap kali menukar modul
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
             tabDiv.classList.add('hidden');
         }
     });
 
-    // Pengurusan khas visual Butang Panel Pentadbir
     const tabBtnAdmin = document.getElementById('tabBtnAdminPanel');
     if (tabBtnAdmin) {
         if (tabName === 'admin') {
@@ -110,7 +107,6 @@ window.switchTab = function(tabName) {
         }
     }
 
-    // Pengurusan khas visual Butang Panel Tindakan Pengurus (ID dikekalkan sebagai tppd untuk elak gangguan DOM)
     const tabBtnTppd = document.getElementById('tabBtnTppdPanel');
     if (tabBtnTppd) {
         if (tabName === 'tppd') {
@@ -119,18 +115,6 @@ window.switchTab = function(tabName) {
         } else {
             tabBtnTppd.classList.remove('border-indigo-600', 'text-indigo-800');
             tabBtnTppd.classList.add('border-transparent', 'text-indigo-600');
-        }
-    }
-
-    // Tukar reka bentuk Butang Tentang Sistem (Visual Feedback)
-    const tabBtnTentang = document.getElementById('btnTentang');
-    if (tabBtnTentang) {
-        if (tabName === 'about') {
-            tabBtnTentang.classList.add('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
-            tabBtnTentang.classList.remove('bg-white', 'text-slate-500', 'border-slate-200');
-        } else {
-            tabBtnTentang.classList.remove('bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
-            tabBtnTentang.classList.add('bg-white', 'text-slate-500', 'border-slate-200');
         }
     }
 
@@ -231,10 +215,8 @@ window.selectAllInUnit = function() {
 
 window.removeTag = function(emel) {
     globalSelected.delete(emel);
-    
     const cb = document.querySelector(`.unit-checkbox[data-email="${emel}"]`);
     if (cb) cb.checked = false;
-    
     renderTags();
 };
 
@@ -297,13 +279,10 @@ async function handleEarlyUpload(input) {
     try {
         const base64Full = await toBase64(file);
         
-        // PAMPASAN CORS (PATCH)
         const res = await fetch(GAS_URL, {
             method: 'POST',
             redirect: "follow",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-            },
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
                 action: 'upload',
                 fileBase64: base64Full.split(',')[1],
@@ -323,13 +302,10 @@ async function handleEarlyUpload(input) {
         link.classList.remove('hidden');
         resetBtn.classList.remove('hidden');
         
-        // Auto Set Masa Rekod kepada waktu sistem masa muat naik selesai
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
-        if (masaRekodInput) {
-            masaRekodInput.value = `${hours}:${minutes}`;
-        }
+        if (masaRekodInput) masaRekodInput.value = `${hours}:${minutes}`;
 
         formUtamaDiv.classList.remove('hidden');
         setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
@@ -352,7 +328,6 @@ function resetFileUpload() {
     input.disabled = false;
     document.getElementById('uploadStatus').classList.add('hidden');
     
-    // Reset masa rekod
     const masaRekodInput = document.getElementById('masaRekod');
     if (masaRekodInput) masaRekodInput.value = "";
     
@@ -361,23 +336,33 @@ function resetFileUpload() {
     setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
 }
 
-// ================= HANTAR BORANG (SUBMIT) DENGAN PINTASAN HIERARKI =================
+// ================= HANTAR BORANG (SUBMIT) DENGAN PENGESANAN HIERARKI DATABASE =================
 async function handleFormSubmit(e) {
     e.preventDefault();
     if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
     if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
-    setLoading(true, "Menyimpan Data...");
+    setLoading(true, "Mengesahkan Hierarki Sistem...");
 
     try {
         const names = Array.from(globalSelected.values());
         const emels = Array.from(globalSelected.keys());
-        
-        // Logik Pintasan (Intercept Logic) untuk Tugasan Tertunda & Delegasi Berhierarki
         const currentUnit = document.getElementById('unit').value;
-        const isManagerDeferred = window.isManagerRole(currentUnit);
 
-        // 1. Simpan ke Supabase (Tanpa RLS - Disuntik Tiga Medan Baharu)
+        // 1. Logik Intercept: Semakan Silang terhadap jadual memo_admin
+        // Kita menyemak jika mana-mana emel penerima yang dipilih wujud di pangkalan data admin.
+        const { data: adminList, error: adminError } = await _supabase.from('memo_admin').select('email');
+        if (adminError) throw adminError;
+
+        const adminEmails = adminList.map(a => a.email.toLowerCase());
+        const selectedEmails = emels.map(e => e.toLowerCase());
+        
+        // Klasifikasikan sebagai 'Manager' jika emel terpilih adalah milik Admin (TPPD/KS/KU)
+        const isManagerDeferred = selectedEmails.some(email => adminEmails.includes(email));
+
+        setLoading(true, "Menyimpan Data...");
+
+        // 2. Simpan ke Supabase (Pangkalan Data Rekod)
         const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
             sektor: document.getElementById('sektor').value,
             unit: currentUnit,
@@ -395,18 +380,15 @@ async function handleFormSubmit(e) {
 
         if (subError) throw subError;
 
-        // 2. Notifikasi GAS (Emel Pengurusan ATAU Emel & Kalendar RSVP)
+        // 3. Notifikasi GAS (Tentukan Action Berdasarkan Status Hierarki)
         setLoading(true, isManagerDeferred ? "Menghantar Notifikasi Pengurusan..." : "Menghantar Notifikasi RSVP & Kalendar...");
 
         const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
 
-        // PAMPASAN CORS (PATCH)
         const res = await fetch(GAS_URL, {
             method: 'POST',
             redirect: "follow",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-            },
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
                 action: gasAction,
                 sektor: document.getElementById('sektor').value,
@@ -422,23 +404,20 @@ async function handleFormSubmit(e) {
         });
         const notify = await res.json();
 
-        // 3. Simpan Acara Kalendar Jika Ada (Pegawai Biasa)
+        // 4. Simpan Acara Kalendar Jika Ada (Tindakan Pegawai Pelaksana)
         if (notify.status === 'success' && notify.calendarEventId) {
             await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
         }
 
-        // 4. Maklum Balas UI
+        // 5. Maklum Balas UI
         if (isManagerDeferred) {
-            showMessage("<strong>Berjaya!</strong> Rekod surat disimpan. Makluman emel telah dihantar kepada pengurusan untuk tujuan delegasi.", "success");
+            showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong> Rekod surat disimpan. Notifikasi emel telah dihantar kepada pentadbir sistem (TPPD/KS/KU) untuk tujuan delegasi unit.", "success");
         } else {
-            showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan jemputan kalendar (RSVP) telah dihantar kepada penerima.", "success");
+            showMessage("<strong>Rekod Berjaya!</strong> Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik kepada pegawai penerima.", "success");
         }
         
-        // Refresh Kalendar
         const calFrame = document.getElementById('calendarFrame');
-        if (calFrame) {
-            calFrame.src = calFrame.src; 
-        }
+        if (calFrame) calFrame.src = calFrame.src; 
 
         resetForm();
         allRecords = []; 
@@ -453,14 +432,12 @@ async function handleFormSubmit(e) {
 // ================= MODUL ANALISIS / DASHBOARD =================
 async function loadDashboardData() {
     const tBody = document.getElementById('tableBody');
-    
     if (allRecords.length > 0) {
         renderTable(allRecords);
         populateAnalisisFilters(allRecords);
         return;
     }
 
-    // Ubah colspan kepada 9 mengikut struktur jadual baharu
     tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
 
     try {
@@ -468,7 +445,7 @@ async function loadDashboardData() {
         if (error) throw error;
         
         allRecords = data;
-        currentFilteredRecords = data; // Set rujukan awal untuk Eksport
+        currentFilteredRecords = data;
         calculateKPIs(data);
         renderTable(data);
         populateAnalisisFilters(data);
@@ -483,7 +460,6 @@ function calculateKPIs(data) {
     const now = new Date();
     const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     
-    // Mengira surat yang diterima atau direkodkan hari ini
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
     document.getElementById('kpiToday').textContent = todayCount;
 
@@ -501,10 +477,8 @@ function calculateKPIs(data) {
         }
     }
     document.getElementById('kpiTopSektor').textContent = topSektor;
-    document.getElementById('kpiTopSektor').title = topSektor; 
 }
 
-// Populate Dropdown Tapisan Dinamik
 function populateAnalisisFilters(data) {
     const fSektor = document.getElementById('filterSektor');
     const fUnit = document.getElementById('filterUnit');
@@ -524,9 +498,7 @@ function populateAnalisisFilters(data) {
         if (r.tarikh_terima) {
             setTarikh.add(r.tarikh_terima);
             const parts = r.tarikh_terima.split('-');
-            if (parts.length >= 2) {
-                setBulan.add(`${parts[0]}-${parts[1]}`); // Ekstrak YYYY-MM
-            }
+            if (parts.length >= 2) setBulan.add(`${parts[0]}-${parts[1]}`);
         }
     });
 
@@ -538,7 +510,6 @@ function populateAnalisisFilters(data) {
         return html;
     };
 
-    // Kekalkan nilai sedia ada jika telah dipilih sebelum refresh
     const currentSektor = fSektor.value;
     const currentUnit = fUnit.value;
     const currentBulan = fBulan.value;
@@ -546,17 +517,15 @@ function populateAnalisisFilters(data) {
 
     fSektor.innerHTML = genOptions(setSektor, "Semua Sektor", (v) => v.replace(/^\d{2}\s/, ''));
     fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
-    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; }); // MM/YYYY
-    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; }); // DD/MM/YYYY
+    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
+    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
 
-    // Re-apply existing values
     if (currentSektor) fSektor.value = currentSektor;
     if (currentUnit) fUnit.value = currentUnit;
     if (currentBulan) fBulan.value = currentBulan;
     if (currentTarikh) fTarikh.value = currentTarikh;
 }
 
-// Pembantu format tarikh global
 const formatDt = (dateStr) => {
     if(!dateStr) return "-";
     const parts = dateStr.split('-');
@@ -564,7 +533,6 @@ const formatDt = (dateStr) => {
     return dateStr;
 };
 
-// Merombak fungsi jadual dengan elemen baharu dan Auto-Bil
 function renderTable(dataArray) {
     const tBody = document.getElementById('tableBody');
     tBody.innerHTML = '';
@@ -575,7 +543,7 @@ function renderTable(dataArray) {
     }
 
     dataArray.forEach((row, index) => {
-        const bilAuto = index + 1; // Penjanaan 'Bil' berasaskan keadaan carian/tapis semasa
+        const bilAuto = index + 1;
         const tarikhTerimaStr = formatDt(row.tarikh_terima);
         const tarikhSuratStr = formatDt(row.tarikh_surat);
         
@@ -622,17 +590,13 @@ function renderTable(dataArray) {
 }
 
 function filterTable() {
-    // Menangkap nilai input teks
     const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
-    
-    // Menangkap nilai dari 4 tapisan dropdown
     const vSektor = document.getElementById('filterSektor')?.value || "";
     const vUnit = document.getElementById('filterUnit')?.value || "";
     const vBulan = document.getElementById('filterBulan')?.value || "";
     const vTarikh = document.getElementById('filterTarikh')?.value || "";
 
     const filtered = allRecords.filter(r => {
-        // Padanan Carian Teks (OR Logic untuk teks) - Penambahan carian medan baharu
         const textMatch = 
             (r.no_rujukan && r.no_rujukan.toLowerCase().includes(query)) ||
             (r.no_tambahan && r.no_tambahan.toLowerCase().includes(query)) ||
@@ -641,21 +605,17 @@ function filterTable() {
             (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
             (r.sektor && r.sektor.toLowerCase().includes(query));
 
-        // Padanan Tapisan Dropdown (AND Logic bersyarat)
         const sektorMatch = vSektor === "" || r.sektor === vSektor;
         const unitMatch = vUnit === "" || r.unit === vUnit;
         const tarikhMatch = vTarikh === "" || r.tarikh_terima === vTarikh;
         
         let bulanMatch = true;
-        if (vBulan !== "") {
-            bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
-        }
+        if (vBulan !== "") bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
 
-        // Kesemua syarat (AND) perlu ditepati untuk memaparkan baris tersebut
         return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch;
     });
 
-    currentFilteredRecords = filtered; // Kemaskini rujukan state untuk Eksport Excel
+    currentFilteredRecords = filtered;
     renderTable(filtered);
 }
 
@@ -665,19 +625,16 @@ function resetAnalisisFilters() {
     if(document.getElementById('filterUnit')) document.getElementById('filterUnit').value = "";
     if(document.getElementById('filterBulan')) document.getElementById('filterBulan').value = "";
     if(document.getElementById('filterTarikh')) document.getElementById('filterTarikh').value = "";
-    
-    // Jalankan semula tapisan dengan nilai kosong (papar semua data)
     filterTable();
 }
 
-// ================= FUNGSI EKSPORT EXCEL (SheetJS) =================
+// ================= FUNGSI EKSPORT EXCEL =================
 window.exportToExcel = function() {
     if (!currentFilteredRecords || currentFilteredRecords.length === 0) {
         return window.showMessage("Tiada rekod sedia ada untuk dieksport.", "error");
     }
 
     try {
-        // Susun semula pemetaan array data berdasarkan spesifikasi tangkapan skrin
         const exportData = currentFilteredRecords.map((row, index) => ({
             "Bil": index + 1,
             "Tarikh Penerimaan": formatDt(row.tarikh_terima),
@@ -692,40 +649,21 @@ window.exportToExcel = function() {
             "Pautan Salinan Dokumen": row.file_url || 'Tiada Fail Disertakan'
         }));
 
-        // Wujudkan Lembaran Kerja (Worksheet)
         const ws = XLSX.utils.json_to_sheet(exportData);
-        
-        // Tetapan lebar minimum lajur untuk memperkemas paparan sel Excel
         const wscols = [
-            {wch: 5},   // Bil
-            {wch: 18},  // Tarikh Penerimaan
-            {wch: 35},  // No Rujukan
-            {wch: 25},  // No Tambahan
-            {wch: 15},  // Tarikh Surat
-            {wch: 35},  // Dari
-            {wch: 45},  // Perkara
-            {wch: 50},  // Penerima
-            {wch: 30},  // Sektor
-            {wch: 12},  // Masa
-            {wch: 60}   // Pautan Fail
+            {wch: 5}, {wch: 18}, {wch: 35}, {wch: 25}, {wch: 15}, 
+            {wch: 35}, {wch: 45}, {wch: 50}, {wch: 30}, {wch: 12}, {wch: 60}
         ];
         ws['!cols'] = wscols;
 
-        // Wujudkan Buku Kerja (Workbook) & Cantumkan
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rekod Surat Masuk");
         
-        // Janakan Nama Fail Dinamik berdasarkan Tarikh Sistem (YYYYMMDD)
         const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const fileName = `Eksport_MemoAG_${yyyy}${mm}${dd}.xlsx`;
+        const fileName = `Eksport_MemoAG_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`;
 
-        // Lancarkan Muat Turun
         XLSX.writeFile(wb, fileName);
         window.showMessage("Fail Excel berjaya dijana dan dimuat turun.", "success");
-
     } catch (err) {
         window.showMessage("Ralat semasa mengeksport Excel: " + err.message, "error");
     }
@@ -747,19 +685,14 @@ window.showMessage = function(m, t) {
     b.className = `mb-8 p-4 rounded-lg font-medium text-sm border ${t==='error'?'bg-red-50 text-red-800 border-red-200':t==='success'?'bg-emerald-50 text-emerald-800 border-emerald-200':'bg-blue-50 text-blue-800 border-blue-200'}`;
     b.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    if(t === 'success') {
-        setTimeout(() => b.classList.add('hidden'), 10000);
-    }
+    if(t === 'success') setTimeout(() => b.classList.add('hidden'), 10000);
 };
 
 function resetForm() {
     const mainForm = document.getElementById('mainForm');
     if (mainForm) mainForm.reset();
     resetFileUpload();
-    
     globalSelected.clear();
     renderTags();
-    
     populateUnit();
 }
