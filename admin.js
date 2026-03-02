@@ -3,6 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
  * Modul: admin.js (Enjin Kawalan Pentadbir, RBAC Hierarki Pengurusan & Operasi CRUD)
+ * Patch: CORS Strict-Origin / Preflight Bypass (text/plain)
  * ==============================================================================
  */
 
@@ -503,6 +504,10 @@ async function handleManagerAssignSubmit(e) {
         // 3. Lancarkan API GAS untuk Emel (& Kalendar jika pegawai biasa)
         const res = await fetch(GAS_URL, {
             method: 'POST',
+            redirect: "follow",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
             body: JSON.stringify({
                 action: gasAction,
                 sektor: m.sektor,
@@ -782,6 +787,10 @@ window.syncSingleCalendar = async function(id) {
         // Pastikan kita gunakan fungsi kalendar secara paksa di peringkat Admin
         const res = await fetch(GAS_URL, {
             method: 'POST',
+            redirect: "follow",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
             body: JSON.stringify({
                 action: 'notify',
                 sektor: m.sektor,
@@ -825,6 +834,10 @@ window.removeSingleCalendar = async function(id) {
 
         const res = await fetch(GAS_URL, {
             method: 'POST',
+            redirect: "follow",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
             body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
         });
         const result = await res.json();
@@ -866,6 +879,10 @@ window.deleteMemo = async function(id) {
             try {
                 await fetch(GAS_URL, {
                     method: 'POST',
+                    redirect: "follow",
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8",
+                    },
                     body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
                 });
             } catch (e) { console.error("Ralat padam kalendar ketika hapus data", e); }
@@ -951,6 +968,10 @@ async function startBatchSync() {
 
             const res = await fetch(GAS_URL, {
                 method: 'POST',
+                redirect: "follow",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8",
+                },
                 body: JSON.stringify({
                     action: 'notify',
                     sektor: m.sektor,
@@ -1008,6 +1029,10 @@ async function startBatchDelete() {
         try {
             const res = await fetch(GAS_URL, {
                 method: 'POST',
+                redirect: "follow",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8",
+                },
                 body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
             });
             const result = await res.json();

@@ -4,6 +4,7 @@
  * Architect: 0.1% Senior Software Architect
  * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
  * Logik Intercept: Hierarchical Deferred Assignment (TPPD / KS / KU)
+ * Patch: CORS Strict-Origin / Preflight Bypass (text/plain)
  * ==============================================================================
  */
 
@@ -295,8 +296,14 @@ async function handleEarlyUpload(input) {
 
     try {
         const base64Full = await toBase64(file);
+        
+        // PAMPASAN CORS (PATCH)
         const res = await fetch(GAS_URL, {
             method: 'POST',
+            redirect: "follow",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
             body: JSON.stringify({
                 action: 'upload',
                 fileBase64: base64Full.split(',')[1],
@@ -304,6 +311,7 @@ async function handleEarlyUpload(input) {
                 fileMimeType: file.type
             })
         });
+        
         const data = await res.json();
         if (data.status !== 'success') throw new Error(data.message);
 
@@ -392,8 +400,13 @@ async function handleFormSubmit(e) {
 
         const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
 
+        // PAMPASAN CORS (PATCH)
         const res = await fetch(GAS_URL, {
             method: 'POST',
+            redirect: "follow",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
             body: JSON.stringify({
                 action: gasAction,
                 sektor: document.getElementById('sektor').value,
