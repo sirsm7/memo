@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
  * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
- * Logik Intercept: Seamless Deferred Assignment (TPPD)
+ * Logik Intercept: Hierarchical Deferred Assignment (TPPD / KS / KU)
  * ==============================================================================
  */
 
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    // Navigasi Tab Pentadbir & TPPD
+    // Navigasi Tab Pentadbir & Panel Pengurus (Sebelumnya TPPD)
     document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
     document.getElementById('tabBtnTppdPanel')?.addEventListener('click', () => switchTab('tppd'));
 
@@ -69,6 +69,13 @@ function setupEventListeners() {
     document.getElementById('filterTarikh')?.addEventListener('change', filterTable);
     document.getElementById('btnResetFilter')?.addEventListener('click', resetAnalisisFilters);
 }
+
+// ================= UTILITI GLOBAL: HIERARKI PENGURUSAN =================
+window.isManagerRole = function(unitName) {
+    if (!unitName) return false;
+    const u = unitName.toUpperCase();
+    return u === 'TPPD' || u === 'KETUA SEKTOR' || u.startsWith('KETUA UNIT');
+};
 
 // ================= PENGURUSAN TAB NAVIGASI =================
 window.switchTab = function(tabName) {
@@ -102,7 +109,7 @@ window.switchTab = function(tabName) {
         }
     }
 
-    // Pengurusan khas visual Butang Panel TPPD
+    // Pengurusan khas visual Butang Panel Tindakan Pengurus (ID dikekalkan sebagai tppd untuk elak gangguan DOM)
     const tabBtnTppd = document.getElementById('tabBtnTppdPanel');
     if (tabBtnTppd) {
         if (tabName === 'tppd') {
@@ -346,7 +353,7 @@ function resetFileUpload() {
     setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
 }
 
-// ================= HANTAR BORANG (SUBMIT) DENGAN PINTASAN TPPD =================
+// ================= HANTAR BORANG (SUBMIT) DENGAN PINTASAN HIERARKI =================
 async function handleFormSubmit(e) {
     e.preventDefault();
     if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
@@ -358,9 +365,9 @@ async function handleFormSubmit(e) {
         const names = Array.from(globalSelected.values());
         const emels = Array.from(globalSelected.keys());
         
-        // Logik Pintasan (Intercept Logic) untuk Tugasan Tertunda (Deferred Assignment)
+        // Logik Pintasan (Intercept Logic) untuk Tugasan Tertunda & Delegasi Berhierarki
         const currentUnit = document.getElementById('unit').value;
-        const isTppdDeferred = currentUnit.toUpperCase() === 'TPPD';
+        const isManagerDeferred = window.isManagerRole(currentUnit);
 
         // 1. Simpan ke Supabase (Tanpa RLS - Disuntik Tiga Medan Baharu)
         const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
@@ -380,35 +387,37 @@ async function handleFormSubmit(e) {
 
         if (subError) throw subError;
 
-        if (isTppdDeferred) {
-            // Jika unit adalah TPPD, abaikan hantaran emel & kalendar. Hanya simpan log sahaja.
-            showMessage("<strong>Berjaya!</strong> Rekod surat disimpan. Notifikasi emel ditangguhkan sementara menunggu penetapan pegawai oleh TPPD sektor berkenaan.", "success");
+        // 2. Notifikasi GAS (Emel Pengurusan ATAU Emel & Kalendar RSVP)
+        setLoading(true, isManagerDeferred ? "Menghantar Notifikasi Pengurusan..." : "Menghantar Notifikasi RSVP & Kalendar...");
+
+        const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
+
+        const res = await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: gasAction,
+                sektor: document.getElementById('sektor').value,
+                unit: currentUnit,
+                namaArray: names,
+                emailArray: emels,
+                noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
+                tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
+                tarikhTerima: document.getElementById('tarikhTerima').value,
+                masaRekod: document.getElementById('masaRekod').value,
+                fileUrl: uploadedFileUrl
+            })
+        });
+        const notify = await res.json();
+
+        // 3. Simpan Acara Kalendar Jika Ada (Pegawai Biasa)
+        if (notify.status === 'success' && notify.calendarEventId) {
+            await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
+        }
+
+        // 4. Maklum Balas UI
+        if (isManagerDeferred) {
+            showMessage("<strong>Berjaya!</strong> Rekod surat disimpan. Makluman emel telah dihantar kepada pengurusan untuk tujuan delegasi.", "success");
         } else {
-            // Jika unit spesifik, tembak fungsi notifikasi kalendar GAS seperti biasa
-            setLoading(true, "Menghantar Notifikasi RSVP & Kalendar...");
-
-            // 2. Notifikasi GAS (Emel & Kalendar RSVP)
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: 'notify',
-                    sektor: document.getElementById('sektor').value,
-                    unit: currentUnit,
-                    namaArray: names,
-                    emailArray: emels,
-                    noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
-                    tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
-                    tarikhTerima: document.getElementById('tarikhTerima').value,
-                    masaRekod: document.getElementById('masaRekod').value,
-                    fileUrl: uploadedFileUrl
-                })
-            });
-            const notify = await res.json();
-
-            if (notify.status === 'success') {
-                await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
-            }
-
             showMessage("<strong>Berjaya!</strong> Rekod surat disimpan dan jemputan kalendar (RSVP) telah dihantar kepada penerima.", "success");
         }
         
