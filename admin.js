@@ -121,29 +121,27 @@ async function handleLogin(e) {
         if (error || !data) throw new Error("Emel atau Kata Laluan salah.");
 
         // RBAC: Pengesanan Silang Hierarki Pengurusan (Sektor & Unit)
-        let isManager = false;
+        let isSystemAdmin = data.role === 'SUPER ADMIN' || data.role === 'ADMIN';
+        let isManager = data.role === 'TPPD' || data.role === 'KETUA SEKTOR' || data.role === 'KETUA UNIT';
         let managerSektor = null;
         let managerUnit = null;
 
-        const { data: pData, error: pError } = await _supabase
-            .from('memo_pegawai')
-            .select('sektor, unit')
-            .eq('emel_rasmi', email)
-            .single();
-        
-        if (!pError && pData) {
-            // Semak jika unit pengguna ini adalah kumpulan pengurusan (TPPD/KS/KU)
-            if (window.isManagerRole && window.isManagerRole(pData.unit)) {
-                isManager = true;
+        if (isManager) {
+            const { data: pData, error: pError } = await _supabase
+                .from('memo_pegawai')
+                .select('sektor, unit')
+                .eq('emel_rasmi', email)
+                .single();
+            
+            if (!pError && pData) {
                 managerSektor = pData.sektor;
                 managerUnit = pData.unit;
+            } else {
+                throw new Error("Profil Sektor bagi Pengurus ini tidak dijumpai dalam pangkalan data pegawai. Sila kemaskini data pegawai terlebih dahulu.");
             }
-        } else if (data.role === 'TPPD') {
-            // Fallback keselamatan untuk fail profil TPPD yang lama
-            throw new Error("Profil Sektor bagi Pengurus ini tidak dijumpai dalam pangkalan data pegawai. Sila kemaskini data pegawai terlebih dahulu.");
         }
 
-        currentAdmin = { ...data, isManager, managerSektor, managerUnit };
+        currentAdmin = { ...data, isSystemAdmin, isManager, managerSektor, managerUnit };
         sessionStorage.setItem('memo_admin_session', JSON.stringify(currentAdmin));
         
         toggleModal('modalLoginAdmin', false);
@@ -185,11 +183,11 @@ function showAdminUI(isLoggedIn) {
         btnLogout.classList.remove('hidden');
         
         // Asingkan paparan antara Panel Pengurus dan Admin Biasa
-        if (currentAdmin.isManager || currentAdmin.role === 'TPPD') {
+        if (currentAdmin.isManager) {
             if (tabTppd) tabTppd.classList.remove('hidden');
             if (tabAdmin) tabAdmin.classList.add('hidden');
             window.switchTab('tppd');
-        } else {
+        } else if (currentAdmin.isSystemAdmin) {
             if (tabAdmin) tabAdmin.classList.remove('hidden');
             if (tabTppd) tabTppd.classList.add('hidden');
             window.switchTab('admin');
@@ -207,9 +205,9 @@ async function loadAdminData() {
     // Pengurusan sentiasa perlukan data pegawai untuk dropdown modal mereka
     await loadAdminPegawai(); 
 
-    if (currentAdmin.isManager || currentAdmin.role === 'TPPD') {
+    if (currentAdmin.isManager) {
         loadManagerMemo();
-    } else {
+    } else if (currentAdmin.isSystemAdmin) {
         loadAdminMemo();
         loadAdminSistem();
     }
@@ -230,7 +228,7 @@ async function loadAdminPegawai() {
     const { data } = await _supabase.from('memo_pegawai').select('*').order('nama');
     adminPegawaiData = data || [];
     
-    if (currentAdmin && (!currentAdmin.isManager && currentAdmin.role !== 'TPPD')) {
+    if (currentAdmin && currentAdmin.isSystemAdmin) {
         // Tetapkan susunan lalai ke state jika admin
         adminSortState.pegawai = { column: 'nama', direction: 'asc' };
         filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
