@@ -5,6 +5,7 @@
  * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
  * Logik Intercept: Database-Driven Hierarchical Deferred Assignment (memo_admin)
  * Patch: CORS Strict-Origin / Preflight Bypass (text/plain)
+ * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
  * ==============================================================================
  */
 
@@ -78,8 +79,36 @@ window.isManagerRole = function(unitName) {
     return u === 'TPPD' || u === 'KETUA SEKTOR' || u.startsWith('KETUA UNIT');
 };
 
-// ================= PENGURUSAN TAB NAVIGASI =================
+// ================= PENGURUSAN TAB NAVIGASI & KESELAMATAN (GUARD) =================
 window.switchTab = function(tabName) {
+    // --- PENGAWAL KESELAMATAN KLIEN (CLIENT-SIDE GUARD) ---
+    if (['daftar', 'admin', 'tppd'].includes(tabName)) {
+        const sessionStr = sessionStorage.getItem('memo_admin_session');
+        const adminData = sessionStr ? JSON.parse(sessionStr) : null;
+        
+        if (tabName === 'daftar') {
+            if (!adminData || (!adminData.isPerakam && !adminData.isSystemAdmin)) {
+                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada profil PERAKAM dan PENTADBIR sahaja.", "error");
+                return;
+            }
+        }
+        
+        if (tabName === 'admin') {
+            if (!adminData || !adminData.isSystemAdmin) {
+                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada profil PENTADBIR (System Admin) sahaja.", "error");
+                return;
+            }
+        }
+        
+        if (tabName === 'tppd') {
+            if (!adminData || !adminData.isManager) {
+                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada hierarki PENGURUSAN sahaja.", "error");
+                return;
+            }
+        }
+    }
+    // --- TAMAT PENGAWAL KESELAMATAN ---
+
     const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about', 'tppd'];
     
     tabs.forEach(t => {

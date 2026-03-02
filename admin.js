@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
  * Modul: admin.js (Enjin Kawalan Pentadbir, RBAC Hierarki Pengurusan & Operasi CRUD)
- * Patch: CORS Strict-Origin / Preflight Bypass (text/plain)
+ * Patch: Penambahan Peranan PERAKAM & Pemurnian UI Form
  * ==============================================================================
  */
 
@@ -66,8 +66,9 @@ function setupAdminEventListeners() {
     document.getElementById('btnPukalSegerak')?.addEventListener('click', startBatchSync);
     document.getElementById('btnPukalPadam')?.addEventListener('click', startBatchDelete);
 
-    // CRUD Sistem (Admin Baru)
-    document.getElementById('btnTambahAdmin')?.addEventListener('click', handleTambahAdmin);
+    // CRUD Sistem (Admin/Perakam Baru)
+    document.getElementById('btnTambahAdmin')?.addEventListener('click', () => toggleModal('modalTambahAdmin', true));
+    document.getElementById('formTambahAdmin')?.addEventListener('submit', handleTambahAdminSubmit);
 
     // Carian Admin
     document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => filterAdminTable('memo', e.target.value));
@@ -85,6 +86,7 @@ function setupAdminEventListeners() {
             toggleModal('modalPegawai', false);
             toggleModal('modalMemo', false);
             toggleModal('modalTppdAssign', false);
+            toggleModal('modalTambahAdmin', false);
         });
     });
 }
@@ -120,9 +122,11 @@ async function handleLogin(e) {
 
         if (error || !data) throw new Error("Emel atau Kata Laluan salah.");
 
-        // RBAC: Pengesanan Silang Hierarki Pengurusan (Sektor & Unit)
+        // RBAC: Pengesanan Silang Hierarki Pengurusan & Peranan Sistem
         let isSystemAdmin = data.role === 'SUPER ADMIN' || data.role === 'ADMIN';
         let isManager = data.role === 'TPPD' || data.role === 'KETUA SEKTOR' || data.role === 'KETUA UNIT';
+        let isPerakam = data.role === 'PERAKAM';
+        
         let managerSektor = null;
         let managerUnit = null;
 
@@ -141,14 +145,17 @@ async function handleLogin(e) {
             }
         }
 
-        currentAdmin = { ...data, isSystemAdmin, isManager, managerSektor, managerUnit };
+        currentAdmin = { ...data, isSystemAdmin, isManager, isPerakam, managerSektor, managerUnit };
         sessionStorage.setItem('memo_admin_session', JSON.stringify(currentAdmin));
         
         toggleModal('modalLoginAdmin', false);
         showAdminUI(true);
         loadAdminData();
         
-        const welcomeMsg = currentAdmin.isManager ? `Selamat Datang, ${managerUnit} (${managerSektor})` : `Selamat Datang, ${data.role}!`;
+        let welcomeMsg = `Selamat Datang, ${data.role}!`;
+        if (currentAdmin.isManager) welcomeMsg = `Selamat Datang, ${managerUnit} (${managerSektor})`;
+        if (currentAdmin.isPerakam) welcomeMsg = `Sesi Aktif: Mod Perakam Pendaftaran Surat.`;
+        
         window.showMessage(welcomeMsg, 'success');
 
     } catch (err) {
@@ -176,18 +183,22 @@ function showAdminUI(isLoggedIn) {
     const btnLogin = document.getElementById('btnBukaLoginAdmin');
     const btnLogout = document.getElementById('btnLogKeluarAdmin');
     const tabAdmin = document.getElementById('tabBtnAdminPanel');
-    const tabTppd = document.getElementById('tabBtnTppdPanel'); // Mengekalkan ID HTML asal
+    const tabTppd = document.getElementById('tabBtnTppdPanel');
+    const menuCardDaftar = document.getElementById('menuCardDaftar');
 
     if (isLoggedIn) {
         btnLogin.classList.add('hidden');
         btnLogout.classList.remove('hidden');
         
-        // Asingkan paparan antara Panel Pengurus dan Admin Biasa
-        if (currentAdmin.isManager) {
+        if (currentAdmin.isPerakam) {
+            if (menuCardDaftar) menuCardDaftar.classList.remove('hidden');
+            window.switchTab('daftar'); 
+        } else if (currentAdmin.isManager) {
             if (tabTppd) tabTppd.classList.remove('hidden');
             if (tabAdmin) tabAdmin.classList.add('hidden');
             window.switchTab('tppd');
         } else if (currentAdmin.isSystemAdmin) {
+            if (menuCardDaftar) menuCardDaftar.classList.remove('hidden');
             if (tabAdmin) tabAdmin.classList.remove('hidden');
             if (tabTppd) tabTppd.classList.add('hidden');
             window.switchTab('admin');
@@ -197,6 +208,7 @@ function showAdminUI(isLoggedIn) {
         btnLogout.classList.add('hidden');
         if (tabAdmin) tabAdmin.classList.add('hidden');
         if (tabTppd) tabTppd.classList.add('hidden');
+        if (menuCardDaftar) menuCardDaftar.classList.add('hidden');
     }
 }
 
@@ -298,16 +310,21 @@ function renderAdminPegawaiTable(data) {
 
 function renderAdminSistemTable(data) {
     const tbody = document.getElementById('adminTableSistemBody');
-    tbody.innerHTML = data.map(row => `
-        <tr>
-            <td class="p-3 border-b text-slate-400">#${row.id}</td>
-            <td class="p-3 border-b font-medium">${row.email}</td>
-            <td class="p-3 border-b"><span class="px-2 py-1 ${row.role === 'SUPER ADMIN' ? 'bg-purple-100 text-purple-700' : (row.role === 'TPPD' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600')} text-xs font-bold rounded">${row.role}</span></td>
-            <td class="p-3 border-b text-center">
-                ${row.role !== 'SUPER ADMIN' ? `<button onclick="deleteAdmin(${row.id})" class="text-red-500 hover:text-red-700 font-bold">Gugurkan</button>` : '<span class="text-xs text-slate-300 italic">Tiada Tindakan</span>'}
-            </td>
-        </tr>
-    `).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
+    tbody.innerHTML = data.map(row => {
+        const badgeClass = row.role === 'SUPER ADMIN' ? 'bg-purple-100 text-purple-700' : 
+                           (row.role === 'TPPD' ? 'bg-indigo-100 text-indigo-700' : 
+                           (row.role === 'PERAKAM' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'));
+        return `
+            <tr>
+                <td class="p-3 border-b text-slate-400">#${row.id}</td>
+                <td class="p-3 border-b font-medium">${row.email}</td>
+                <td class="p-3 border-b"><span class="px-2 py-1 ${badgeClass} text-xs font-bold rounded">${row.role}</span></td>
+                <td class="p-3 border-b text-center">
+                    ${row.role !== 'SUPER ADMIN' ? `<button onclick="deleteAdmin(${row.id})" class="text-red-500 hover:text-red-700 font-bold">Gugurkan</button>` : '<span class="text-xs text-slate-300 italic">Tiada Tindakan</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
 }
 
 // ================= MODUL DELEGASI HIERARKI PENGURUSAN =================
@@ -327,7 +344,7 @@ async function loadManagerMemo() {
 }
 
 function renderManagerTable(data) {
-    const tbody = document.getElementById('tppdTableBody'); // Mengekalkan ID HTML asal
+    const tbody = document.getElementById('tppdTableBody'); 
     tbody.innerHTML = data.map(row => `
         <tr class="hover:bg-indigo-50/30 transition-colors">
             <td class="p-4 border-b align-top">
@@ -451,7 +468,7 @@ function renderManagerTags() {
     }
 
     container.innerHTML = '';
-    hiddenCheck.value = 'OK'; // Lulus form validation HTML
+    hiddenCheck.value = 'OK'; 
     
     managerSelected.forEach((nama, emel) => {
         container.innerHTML += `
@@ -1060,34 +1077,43 @@ function refreshIframeKalendar() {
     if (calFrame) calFrame.src = calFrame.src;
 }
 
-// ================= CRUD LOGIC: ADMIN =================
-async function handleTambahAdmin() {
-    const email = prompt("Masukkan emel Pentadbir baharu:");
-    if (!email) return;
-    const pass = prompt("Masukkan kata laluan:");
-    if (!pass) return;
+// ================= CRUD LOGIC: SISTEM (ADMIN & PERAKAM) =================
+async function handleTambahAdminSubmit(e) {
+    e.preventDefault();
+    const email = document.getElementById('tambahAdminEmail').value;
+    const pass = document.getElementById('tambahAdminPassword').value;
+    const role = document.getElementById('tambahAdminRole').value;
+
+    const btn = document.getElementById('btnSimpanAdmin');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loader mr-2"></div> Menyimpan...';
 
     try {
         await _supabase.from('memo_admin').insert([{
             email: email,
             password: pass,
-            role: 'ADMIN'
+            role: role
         }]);
         loadAdminSistem();
-        window.showMessage("Pentadbir baharu berjaya ditambah.", "success");
+        toggleModal('modalTambahAdmin', false);
+        document.getElementById('formTambahAdmin').reset();
+        window.showMessage(`Akses pengguna baharu berjawatan ${role} berjaya didaftarkan.`, "success");
     } catch (err) {
-        window.showMessage("Gagal menambah admin: " + err.message, "error");
+        window.showMessage("Gagal menambah akses sistem: " + err.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Daftar Pengguna';
     }
 }
 
 window.deleteAdmin = async function(id) {
-    if (!confirm("Gugurkan akses pentadbir ini?")) return;
+    if (!confirm("Gugurkan akses sistem ini secara kekal?")) return;
     try {
         await _supabase.from('memo_admin').delete().eq('id', id);
         loadAdminSistem();
-        window.showMessage("Akses pentadbir telah dibatalkan.", "success");
+        window.showMessage("Akses profil telah berjaya dibatalkan.", "success");
     } catch (err) {
-        window.showMessage("Gagal membatalkan akses.", "error");
+        window.showMessage("Gagal membatalkan akses profil.", "error");
     }
 }
 

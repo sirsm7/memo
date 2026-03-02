@@ -84,15 +84,15 @@
 
             <!-- TAB 0: LAMAN UTAMA (LANDING PAGE) -->
             <div id="tabUtama" class="block bg-slate-50 p-6 sm:p-10 min-h-[500px]">
-                <div class="max-w-4xl mx-auto">
+                <div class="max-w-5xl mx-auto">
                     <div class="text-center mb-10">
                         <h3 class="text-2xl font-bold text-slate-800">Selamat Datang ke Sistem Memo@AG</h3>
                         <p class="text-slate-500 mt-2">Sila pilih modul operasi yang ingin diakses di bawah.</p>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Menu 1 -->
-                        <div onclick="switchTab('daftar')" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-indigo-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
+                    <div class="flex flex-wrap justify-center gap-6">
+                        <!-- Menu 1 (Hanya paparan untuk PERAKAM & ADMIN) -->
+                        <div id="menuCardDaftar" onclick="switchTab('daftar')" class="hidden flex-1 min-w-[280px] max-w-[340px] bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-indigo-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
                             <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             </div>
@@ -101,7 +101,7 @@
                         </div>
 
                         <!-- Menu 2 -->
-                        <div onclick="switchTab('analisis')" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-emerald-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
+                        <div onclick="switchTab('analisis')" class="flex-1 min-w-[280px] max-w-[340px] bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-emerald-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
                             <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             </div>
@@ -110,7 +110,7 @@
                         </div>
 
                         <!-- Menu 3 -->
-                        <div onclick="switchTab('kalendar')" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-amber-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
+                        <div onclick="switchTab('kalendar')" class="flex-1 min-w-[280px] max-w-[340px] bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-amber-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
                             <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             </div>
@@ -797,6 +797,40 @@
                 <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100 mt-2">
                     <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200 transition-colors">Batal</button>
                     <button type="submit" id="btnSubmitTppdAssign" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center shadow-md transition-all">Sahkan & Hantar Kalendar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Admin / Perakam Baru -->
+    <div id="modalTambahAdmin" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-700">Tambah Akses Sistem</h3>
+                <button type="button" class="btnTutupModal text-slate-400 hover:text-red-500 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="formTambahAdmin" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alamat Emel <span class="text-red-500">*</span></label>
+                    <input type="email" id="tambahAdminEmail" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="contoh@moe.gov.my">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kata Laluan <span class="text-red-500">*</span></label>
+                    <input type="password" id="tambahAdminPassword" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="******">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Peranan Sistem <span class="text-red-500">*</span></label>
+                    <select id="tambahAdminRole" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="">-- PILIH PERANAN --</option>
+                        <option value="PERAKAM">PERAKAM (Akses Daftar Surat Sahaja)</option>
+                        <option value="ADMIN">ADMIN (Akses Penuh Pangkalan Data)</option>
+                    </select>
+                </div>
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
+                    <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200 transition-colors">Batal</button>
+                    <button type="submit" id="btnSimpanAdmin" class="px-6 py-2 bg-emerald-600 text-white font-bold rounded text-sm hover:bg-emerald-700 flex items-center shadow-md transition-all">Daftar Pengguna</button>
                 </div>
             </form>
         </div>
