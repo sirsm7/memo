@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Architect: 0.1% Senior Software Architect
  * Modul: admin.js (Enjin Kawalan Pentadbir, RBAC Hierarki Pengurusan & Operasi CRUD)
- * Patch: Penambahan Peranan PERAKAM & Pemurnian UI Form
+ * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & Integrasi Pengurus Dalam RSVP
  * ==============================================================================
  */
 
@@ -492,8 +492,9 @@ async function handleManagerAssignSubmit(e) {
 
     const id = document.getElementById('tppdMemoId').value;
     const targetUnit = document.getElementById('tppdUnitSelect').value;
-    const names = Array.from(managerSelected.values());
-    const emails = Array.from(managerSelected.keys());
+    
+    let names = Array.from(managerSelected.values());
+    let emails = Array.from(managerSelected.keys());
 
     const m = managerMemoData.find(x => x.id == id);
     if (!m) {
@@ -502,8 +503,24 @@ async function handleManagerAssignSubmit(e) {
         return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
     }
 
+    // --- LOGIK INTEGRASI PENGURUS DALAM RSVP KALENDAR ---
+    // Cari profil pengurus yang sedang membuat tugasan (berdasarkan email log masuk)
+    const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === currentAdmin.email.toLowerCase());
+    
+    // Semak jika email pengurus belum ada di dalam senarai yang akan dihantar ke kalendar
+    const existingEmailsLowerCase = emails.map(e => e.toLowerCase());
+    
+    if (managerProfile && !existingEmailsLowerCase.includes(managerProfile.emel_rasmi.toLowerCase())) {
+        names.push(managerProfile.nama);
+        emails.push(managerProfile.emel_rasmi);
+    } else if (!managerProfile && !existingEmailsLowerCase.includes(currentAdmin.email.toLowerCase())) {
+        names.push(currentAdmin.role || 'PENGURUSAN');
+        emails.push(currentAdmin.email);
+    }
+    // ----------------------------------------------------
+
     try {
-        // 1. Update Supabase Data dengan unit dan PIC sasaran
+        // 1. Update Supabase Data dengan unit dan PIC sasaran (termasuk Pengurus)
         const { error: updateError } = await _supabase.from('memo_rekod').update({
             unit: targetUnit,
             nama_penerima: names.join(', '),
@@ -549,7 +566,7 @@ async function handleManagerAssignSubmit(e) {
         if (isTargetManager) {
             window.showMessage("Pengesahan berjaya. Sistem telah memanjangkan memo ini ke peringkat pengurusan yang seterusnya.", "success");
         } else {
-            window.showMessage("Pengesahan berjaya. Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana.", "success");
+            window.showMessage("Pengesahan berjaya. Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana dan anda turut disertakan dalam rekod acara tersebut.", "success");
         }
 
     } catch (err) {

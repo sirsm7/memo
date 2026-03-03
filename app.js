@@ -4,7 +4,7 @@
  * Architect: 0.1% Senior Software Architect
  * Modul: app.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Eksport)
  * Logik Intercept: Database-Driven Hierarchical Deferred Assignment (memo_admin)
- * Patch: CORS Strict-Origin / Preflight Bypass (text/plain)
+ * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & CORS Preflight
  * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
  * ==============================================================================
  */
@@ -378,16 +378,21 @@ async function handleFormSubmit(e) {
         const emels = Array.from(globalSelected.keys());
         const currentUnit = document.getElementById('unit').value;
 
-        // 1. Logik Intercept: Semakan Silang terhadap jadual memo_admin
-        // Kita menyemak jika mana-mana emel penerima yang dipilih wujud di pangkalan data admin.
-        const { data: adminList, error: adminError } = await _supabase.from('memo_admin').select('email');
+        // 1. Logik Intercept: Semakan Silang terhadap jadual memo_admin (Pindaan Hierarki)
+        // Mengekstrak emel beserta peranan (role) untuk tapisan pengurusan
+        const { data: adminList, error: adminError } = await _supabase.from('memo_admin').select('email, role');
         if (adminError) throw adminError;
 
-        const adminEmails = adminList.map(a => a.email.toLowerCase());
+        // Saring hanya profil Pengurusan Tertinggi (TPPD, KETUA SEKTOR, KETUA UNIT)
+        const managerEmails = adminList
+            .filter(a => ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'].includes(a.role))
+            .map(a => a.email.toLowerCase());
+
         const selectedEmails = emels.map(e => e.toLowerCase());
         
-        // Klasifikasikan sebagai 'Manager' jika emel terpilih adalah milik Admin (TPPD/KS/KU)
-        const isManagerDeferred = selectedEmails.some(email => adminEmails.includes(email));
+        // Klasifikasikan sebagai 'Manager Deferred' HANYA jika KESEMUA penerima adalah Pengurus.
+        // Jika wujud campuran (Pengurus + PIC Pelaksana), pemprosesan akan bypass dan terus ke Kalendar.
+        const isManagerDeferred = selectedEmails.length > 0 && selectedEmails.every(email => managerEmails.includes(email));
 
         setLoading(true, "Menyimpan Data...");
 
@@ -433,7 +438,7 @@ async function handleFormSubmit(e) {
         });
         const notify = await res.json();
 
-        // 4. Simpan Acara Kalendar Jika Ada (Tindakan Pegawai Pelaksana)
+        // 4. Simpan Acara Kalendar Jika Ada (Tindakan Pegawai Pelaksana / Bypass Mix)
         if (notify.status === 'success' && notify.calendarEventId) {
             await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
         }
@@ -442,7 +447,7 @@ async function handleFormSubmit(e) {
         if (isManagerDeferred) {
             showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong> Rekod surat disimpan. Notifikasi emel telah dihantar kepada pentadbir sistem (TPPD/KS/KU) untuk tujuan delegasi unit.", "success");
         } else {
-            showMessage("<strong>Rekod Berjaya!</strong> Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik kepada pegawai penerima.", "success");
+            showMessage("<strong>Rekod Berjaya!</strong> Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik kepada semua pegawai penerima.", "success");
         }
         
         const calFrame = document.getElementById('calendarFrame');
