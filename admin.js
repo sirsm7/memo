@@ -7,6 +7,7 @@
  * Kemaskini Terbaharu: Modul Ubah Hala (Re-route) Memo & Automasi Kalendar (Edit Modal)
  * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama & Emel
  * Patch Terkini: Pemampatan Antaramuka Jadual & Dialog SweetAlert2 (Pengganti Confirm)
+ * Patch Khas: URL Parameter Interception untuk Laluan Ajaib (Magic Link) Delegasi Emel
  * ==============================================================================
  */
 
@@ -34,6 +35,7 @@ let adminSortState = {
 document.addEventListener('DOMContentLoaded', () => {
     checkAdminSession();
     setupAdminEventListeners();
+    checkUrlIntercept(); // Pintasan URL dari emel delegasi
 });
 
 function setupAdminEventListeners() {
@@ -106,6 +108,31 @@ function checkAdminSession() {
         currentAdmin = JSON.parse(session);
         showAdminUI(true);
         loadAdminData();
+    }
+}
+
+/**
+ * Pintasan URL (Magic Link) dari emel pengurusan (Delegasi)
+ */
+function checkUrlIntercept() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+
+    if (action === 'delegasi') {
+        if (!currentAdmin) {
+            // Jika belum log masuk, paparkan modal log masuk berserta mesej panduan
+            toggleModal('modalLoginAdmin', true);
+            Swal.fire({
+                title: 'Log Masuk Diperlukan',
+                text: 'Sila log masuk menggunakan emel pengurusan anda untuk meneruskan tindakan delegasi maklumat ini.',
+                icon: 'info',
+                confirmButtonColor: '#4f46e5',
+                confirmButtonText: 'Seterusnya',
+                customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold' }
+            });
+        }
+        // Bersihkan parameter URL bagi mengelakkan gelung pintasan berterusan jika di-refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
 }
 
