@@ -6,6 +6,7 @@
  * Logik Intercept: Database-Driven Hierarchical Deferred Assignment (memo_admin)
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & CORS Preflight
  * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
+ * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama
  * ==============================================================================
  */
 
@@ -209,9 +210,10 @@ window.populateNama = function() {
 
         groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
             const isChecked = globalSelected.has(p.emel) ? 'checked' : '';
+            const safeNama = p.nama.replace(/"/g, '&quot;'); // Melindungi dari ralat "double quote"
             nc.innerHTML += `
                 <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                    <input type="checkbox" id="c_${i}" value="${p.nama}" data-email="${p.emel}" onchange="togglePenerima('${p.nama}', '${p.emel}', this.checked)" class="w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500" ${isChecked}>
+                    <input type="checkbox" id="c_${i}" value="${safeNama}" data-email="${p.emel}" onchange="togglePenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500" ${isChecked}>
                     <label for="c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
                 </div>`;
         });
@@ -267,7 +269,7 @@ function renderTags() {
         container.innerHTML += `
             <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
                 <span>${nama}</span>
-                <button type="button" onclick="removeTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
+                <button type="button" data-email="${emel}" onclick="removeTag(this.getAttribute('data-email'))" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>

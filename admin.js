@@ -5,6 +5,7 @@
  * Modul: admin.js (Enjin Kawalan Pentadbir, RBAC Hierarki Pengurusan & Operasi CRUD)
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & Integrasi Pengurus Dalam RSVP
  * Kemaskini Terbaharu: Modul Ubah Hala (Re-route) Memo & Automasi Kalendar (Edit Modal)
+ * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama & Emel
  * ==============================================================================
  */
 
@@ -425,9 +426,10 @@ function populateManagerNama() {
         
         pegs.forEach((p, i) => {
             const isChecked = managerSelected.has(p.emel_rasmi) ? 'checked' : '';
+            const safeNama = p.nama.replace(/"/g, '&quot;');
             nc.innerHTML += `
                 <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                    <input type="checkbox" id="m_c_${i}" value="${p.nama}" data-email="${p.emel_rasmi}" onchange="toggleManagerPenerima('${p.nama}', '${p.emel_rasmi}', this.checked)" class="w-4 h-4 text-indigo-600 rounded m-checkbox focus:ring-indigo-500" ${isChecked}>
+                    <input type="checkbox" id="m_c_${i}" value="${safeNama}" data-email="${p.emel_rasmi}" onchange="toggleManagerPenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded m-checkbox focus:ring-indigo-500" ${isChecked}>
                     <label for="m_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
                 </div>`;
         });
@@ -480,7 +482,7 @@ function renderManagerTags() {
         container.innerHTML += `
             <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
                 <span>${nama}</span>
-                <button type="button" onclick="removeManagerTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
+                <button type="button" data-email="${emel}" onclick="removeManagerTag(this.getAttribute('data-email'))" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
@@ -792,9 +794,10 @@ function populateAdminEditNama() {
         
         pegs.forEach((p, i) => {
             const isChecked = adminEditSelected.has(p.emel_rasmi) ? 'checked' : '';
+            const safeNama = p.nama.replace(/"/g, '&quot;');
             nc.innerHTML += `
                 <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                    <input type="checkbox" id="ae_c_${i}" value="${p.nama}" data-email="${p.emel_rasmi}" onchange="toggleAdminEditPenerima('${p.nama}', '${p.emel_rasmi}', this.checked)" class="w-4 h-4 text-indigo-600 rounded ae-checkbox focus:ring-indigo-500" ${isChecked}>
+                    <input type="checkbox" id="ae_c_${i}" value="${safeNama}" data-email="${p.emel_rasmi}" onchange="toggleAdminEditPenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded ae-checkbox focus:ring-indigo-500" ${isChecked}>
                     <label for="ae_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
                 </div>`;
         });
@@ -837,7 +840,7 @@ function renderAdminEditTags() {
         container.innerHTML += `
             <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
                 <span>${nama}</span>
-                <button type="button" onclick="removeAdminEditTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
+                <button type="button" data-email="${emel}" onclick="removeAdminEditTag(this.getAttribute('data-email'))" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
