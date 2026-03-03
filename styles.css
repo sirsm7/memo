@@ -54,3 +54,40 @@ input, select, textarea {
 .tab-btn, .admin-sub-tab, .btnTutupModal { 
     transition: all 0.3s ease; 
 }
+
+/* 5. GAYA KHUSUS SWEETALERT2 (TAILWIND INTEGRATION) */
+.swal2-popup {
+    font-family: 'Inter', sans-serif !important;
+    border-radius: 1rem !important; /* rounded-2xl */
+    padding: 1.5rem !important;
+}
+
+.swal2-title {
+    font-size: 1.25rem !important; /* text-xl */
+    font-weight: 700 !important; /* font-bold */
+    color: #1e293b !important; /* slate-800 */
+}
+
+.swal2-html-container {
+    font-size: 0.875rem !important; /* text-sm */
+    color: #475569 !important; /* slate-600 */
+    line-height: 1.5 !important;
+}
+
+.swal2-confirm {
+    border-radius: 0.5rem !important; /* rounded-lg */
+    font-weight: 600 !important;
+    padding: 0.625rem 1.5rem !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.swal2-cancel {
+    border-radius: 0.5rem !important; /* rounded-lg */
+    font-weight: 600 !important;
+    padding: 0.625rem 1.5rem !important;
+}
+
+/* Memastikan SweetAlert2 sentiasa berada di atas elemen modal antaramuka lain */
+.swal2-container {
+    z-index: 99999 !important;
+}

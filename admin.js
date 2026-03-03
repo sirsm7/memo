@@ -6,7 +6,7 @@
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & Integrasi Pengurus Dalam RSVP
  * Kemaskini Terbaharu: Modul Ubah Hala (Re-route) Memo & Automasi Kalendar (Edit Modal)
  * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama & Emel
- * Patch Terkini: Kebenaran Pengurus Memilih Diri Sendiri (Self-Assign) di Modal Delegasi
+ * Patch Terkini: Pemampatan Antaramuka Jadual & Dialog SweetAlert2 (Pengganti Confirm)
  * ==============================================================================
  */
 
@@ -118,7 +118,7 @@ async function handleLogin(e) {
 
     errorDiv.classList.add('hidden');
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader mr-2"></div> Sahkan...';
+    btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Sahkan...';
 
     try {
         const { data, error } = await _supabase
@@ -269,51 +269,51 @@ function renderAdminMemoTable(data) {
         const hasCalendar = !!row.calendar_event_id;
         
         return `
-        <tr>
-            <td class="p-3 border-b text-xs font-mono text-slate-400 align-top">#${row.id}</td>
-            <td class="p-3 border-b align-top">
-                <div class="font-bold text-slate-700 uppercase">${row.no_rujukan || 'TIADA'}</div>
-                <div class="text-xs text-slate-500 mt-1 uppercase">${row.tajuk_program}</div>
+        <tr class="hover:bg-slate-50 transition-colors">
+            <td class="p-2 border-b text-[11px] font-mono text-slate-400 align-top">#${row.id}</td>
+            <td class="p-2 border-b align-top">
+                <div class="font-bold text-slate-700 uppercase text-[11px] md:text-xs">${row.no_rujukan || 'TIADA'}</div>
+                <div class="text-[10px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
             </td>
-            <td class="p-3 border-b align-top">
-                <div class="font-semibold text-slate-700">${row.tarikh_terima}</div>
-                <div class="text-xs text-indigo-600 font-bold mt-1">${row.masa_rekod || '-'}</div>
+            <td class="p-2 border-b align-top">
+                <div class="font-semibold text-slate-700 text-[11px]">${row.tarikh_terima}</div>
+                <div class="text-[10px] text-indigo-600 font-bold mt-0.5">${row.masa_rekod || '-'}</div>
             </td>
-            <td class="p-3 border-b text-center align-top">
+            <td class="p-2 border-b text-center align-top">
                 ${hasCalendar ? 
-                    `<button onclick="removeSingleCalendar(${row.id})" class="text-red-500 hover:text-red-700 text-xs font-bold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-28">
+                    `<button onclick="removeSingleCalendar(${row.id})" class="text-red-500 hover:text-red-700 text-[10px] font-bold bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Padam Kalendar
                     </button>` 
                     : 
-                    `<button onclick="syncSingleCalendar(${row.id})" class="text-emerald-600 hover:text-emerald-800 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-28">
+                    `<button onclick="syncSingleCalendar(${row.id})" class="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Segerak Kalendar
                     </button>`
                 }
             </td>
-            <td class="p-3 border-b text-center align-top space-x-2">
-                <button onclick="editMemo(${row.id})" class="text-indigo-600 hover:text-indigo-900 font-bold text-xs uppercase tracking-wider">Edit</button>
-                <button onclick="deleteMemo(${row.id})" class="text-slate-400 hover:text-red-600 font-bold text-xs uppercase tracking-wider">Padam Rekod</button>
+            <td class="p-2 border-b text-center align-top space-x-2">
+                <button onclick="editMemo(${row.id})" class="text-indigo-600 hover:text-indigo-900 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded">Edit</button>
+                <button onclick="deleteMemo(${row.id})" class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded mt-1 md:mt-0">Padam</button>
             </td>
         </tr>
-    `}).join('') || '<tr><td colspan="5" class="p-4 text-center">Tiada rekod.</td></tr>';
+    `}).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
 }
 
 function renderAdminPegawaiTable(data) {
     const tbody = document.getElementById('adminTablePegawaiBody');
     tbody.innerHTML = data.map(row => `
-        <tr>
-            <td class="p-3 border-b font-bold text-slate-700 uppercase">${row.nama}</td>
-            <td class="p-3 border-b text-xs">
-                <div class="font-semibold text-indigo-600">${row.sektor}</div>
-                <div class="text-slate-500">${row.unit}</div>
+        <tr class="hover:bg-slate-50 transition-colors">
+            <td class="p-2 border-b font-bold text-slate-700 uppercase text-[11px] md:text-xs">${row.nama}</td>
+            <td class="p-2 border-b text-[10px] md:text-[11px]">
+                <div class="font-semibold text-indigo-600 uppercase">${row.sektor}</div>
+                <div class="text-slate-500 uppercase">${row.unit}</div>
             </td>
-            <td class="p-3 border-b text-slate-600">${row.emel_rasmi}</td>
-            <td class="p-3 border-b text-center space-x-2">
-                <button onclick="editPegawai(${row.id})" class="text-indigo-600 hover:text-indigo-900 font-bold">Edit</button>
-                <button onclick="deletePegawai(${row.id})" class="text-red-500 hover:text-red-700 font-bold">Padam</button>
+            <td class="p-2 border-b text-slate-600 text-[11px]">${row.emel_rasmi}</td>
+            <td class="p-2 border-b text-center space-x-2">
+                <button onclick="editPegawai(${row.id})" class="text-indigo-600 hover:text-indigo-900 font-bold text-xs">Edit</button>
+                <button onclick="deletePegawai(${row.id})" class="text-red-500 hover:text-red-700 font-bold text-xs">Padam</button>
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
+    `).join('') || '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
 }
 
 function renderAdminSistemTable(data) {
@@ -323,16 +323,16 @@ function renderAdminSistemTable(data) {
                            (row.role === 'TPPD' ? 'bg-indigo-100 text-indigo-700' : 
                            (row.role === 'PERAKAM' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'));
         return `
-            <tr>
-                <td class="p-3 border-b text-slate-400">#${row.id}</td>
-                <td class="p-3 border-b font-medium">${row.email}</td>
-                <td class="p-3 border-b"><span class="px-2 py-1 ${badgeClass} text-xs font-bold rounded">${row.role}</span></td>
-                <td class="p-3 border-b text-center">
-                    ${row.role !== 'SUPER ADMIN' ? `<button onclick="deleteAdmin(${row.id})" class="text-red-500 hover:text-red-700 font-bold">Gugurkan</button>` : '<span class="text-xs text-slate-300 italic">Tiada Tindakan</span>'}
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-2 border-b text-slate-400 text-[11px]">#${row.id}</td>
+                <td class="p-2 border-b font-medium text-xs">${row.email}</td>
+                <td class="p-2 border-b"><span class="px-2 py-0.5 ${badgeClass} text-[10px] font-bold rounded">${row.role}</span></td>
+                <td class="p-2 border-b text-center">
+                    ${row.role !== 'SUPER ADMIN' ? `<button onclick="deleteAdmin(${row.id})" class="text-red-500 hover:text-red-700 font-bold text-[11px]">Gugurkan</button>` : '<span class="text-[10px] text-slate-300 italic">Tiada Tindakan</span>'}
                 </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
 }
 
 // ================= MODUL DELEGASI HIERARKI PENGURUSAN (TAB TPPD) =================
@@ -355,21 +355,21 @@ function renderManagerTable(data) {
     const tbody = document.getElementById('tppdTableBody'); 
     tbody.innerHTML = data.map(row => `
         <tr class="hover:bg-indigo-50/30 transition-colors">
-            <td class="p-4 border-b align-top">
-                <div class="font-bold text-slate-700 uppercase">${row.no_rujukan || 'TIADA'}</div>
-                <div class="text-sm text-slate-500 mt-1 uppercase">${row.tajuk_program}</div>
+            <td class="p-2 border-b align-top">
+                <div class="font-bold text-slate-700 uppercase text-xs">${row.no_rujukan || 'TIADA'}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
             </td>
-            <td class="p-4 border-b text-sm font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
-            <td class="p-4 border-b align-top">
-                <div class="font-semibold text-slate-700">${row.tarikh_terima}</div>
-                <div class="text-xs text-indigo-600 font-bold mt-1">${row.masa_rekod || '-'}</div>
+            <td class="p-2 border-b text-[11px] font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
+            <td class="p-2 border-b align-top">
+                <div class="font-semibold text-slate-700 text-[11px]">${row.tarikh_terima}</div>
+                <div class="text-[10px] text-indigo-600 font-bold mt-0.5">${row.masa_rekod || '-'}</div>
             </td>
-            <td class="p-4 border-b text-center align-top">
-                ${row.file_url ? `<a href="${row.file_url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold underline">Lihat Fail</a>` : '-'}
+            <td class="p-2 border-b text-center align-top">
+                ${row.file_url ? `<a href="${row.file_url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold underline">Lihat Fail</a>` : '-'}
             </td>
-            <td class="p-4 border-b text-center align-top">
-                <button onclick="openManagerAssignModal(${row.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            <td class="p-2 border-b text-center align-top">
+                <button onclick="openManagerAssignModal(${row.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto">
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                     Tetapkan Penerima
                 </button>
             </td>
@@ -497,7 +497,7 @@ async function handleManagerAssignSubmit(e) {
 
     const btn = document.getElementById('btnSubmitTppdAssign');
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader border-white border-top-indigo-600 w-4 h-4 mr-2"></div> Memproses...';
+    btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-600 w-4 h-4"></div> Memproses...';
 
     const id = document.getElementById('tppdMemoId').value;
     const targetUnit = document.getElementById('tppdUnitSelect').value;
@@ -737,15 +737,29 @@ async function handlePegawaiSubmit(e) {
     }
 }
 
-window.deletePegawai = async function(id) {
-    if (!confirm("Adakah anda pasti mahu memadam pegawai ini?")) return;
-    try {
-        await _supabase.from('memo_pegawai').delete().eq('id', id);
-        loadAdminPegawai();
-        window.showMessage("Pegawai telah dikeluarkan dari sistem.", "success");
-    } catch (err) {
-        window.showMessage("Ralat padam: " + err.message, "error");
-    }
+// Menggunakan SweetAlert2 Promise untuk Pengesahan
+window.deletePegawai = function(id) {
+    Swal.fire({
+        title: 'Pengesahan Pemadaman',
+        text: "Adakah anda pasti mahu memadam profil pegawai ini daripada sistem?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Ya, Padam',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold', cancelButton: 'text-sm font-bold' }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                await _supabase.from('memo_pegawai').delete().eq('id', id);
+                loadAdminPegawai();
+                window.showMessage("Pegawai telah dikeluarkan dari sistem.", "success");
+            } catch (err) {
+                window.showMessage("Ralat padam: " + err.message, "error");
+            }
+        }
+    });
 }
 
 // ================= CRUD LOGIC: MEMO (Edit Maklumat & Ubah Hala PIC) =================
@@ -1036,63 +1050,29 @@ window.syncSingleCalendar = async function(id) {
     }
 }
 
-window.removeSingleCalendar = async function(id) {
+// Menggunakan SweetAlert2 Promise untuk Pengesahan
+window.removeSingleCalendar = function(id) {
     if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
 
     const m = adminMemoData.find(x => x.id === id);
     if (!m || !m.calendar_event_id) return;
 
-    if (!confirm("Padam acara ini dari Google Kalendar? Data di dalam sistem akan dikekalkan.")) return;
-
-    try {
-        setProcessingState(true, `Memadam rekod kalendar #${id}...`);
-
-        const res = await fetch(GAS_URL, {
-            method: 'POST',
-            redirect: "follow",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-            },
-            body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
-        });
-        const result = await res.json();
-
-        // Sama ada berjaya atau "not_found", kita putuskan pautan di Supabase
-        if (result.status === 'success' || result.status === 'not_found') {
-            await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
-            window.showMessage("Acara kalendar berjaya ditanggalkan.", "success");
-            loadAdminMemo();
-            refreshIframeKalendar();
-        } else {
-            throw new Error(result.message);
-        }
-    } catch (err) {
-        window.showMessage("Ralat Kalendar: " + err.message, "error");
-    } finally {
-        setProcessingState(false);
-    }
-}
-
-// ================= TINDAKAN DATA (PADAM KESELURUHAN) =================
-window.deleteMemo = async function(id) {
-    if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
-
-    const m = adminMemoData.find(x => x.id === id);
-    if (!m) return;
-
-    const confirmMsg = "AMARAN: Ini akan memadam rekod surat selamanya dari pangkalan data sistem. " +
-                       (m.calendar_event_id ? "Acara kalendar berkaitan juga akan turut dipadam. " : "") +
-                       "Teruskan?";
-
-    if (!confirm(confirmMsg)) return;
-
-    try {
-        setProcessingState(true, "Memadam data secara menyeluruh...");
-
-        // 1. Padam Kalendar Dahulu Jika Ada
-        if (m.calendar_event_id) {
+    Swal.fire({
+        title: 'Pengesahan',
+        text: "Padam acara ini dari Google Kalendar? Data di dalam sistem akan dikekalkan.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Ya, Padam',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold', cancelButton: 'text-sm font-bold' }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
             try {
-                await fetch(GAS_URL, {
+                setProcessingState(true, `Memadam rekod kalendar #${id}...`);
+
+                const res = await fetch(GAS_URL, {
                     method: 'POST',
                     redirect: "follow",
                     headers: {
@@ -1100,22 +1080,82 @@ window.deleteMemo = async function(id) {
                     },
                     body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
                 });
-            } catch (e) { console.error("Ralat padam kalendar ketika hapus data", e); }
+                const responseJSON = await res.json();
+
+                // Sama ada berjaya atau "not_found", kita putuskan pautan di Supabase
+                if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
+                    await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
+                    window.showMessage("Acara kalendar berjaya ditanggalkan.", "success");
+                    loadAdminMemo();
+                    refreshIframeKalendar();
+                } else {
+                    throw new Error(responseJSON.message);
+                }
+            } catch (err) {
+                window.showMessage("Ralat Kalendar: " + err.message, "error");
+            } finally {
+                setProcessingState(false);
+            }
         }
+    });
+}
 
-        // 2. Padam Dari Supabase
-        const { error } = await _supabase.from('memo_rekod').delete().eq('id', id);
-        if (error) throw error;
+// ================= TINDAKAN DATA (PADAM KESELURUHAN) =================
+// Menggunakan SweetAlert2 Promise untuk Pengesahan
+window.deleteMemo = function(id) {
+    if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
 
-        loadAdminMemo();
-        refreshIframeKalendar();
-        window.showMessage("Rekod surat telah berjaya dihapuskan sepenuhnya.", "success");
+    const m = adminMemoData.find(x => x.id === id);
+    if (!m) return;
 
-    } catch (err) {
-        window.showMessage("Ralat semasa proses pemadaman: " + err.message, "error");
-    } finally {
-        setProcessingState(false);
-    }
+    const confirmMsg = "AMARAN: Ini akan memadam rekod surat selamanya dari pangkalan data sistem. " +
+                       (m.calendar_event_id ? "Acara kalendar berkaitan juga akan turut dipadam. " : "") +
+                       "<br><br>Teruskan?";
+
+    Swal.fire({
+        title: 'Pengesahan Pemadaman Penuh',
+        html: confirmMsg,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Hapus Kekal',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold', cancelButton: 'text-sm font-bold' }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                setProcessingState(true, "Memadam data secara menyeluruh...");
+
+                // 1. Padam Kalendar Dahulu Jika Ada
+                if (m.calendar_event_id) {
+                    try {
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            redirect: "follow",
+                            headers: {
+                                "Content-Type": "text/plain;charset=utf-8",
+                            },
+                            body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
+                        });
+                    } catch (e) { console.error("Ralat padam kalendar ketika hapus data", e); }
+                }
+
+                // 2. Padam Dari Supabase
+                const { error } = await _supabase.from('memo_rekod').delete().eq('id', id);
+                if (error) throw error;
+
+                loadAdminMemo();
+                refreshIframeKalendar();
+                window.showMessage("Rekod surat telah berjaya dihapuskan sepenuhnya.", "success");
+
+            } catch (err) {
+                window.showMessage("Ralat semasa proses pemadaman: " + err.message, "error");
+            } finally {
+                setProcessingState(false);
+            }
+        }
+    });
 }
 
 // ================= PENGURUS GILIRAN PUKAL (BATCH QUEUE MANAGER) =================
@@ -1158,7 +1198,8 @@ function setProcessingState(isProcessing, lockText = "Sedang diproses...") {
     }
 }
 
-async function startBatchSync() {
+// Menggunakan SweetAlert2 Promise untuk Pengesahan
+window.startBatchSync = function() {
     if (isProcessingBatch) return;
     
     // Cari yang belum disegerak
@@ -1167,62 +1208,75 @@ async function startBatchSync() {
         return window.showMessage("Semua data telah pun disegerakkan ke kalendar.", "success");
     }
 
-    if (!confirm(`Sistem mendapati terdapat ${queue.length} rekod yang belum disegerakkan ke Kalendar. Proses ini akan menghantar jemputan satu per satu.\n\nAdakah anda pasti mahu mulakan operasi pukal?`)) return;
+    Swal.fire({
+        title: 'Operasi Segerak Pukal',
+        html: `Sistem mendapati terdapat <b>${queue.length}</b> rekod yang belum disegerakkan ke Kalendar. Proses ini akan menghantar jemputan satu per satu.<br><br>Adakah anda pasti mahu mulakan operasi pukal?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#059669', // Emerald 600
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Mula Segerak',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold', cancelButton: 'text-sm font-bold' }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            setProcessingState(true);
+            let successCount = 0;
+            let errorCount = 0;
 
-    setProcessingState(true);
-    let successCount = 0;
-    let errorCount = 0;
+            for (let i = 0; i < queue.length; i++) {
+                const m = queue[i];
+                updateBatchProgressUI(i, queue.length, `Menyegerak ID #${m.id} (${i+1}/${queue.length})...`);
+                
+                try {
+                    const names = m.nama_penerima ? m.nama_penerima.split(',').map(n => n.trim()) : [];
+                    const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
 
-    for (let i = 0; i < queue.length; i++) {
-        const m = queue[i];
-        updateBatchProgressUI(i, queue.length, `Menyegerak ID #${m.id} (${i+1}/${queue.length})...`);
-        
-        try {
-            const names = m.nama_penerima ? m.nama_penerima.split(',').map(n => n.trim()) : [];
-            const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
+                    const res = await fetch(GAS_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: {
+                            "Content-Type": "text/plain;charset=utf-8",
+                        },
+                        body: JSON.stringify({
+                            action: 'notify',
+                            sektor: m.sektor,
+                            unit: m.unit,
+                            namaArray: names,
+                            emailArray: emails,
+                            noRujukan: m.no_rujukan || 'TIADA',
+                            tajukProgram: m.tajuk_program,
+                            tarikhTerima: m.tarikh_terima,
+                            masaRekod: m.masa_rekod || '08:00',
+                            fileUrl: m.file_url || 'Tiada Salinan'
+                        })
+                    });
+                    const notify = await res.json();
 
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                redirect: "follow",
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8",
-                },
-                body: JSON.stringify({
-                    action: 'notify',
-                    sektor: m.sektor,
-                    unit: m.unit,
-                    namaArray: names,
-                    emailArray: emails,
-                    noRujukan: m.no_rujukan || 'TIADA',
-                    tajukProgram: m.tajuk_program,
-                    tarikhTerima: m.tarikh_terima,
-                    masaRekod: m.masa_rekod || '08:00',
-                    fileUrl: m.file_url || 'Tiada Salinan'
-                })
-            });
-            const notify = await res.json();
-
-            if (notify.status === 'success' && notify.calendarEventId) {
-                await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', m.id);
-                successCount++;
-            } else {
-                errorCount++;
+                    if (notify.status === 'success' && notify.calendarEventId) {
+                        await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', m.id);
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (err) {
+                    errorCount++;
+                    console.error(`Ralat Pukal Sync ID ${m.id}:`, err);
+                }
             }
-        } catch (err) {
-            errorCount++;
-            console.error(`Ralat Pukal Sync ID ${m.id}:`, err);
-        }
-    }
 
-    updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
-    setProcessingState(false);
-    loadAdminMemo();
-    refreshIframeKalendar();
-    
-    window.showMessage(`Operasi Segerak Pukal Tamat. Berjaya: ${successCount}, Gagal: ${errorCount}.`, "success");
+            updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
+            setProcessingState(false);
+            loadAdminMemo();
+            refreshIframeKalendar();
+            
+            window.showMessage(`Operasi Segerak Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
+        }
+    });
 }
 
-async function startBatchDelete() {
+// Menggunakan SweetAlert2 Promise untuk Pengesahan
+window.startBatchDelete = function() {
     if (isProcessingBatch) return;
 
     // Cari yang ada kalendar sahaja
@@ -1231,45 +1285,57 @@ async function startBatchDelete() {
         return window.showMessage("Tiada rekod kalendar yang dijumpai untuk dipadam.", "success");
     }
 
-    if (!confirm(`Sistem akan MEMADAM ${queue.length} acara di dalam Google Kalendar satu per satu. Data di dalam sistem ini akan DIKEKALKAN.\n\nAdakah anda pasti?`)) return;
+    Swal.fire({
+        title: 'AMARAN PUKAL',
+        html: `Sistem akan <b>MEMADAM ${queue.length} acara</b> di dalam Google Kalendar satu per satu. Data surat di dalam sistem ini akan DIKEKALKAN.<br><br>Adakah anda pasti?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Ya, Padam Pukal',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold', cancelButton: 'text-sm font-bold' }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            setProcessingState(true);
+            let successCount = 0;
+            let errorCount = 0;
 
-    setProcessingState(true);
-    let successCount = 0;
-    let errorCount = 0;
+            for (let i = 0; i < queue.length; i++) {
+                const m = queue[i];
+                updateBatchProgressUI(i, queue.length, `Memadam Kalendar ID #${m.id} (${i+1}/${queue.length})...`);
 
-    for (let i = 0; i < queue.length; i++) {
-        const m = queue[i];
-        updateBatchProgressUI(i, queue.length, `Memadam Kalendar ID #${m.id} (${i+1}/${queue.length})...`);
+                try {
+                    const res = await fetch(GAS_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: {
+                            "Content-Type": "text/plain;charset=utf-8",
+                        },
+                        body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
+                    });
+                    const responseJSON = await res.json();
 
-        try {
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                redirect: "follow",
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8",
-                },
-                body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
-            });
-            const result = await res.json();
-
-            if (result.status === 'success' || result.status === 'not_found') {
-                await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', m.id);
-                successCount++;
-            } else {
-                errorCount++;
+                    if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
+                        await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', m.id);
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (err) {
+                    errorCount++;
+                    console.error(`Ralat Pukal Delete ID ${m.id}:`, err);
+                }
             }
-        } catch (err) {
-            errorCount++;
-            console.error(`Ralat Pukal Delete ID ${m.id}:`, err);
+
+            updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
+            setProcessingState(false);
+            loadAdminMemo();
+            refreshIframeKalendar();
+
+            window.showMessage(`Operasi Padam Kalendar Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
         }
-    }
-
-    updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
-    setProcessingState(false);
-    loadAdminMemo();
-    refreshIframeKalendar();
-
-    window.showMessage(`Operasi Padam Kalendar Pukal Tamat. Berjaya ditanggalkan: ${successCount}, Gagal: ${errorCount}.`, "success");
+    });
 }
 
 function refreshIframeKalendar() {
@@ -1286,7 +1352,7 @@ async function handleTambahAdminSubmit(e) {
 
     const btn = document.getElementById('btnSimpanAdmin');
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader mr-2"></div> Menyimpan...';
+    btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Menyimpan...';
 
     try {
         await _supabase.from('memo_admin').insert([{
@@ -1306,15 +1372,29 @@ async function handleTambahAdminSubmit(e) {
     }
 }
 
-window.deleteAdmin = async function(id) {
-    if (!confirm("Gugurkan akses sistem ini secara kekal?")) return;
-    try {
-        await _supabase.from('memo_admin').delete().eq('id', id);
-        loadAdminSistem();
-        window.showMessage("Akses profil telah berjaya dibatalkan.", "success");
-    } catch (err) {
-        window.showMessage("Gagal membatalkan akses profil.", "error");
-    }
+// Menggunakan SweetAlert2 Promise untuk Pengesahan
+window.deleteAdmin = function(id) {
+    Swal.fire({
+        title: 'Gugurkan Akses',
+        text: "Gugurkan akses sistem ini secara kekal?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Ya, Gugurkan',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold', cancelButton: 'text-sm font-bold' }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                await _supabase.from('memo_admin').delete().eq('id', id);
+                loadAdminSistem();
+                window.showMessage("Akses profil telah berjaya dibatalkan.", "success");
+            } catch (err) {
+                window.showMessage("Gagal membatalkan akses profil.", "error");
+            }
+        }
+    });
 }
 
 // ================= SEARCH & UTILS =================

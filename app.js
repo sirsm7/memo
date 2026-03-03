@@ -6,7 +6,7 @@
  * Logik Intercept: Database-Driven Hierarchical Deferred Assignment (memo_admin)
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & CORS Preflight
  * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
- * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama
+ * Patch UI: Integrasi SweetAlert2 & Pemampatan Saiz Jadual Analisis
  * ==============================================================================
  */
 
@@ -447,9 +447,9 @@ async function handleFormSubmit(e) {
 
         // 5. Maklum Balas UI
         if (isManagerDeferred) {
-            showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong> Rekod surat disimpan. Notifikasi emel telah dihantar kepada pentadbir sistem (TPPD/KS/KU) untuk tujuan delegasi unit.", "success");
+            showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong><br><br>Rekod surat disimpan. Notifikasi emel telah dihantar kepada pentadbir sistem (TPPD/KS/KU) untuk tujuan delegasi unit.", "success");
         } else {
-            showMessage("<strong>Rekod Berjaya!</strong> Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik kepada semua pegawai penerima.", "success");
+            showMessage("<strong>Rekod Berjaya!</strong><br><br>Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik kepada semua pegawai penerima.", "success");
         }
         
         const calFrame = document.getElementById('calendarFrame');
@@ -586,39 +586,40 @@ function renderTable(dataArray) {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
         
+        // Pemampatan padding dan saiz font agar muat mendatar
         tr.innerHTML = `
-            <td class="p-4 align-top text-center">
-                <span class="inline-block w-7 h-7 bg-slate-100 text-slate-600 font-bold rounded-full text-xs leading-7">${bilAuto}</span>
+            <td class="p-2 align-top text-center">
+                <span class="inline-block w-6 h-6 bg-slate-100 text-slate-600 font-bold rounded-full text-[11px] leading-6">${bilAuto}</span>
             </td>
-            <td class="p-4 align-top">
-                <div class="font-bold text-slate-700">${tarikhTerimaStr}</div>
-                <div class="text-xs font-semibold text-indigo-600 mt-1">${row.masa_rekod || '-'}</div>
+            <td class="p-2 align-top">
+                <div class="font-bold text-slate-700 text-xs">${tarikhTerimaStr}</div>
+                <div class="text-[10px] font-semibold text-indigo-600 mt-1">${row.masa_rekod || '-'}</div>
             </td>
-            <td class="p-4 align-top">
-                <div class="text-sm font-bold text-slate-800 break-words whitespace-normal uppercase">${row.no_rujukan || '-'}</div>
+            <td class="p-2 align-top">
+                <div class="text-xs font-bold text-slate-800 break-words whitespace-normal uppercase">${row.no_rujukan || '-'}</div>
             </td>
-            <td class="p-4 align-top">
-                <div class="text-sm font-semibold text-slate-600 break-words whitespace-normal uppercase">${row.no_tambahan || '-'}</div>
+            <td class="p-2 align-top">
+                <div class="text-xs font-semibold text-slate-600 break-words whitespace-normal uppercase">${row.no_tambahan || '-'}</div>
             </td>
-            <td class="p-4 align-top">
-                <div class="font-bold text-slate-700">${tarikhSuratStr}</div>
+            <td class="p-2 align-top">
+                <div class="font-bold text-slate-700 text-xs">${tarikhSuratStr}</div>
             </td>
-            <td class="p-4 align-top">
-                <div class="text-sm font-bold text-slate-800 break-words whitespace-normal uppercase">${row.dari || '-'}</div>
+            <td class="p-2 align-top">
+                <div class="text-[11px] font-bold text-slate-800 break-words whitespace-normal uppercase">${row.dari || '-'}</div>
             </td>
-            <td class="p-4 align-top">
-                <div class="text-sm font-bold text-indigo-700 break-words whitespace-normal uppercase">${row.tajuk_program || '-'}</div>
+            <td class="p-2 align-top">
+                <div class="text-[11px] font-bold text-indigo-700 break-words whitespace-normal uppercase">${row.tajuk_program || '-'}</div>
             </td>
-            <td class="p-4 align-top">
-                <div class="text-xs font-bold text-slate-800 break-words whitespace-normal bg-indigo-50 px-2 py-1 rounded inline-block mb-1">${row.sektor.replace(/^\d{2}\s/, '')}</div>
-                <div class="text-xs text-slate-600 break-words whitespace-normal leading-relaxed italic border-l-2 border-indigo-200 pl-2 mt-1" title="${row.nama_penerima}">${row.nama_penerima || '-'}</div>
+            <td class="p-2 align-top">
+                <div class="text-[10px] font-bold text-slate-800 break-words whitespace-normal bg-indigo-50 px-1.5 py-0.5 rounded inline-block mb-1">${row.sektor.replace(/^\d{2}\s/, '')}</div>
+                <div class="text-[10px] text-slate-600 break-words whitespace-normal leading-relaxed italic border-l-2 border-indigo-200 pl-1.5 mt-1" title="${row.nama_penerima}">${row.nama_penerima || '-'}</div>
             </td>
-            <td class="p-4 align-top text-center">
+            <td class="p-2 align-top text-center">
                 ${row.file_url ? 
-                `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded hover:bg-indigo-100 transition-colors">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
+                `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded hover:bg-indigo-100 transition-colors">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
                 </a>` : 
-                `<span class="text-xs text-slate-400">Tiada Fail</span>`}
+                `<span class="text-[10px] text-slate-400">Tiada Fail</span>`}
             </td>
         `;
         tBody.appendChild(tr);
@@ -705,23 +706,40 @@ window.exportToExcel = function() {
     }
 };
 
-// ================= UTILITI SISTEM =================
+// ================= UTILITI SISTEM (UBAH SUAI SWEETALERT2) =================
 function setLoading(status, txt) {
     const btn = document.getElementById('submitBtn');
     const bt = document.getElementById('btnText');
     if (!btn || !bt) return;
     btn.disabled = status;
-    bt.innerHTML = status ? `<div class="loader mr-2"></div> <span>${txt}</span>` : "Simpan & Hantar Rekod";
+    bt.innerHTML = status ? `<div class="loader mr-2 border-white border-top-indigo-500"></div> <span>${txt}</span>` : "Simpan & Hantar Rekod";
 }
 
 window.showMessage = function(m, t) {
-    const b = document.getElementById('messageBox');
-    if (!b) return;
-    b.innerHTML = m;
-    b.className = `mb-8 p-4 rounded-lg font-medium text-sm border ${t==='error'?'bg-red-50 text-red-800 border-red-200':t==='success'?'bg-emerald-50 text-emerald-800 border-emerald-200':'bg-blue-50 text-blue-800 border-blue-200'}`;
-    b.classList.remove('hidden');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if(t === 'success') setTimeout(() => b.classList.add('hidden'), 10000);
+    // Memanggil SweetAlert2 menggantikan mesej DOM lama
+    let iconType = 'info';
+    let titleText = 'Makluman';
+    
+    if (t === 'error') {
+        iconType = 'error';
+        titleText = 'Ralat Sistem';
+    } else if (t === 'success') {
+        iconType = 'success';
+        titleText = 'Berjaya';
+    }
+
+    Swal.fire({
+        title: titleText,
+        html: m,
+        icon: iconType,
+        confirmButtonColor: '#4f46e5', // Indigo 600
+        confirmButtonText: 'Tutup',
+        customClass: {
+            confirmButton: 'text-sm font-bold',
+            popup: 'rounded-2xl',
+            title: 'text-slate-800'
+        }
+    });
 };
 
 function resetForm() {

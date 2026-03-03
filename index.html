@@ -37,6 +37,9 @@
     
     <!-- SheetJS (Excel Export) CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- SweetAlert2 CDN (Modul Notifikasi Paparan) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
@@ -133,7 +136,8 @@
                         </button>
                     </div>
 
-                    <div id="messageBox" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
+                    <!-- MessageBox Dikekalkan Atas Faktor Keserasian HTML (Disembunyikan menggunakan CSS style inline) -->
+                    <div id="messageBox" style="display: none !important;" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
                         <!-- FASA 0: MUAT NAIK FAIL -->
@@ -319,19 +323,19 @@
                         </div>
                     </div>
                     
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse min-w-[1200px]">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
-                                    <th class="p-4 border-b border-slate-200 text-center w-12">Bil</th>
-                                    <th class="p-4 border-b border-slate-200">Tarikh Penerimaan</th>
-                                    <th class="p-4 border-b border-slate-200">No.Fail Kementerian Ibu Pejabat</th>
-                                    <th class="p-4 border-b border-slate-200">Nombor-Nombor Yang Lain</th>
-                                    <th class="p-4 border-b border-slate-200">Tarikh Surat</th>
-                                    <th class="p-4 border-b border-slate-200">Daripada Siapa</th>
-                                    <th class="p-4 border-b border-slate-200">Perkara</th>
-                                    <th class="p-4 border-b border-slate-200">Dirujukkan Kepada</th>
-                                    <th class="p-4 border-b border-slate-200 text-center">Tindakan</th>
+                    <div class="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse min-w-[1000px]">
+                            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
+                                <tr class="text-slate-600 text-[11px] uppercase tracking-wider font-bold">
+                                    <th class="p-3 border-b border-slate-200 text-center w-10">Bil</th>
+                                    <th class="p-3 border-b border-slate-200">Tarikh Penerimaan</th>
+                                    <th class="p-3 border-b border-slate-200">No.Fail Kementerian Ibu Pejabat</th>
+                                    <th class="p-3 border-b border-slate-200">Nombor-Nombor Yang Lain</th>
+                                    <th class="p-3 border-b border-slate-200">Tarikh Surat</th>
+                                    <th class="p-3 border-b border-slate-200">Daripada Siapa</th>
+                                    <th class="p-3 border-b border-slate-200">Perkara</th>
+                                    <th class="p-3 border-b border-slate-200">Dirujukkan Kepada</th>
+                                    <th class="p-3 border-b border-slate-200 text-center">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody" class="text-sm divide-y divide-slate-100">
@@ -425,30 +429,30 @@
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                    <div class="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse min-w-[800px]">
+                            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm text-slate-600 text-[11px] uppercase tracking-wider font-bold">
                                 <tr>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'id')">
+                                    <th class="p-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'id')">
                                         <div class="flex items-center space-x-1">
                                             <span>ID</span>
                                             <span id="sort-memo-id" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'no_rujukan')">
+                                    <th class="p-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'no_rujukan')">
                                         <div class="flex items-center space-x-1">
                                             <span>No. Rujukan & Perkara</span>
                                             <span id="sort-memo-no_rujukan" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'tarikh_terima')">
+                                    <th class="p-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('memo', 'tarikh_terima')">
                                         <div class="flex items-center space-x-1">
                                             <span>Tarikh Terima & Masa</span>
                                             <span id="sort-memo-tarikh_terima" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b text-center">Tindakan Kalendar</th>
-                                    <th class="p-3 border-b text-center">Tindakan Data</th>
+                                    <th class="p-3 border-b border-slate-200 text-center">Tindakan Kalendar</th>
+                                    <th class="p-3 border-b border-slate-200 text-center">Tindakan Data</th>
                                 </tr>
                             </thead>
                             <tbody id="adminTableMemoBody" class="text-sm divide-y divide-slate-100">
@@ -467,29 +471,29 @@
                             <button id="btnTambahPegawai" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors">Tambah Pegawai</button>
                         </div>
                     </div>
-                    <div class="overflow-x-auto h-[400px] overflow-y-auto custom-scrollbar">
-                        <table class="w-full text-left border-collapse relative">
-                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold sticky top-0 shadow-sm z-10">
+                    <div class="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse min-w-[700px]">
+                            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm text-slate-600 text-[11px] uppercase tracking-wider font-bold">
                                 <tr>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'nama')">
+                                    <th class="p-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'nama')">
                                         <div class="flex items-center space-x-1">
                                             <span>Nama Pegawai</span>
                                             <span id="sort-pegawai-nama" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'sektor')">
+                                    <th class="p-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'sektor')">
                                         <div class="flex items-center space-x-1">
                                             <span>Sektor & Unit</span>
                                             <span id="sort-pegawai-sektor" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'emel_rasmi')">
+                                    <th class="p-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors" onclick="handleSort('pegawai', 'emel_rasmi')">
                                         <div class="flex items-center space-x-1">
                                             <span>Emel Rasmi</span>
                                             <span id="sort-pegawai-emel_rasmi" class="w-4 h-4 text-slate-400"></span>
                                         </div>
                                     </th>
-                                    <th class="p-3 border-b text-center">Tindakan</th>
+                                    <th class="p-3 border-b border-slate-200 text-center">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody id="adminTablePegawaiBody" class="text-sm divide-y divide-slate-100">
@@ -505,14 +509,14 @@
                         <h3 class="font-bold text-slate-700">Pengurusan Akses Pentadbir</h3>
                         <button id="btnTambahAdmin" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors">Tambah Admin</button>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                    <div class="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse min-w-[600px]">
+                            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm text-slate-600 text-[11px] uppercase tracking-wider font-bold">
                                 <tr>
-                                    <th class="p-3 border-b">ID Pentadbir</th>
-                                    <th class="p-3 border-b">Alamat Emel</th>
-                                    <th class="p-3 border-b">Peranan</th>
-                                    <th class="p-3 border-b text-center">Tindakan</th>
+                                    <th class="p-3 border-b border-slate-200">ID Pentadbir</th>
+                                    <th class="p-3 border-b border-slate-200">Alamat Emel</th>
+                                    <th class="p-3 border-b border-slate-200">Peranan</th>
+                                    <th class="p-3 border-b border-slate-200 text-center">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody id="adminTableSistemBody" class="text-sm divide-y divide-slate-100">
@@ -531,9 +535,9 @@
                 </div>
                 
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                    <div class="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse min-w-[800px]">
+                            <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm text-slate-600 text-[11px] uppercase tracking-wider font-bold">
                                 <tr>
                                     <th class="p-4 border-b border-slate-200">No. Rujukan & Perkara</th>
                                     <th class="p-4 border-b border-slate-200">Daripada</th>
@@ -706,7 +710,7 @@
         </div>
     </div>
 
-    <!-- Modal Edit Memo (Telah Dikemaskini dengan Modul Delegasi Pentadbir) -->
+    <!-- Modal Edit Memo -->
     <div id="modalMemo" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
