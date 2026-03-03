@@ -706,17 +706,23 @@
         </div>
     </div>
 
-    <!-- Modal Edit Memo -->
+    <!-- Modal Edit Memo (Telah Dikemaskini dengan Modul Delegasi Pentadbir) -->
     <div id="modalMemo" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-slate-700">Kemaskini Maklumat Surat</h3>
+                <h3 class="text-lg font-bold text-slate-700">Kemaskini & Ubah Hala Maklumat Surat</h3>
                 <button type="button" class="btnTutupModal text-slate-400 hover:text-red-500 focus:outline-none">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <form id="formMemo" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                 <input type="hidden" id="memoId">
+                
+                <!-- BAHAGIAN A: MAKLUMAT SURAT -->
+                <div class="border-b border-slate-100 pb-2">
+                    <h4 class="text-sm font-bold text-indigo-700 uppercase tracking-wider">Bahagian A: Maklumat Surat</h4>
+                </div>
+                
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">No. Fail Kementerian Ibu Pejabat</label>
@@ -747,9 +753,40 @@
                         <input type="time" id="memoMasaRekod" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-slate-50">
                     </div>
                 </div>
-                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100 mt-2">
+
+                <!-- BAHAGIAN B: EDARAN & PENERIMA -->
+                <div class="border-b border-slate-100 pb-2 mt-6">
+                    <h4 class="text-sm font-bold text-indigo-700 uppercase tracking-wider">Bahagian B: Edaran & Penerima (Ubah Hala)</h4>
+                    <p class="text-xs text-slate-500 mt-1">Perhatian: Menyimpan tetapan baharu di bahagian ini akan membatalkan rekod kalendar lama dan menghantar notifikasi baharu secara automatik.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sektor</label>
+                        <select id="adminEditSektor" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50">
+                            <option value="">-- Pilih Sektor --</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
+                        <select id="adminEditUnit" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50" disabled>
+                            <option value="">Pilih Sektor Dahulu</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Penerima / PIC</label>
+                        <div id="adminEditSelectedTagsContainer" class="flex flex-wrap gap-2 mb-3 min-h-[44px] p-3 bg-white border border-slate-300 rounded-lg shadow-sm transition-colors focus-within:ring-2 focus-within:ring-indigo-500">
+                            <span class="text-sm text-slate-400 italic">Belum ada penerima dipilih...</span>
+                        </div>
+                        <div id="adminEditNamaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-40 overflow-y-auto custom-scrollbar shadow-inner relative">
+                            <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100 mt-4">
                     <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200 transition-colors">Batal</button>
-                    <button type="submit" id="btnSimpanMemo" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center shadow-md">Simpan Perubahan</button>
+                    <button type="submit" id="btnSimpanMemo" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center shadow-md">Simpan & Kemaskini</button>
                 </div>
             </form>
         </div>

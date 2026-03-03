@@ -4,6 +4,7 @@
  * Architect: 0.1% Senior Software Architect
  * Modul: admin.js (Enjin Kawalan Pentadbir, RBAC Hierarki Pengurusan & Operasi CRUD)
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & Integrasi Pengurus Dalam RSVP
+ * Kemaskini Terbaharu: Modul Ubah Hala (Re-route) Memo & Automasi Kalendar (Edit Modal)
  * ==============================================================================
  */
 
@@ -16,7 +17,10 @@ let isProcessingBatch = false;
 
 // STATE PENGURUS KHUSUS (HIERARKI)
 let managerMemoData = [];
-let managerSelected = new Map(); // Menjejak email -> nama rentas pegawai untuk modal delegasi
+let managerSelected = new Map(); // Menjejak email -> nama rentas pegawai untuk modal delegasi TPPD
+
+// STATE PENTADBIR KHUSUS (UBAH HALA MEMO)
+let adminEditSelected = new Map(); // Menjejak penerima semasa mod kemaskini (Edit Memo)
 
 // STATE SUSUNAN (SORTING)
 let adminSortState = {
@@ -59,8 +63,10 @@ function setupAdminEventListeners() {
         if (this.value === 'MANUAL') manualInput.focus();
     });
 
-    // CRUD Memo
+    // CRUD Memo (Dengan Logik Ubah Hala Penerima)
     document.getElementById('formMemo')?.addEventListener('submit', handleMemoSubmit);
+    document.getElementById('adminEditSektor')?.addEventListener('change', populateAdminEditUnit);
+    document.getElementById('adminEditUnit')?.addEventListener('change', populateAdminEditNama);
 
     // Tindakan Pukal (Batch Processing) Kalendar
     document.getElementById('btnPukalSegerak')?.addEventListener('click', startBatchSync);
@@ -327,7 +333,7 @@ function renderAdminSistemTable(data) {
     }).join('') || '<tr><td colspan="4" class="p-4 text-center">Tiada rekod.</td></tr>';
 }
 
-// ================= MODUL DELEGASI HIERARKI PENGURUSAN =================
+// ================= MODUL DELEGASI HIERARKI PENGURUSAN (TAB TPPD) =================
 async function loadManagerMemo() {
     if (!currentAdmin || !currentAdmin.isManager) return;
 
@@ -504,10 +510,7 @@ async function handleManagerAssignSubmit(e) {
     }
 
     // --- LOGIK INTEGRASI PENGURUS DALAM RSVP KALENDAR ---
-    // Cari profil pengurus yang sedang membuat tugasan (berdasarkan email log masuk)
     const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === currentAdmin.email.toLowerCase());
-    
-    // Semak jika email pengurus belum ada di dalam senarai yang akan dihantar ke kalendar
     const existingEmailsLowerCase = emails.map(e => e.toLowerCase());
     
     if (managerProfile && !existingEmailsLowerCase.includes(managerProfile.emel_rasmi.toLowerCase())) {
@@ -520,7 +523,6 @@ async function handleManagerAssignSubmit(e) {
     // ----------------------------------------------------
 
     try {
-        // 1. Update Supabase Data dengan unit dan PIC sasaran (termasuk Pengurus)
         const { error: updateError } = await _supabase.from('memo_rekod').update({
             unit: targetUnit,
             nama_penerima: names.join(', '),
@@ -529,11 +531,9 @@ async function handleManagerAssignSubmit(e) {
 
         if (updateError) throw updateError;
 
-        // 2. Semak Pangkat Sasaran untuk Strategi GAS
-        const isTargetManager = window.isManagerRole(targetUnit);
+        const isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
         const gasAction = isTargetManager ? 'notifyManager' : 'notify';
 
-        // 3. Lancarkan API GAS untuk Emel (& Kalendar jika pegawai biasa)
         const res = await fetch(GAS_URL, {
             method: 'POST',
             redirect: "follow",
@@ -555,13 +555,12 @@ async function handleManagerAssignSubmit(e) {
         });
         const notify = await res.json();
 
-        // 4. Simpan ID Kalendar jika berjaya dijana (bukan tindakan pengurusan)
         if (notify.status === 'success' && notify.calendarEventId) {
             await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
         }
 
         toggleModal('modalTppdAssign', false);
-        loadManagerMemo(); // Refresh data Panel Delegasi
+        loadManagerMemo(); 
         
         if (isTargetManager) {
             window.showMessage("Pengesahan berjaya. Sistem telah memanjangkan memo ini ke peringkat pengurusan yang seterusnya.", "success");
@@ -601,33 +600,25 @@ function switchAdminSection(section) {
 window.handleSort = function(type, column) {
     const state = adminSortState[type];
     
-    // Tentukan arah susunan baharu
     let newDirection = 'asc';
     if (state.column === column) {
         newDirection = state.direction === 'asc' ? 'desc' : 'asc';
     }
     
-    // Kemaskini state
     adminSortState[type] = { column: column, direction: newDirection };
-    
-    // Pilih data yang betul
     const dataArray = type === 'memo' ? adminMemoData : adminPegawaiData;
     
-    // Algoritma Susunan (In-Memory Array Sorting)
     dataArray.sort((a, b) => {
         let valA = a[column];
         let valB = b[column];
         
-        // Pengendalian null/undefined
         if (valA === null || valA === undefined) valA = "";
         if (valB === null || valB === undefined) valB = "";
         
-        // Susunan berangka (untuk ID)
         if (typeof valA === 'number' && typeof valB === 'number') {
             return newDirection === 'asc' ? valA - valB : valB - valA;
         }
         
-        // Susunan teks (Case Insensitive)
         valA = valA.toString().toLowerCase();
         valB = valB.toString().toLowerCase();
         
@@ -636,23 +627,18 @@ window.handleSort = function(type, column) {
         return 0;
     });
 
-    // Rendarkan semula jadual berdasarkan carian semasa
     const searchInputId = type === 'memo' ? 'adminSearchMemo' : 'adminSearchPegawai';
     const currentQuery = document.getElementById(searchInputId)?.value || '';
     filterAdminTable(type, currentQuery);
-    
-    // Kemaskini visual ikon susunan
     updateSortIcons(type);
 };
 
 function updateSortIcons(type) {
-    // Kosongkan semua ikon dalam kumpulan jadual ini
     const allIcons = document.querySelectorAll(`[id^="sort-${type}-"]`);
     allIcons.forEach(icon => {
         icon.innerHTML = '';
     });
 
-    // Masukkan ikon pada lajur yang aktif
     const state = adminSortState[type];
     const activeIconContainer = document.getElementById(`sort-${type}-${state.column}`);
     
@@ -677,16 +663,13 @@ window.openPegawaiModal = function(pegawai = null) {
     sManual.classList.add('hidden');
     uManual.classList.add('hidden');
     
-    // Ekstrak list unik Sektor & Unit dari data sedia ada
     const unikSektor = [...new Set(adminPegawaiData.map(p => p.sektor))].sort();
     const unikUnit = [...new Set(adminPegawaiData.map(p => p.unit))].sort();
 
-    // Populate Sektor Dropdown
     sSelect.innerHTML = '<option value="">-- PILIH SEKTOR --</option>';
     unikSektor.forEach(s => sSelect.innerHTML += `<option value="${s}">${s}</option>`);
     sSelect.innerHTML += '<option value="MANUAL">++ TAMBAH SEKTOR BAHARU ++</option>';
 
-    // Populate Unit Dropdown
     uSelect.innerHTML = '<option value="">-- PILIH UNIT --</option>';
     unikUnit.forEach(u => uSelect.innerHTML += `<option value="${u}">${u}</option>`);
     uSelect.innerHTML += '<option value="MANUAL">++ TAMBAH UNIT BAHARU ++</option>';
@@ -715,13 +698,11 @@ async function handlePegawaiSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('pegawaiId').value;
     
-    // Ambil nilai Sektor (Dropdown vs Manual)
     let finalSektor = document.getElementById('pegawaiSektorSelect').value;
     if (finalSektor === 'MANUAL') {
         finalSektor = document.getElementById('pegawaiSektorManual').value;
     }
 
-    // Ambil nilai Unit (Dropdown vs Manual)
     let finalUnit = document.getElementById('pegawaiUnitSelect').value;
     if (finalUnit === 'MANUAL') {
         finalUnit = document.getElementById('pegawaiUnitManual').value;
@@ -764,10 +745,111 @@ window.deletePegawai = async function(id) {
     }
 }
 
-// ================= CRUD LOGIC: MEMO (Edit Maklumat Data Sahaja) =================
+// ================= CRUD LOGIC: MEMO (Edit Maklumat & Ubah Hala PIC) =================
+
+function populateAdminEditSektor() {
+    const sSelect = document.getElementById('adminEditSektor');
+    if (!sSelect) return;
+    const unikSektor = [...new Set(adminPegawaiData.map(p => p.sektor))].sort();
+    sSelect.innerHTML = '<option value="">-- Pilih Sektor --</option>';
+    unikSektor.forEach(s => sSelect.innerHTML += `<option value="${s}">${s}</option>`);
+}
+
+function populateAdminEditUnit() {
+    const sk = document.getElementById('adminEditSektor').value;
+    const uSelect = document.getElementById('adminEditUnit');
+    const nc = document.getElementById('adminEditNamaContainer');
+    
+    uSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+    
+    if (sk) {
+        const unitSektor = adminPegawaiData.filter(p => p.sektor === sk).map(p => p.unit);
+        const unikUnit = [...new Set(unitSektor)].sort();
+        unikUnit.forEach(u => uSelect.innerHTML += `<option value="${u}">${u}</option>`);
+        uSelect.disabled = false;
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+    } else {
+        uSelect.disabled = true;
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
+    }
+}
+
+function populateAdminEditNama() {
+    const sk = document.getElementById('adminEditSektor').value;
+    const un = document.getElementById('adminEditUnit').value;
+    const nc = document.getElementById('adminEditNamaContainer');
+    nc.innerHTML = '';
+
+    if (sk && un) {
+        nc.innerHTML = `
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
+                <span class="text-xs font-bold text-slate-500 uppercase">Senarai Pegawai (${un})</span>
+                <button type="button" onclick="selectAllAdminEditInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
+            </div>
+        `;
+
+        const pegs = adminPegawaiData.filter(p => p.sektor === sk && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
+        
+        pegs.forEach((p, i) => {
+            const isChecked = adminEditSelected.has(p.emel_rasmi) ? 'checked' : '';
+            nc.innerHTML += `
+                <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
+                    <input type="checkbox" id="ae_c_${i}" value="${p.nama}" data-email="${p.emel_rasmi}" onchange="toggleAdminEditPenerima('${p.nama}', '${p.emel_rasmi}', this.checked)" class="w-4 h-4 text-indigo-600 rounded ae-checkbox focus:ring-indigo-500" ${isChecked}>
+                    <label for="ae_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
+                </div>`;
+        });
+    } else {
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+    }
+}
+
+window.toggleAdminEditPenerima = function(nama, emel, isChecked) {
+    if (isChecked) adminEditSelected.set(emel, nama);
+    else adminEditSelected.delete(emel);
+    renderAdminEditTags();
+};
+
+window.selectAllAdminEditInUnit = function() {
+    const checkboxes = document.querySelectorAll('.ae-checkbox');
+    if (checkboxes.length === 0) return;
+    const allChecked = Array.from(checkboxes).every(c => c.checked);
+    checkboxes.forEach(c => {
+        c.checked = !allChecked;
+        toggleAdminEditPenerima(c.value, c.getAttribute('data-email'), !allChecked);
+    });
+};
+
+window.removeAdminEditTag = function(emel) {
+    adminEditSelected.delete(emel);
+    const cb = document.querySelector(`.ae-checkbox[data-email="${emel}"]`);
+    if (cb) cb.checked = false;
+    renderAdminEditTags();
+};
+
+function renderAdminEditTags() {
+    const container = document.getElementById('adminEditSelectedTagsContainer');
+    if (adminEditSelected.size === 0) {
+        container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
+        return;
+    }
+    container.innerHTML = '';
+    adminEditSelected.forEach((nama, emel) => {
+        container.innerHTML += `
+            <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
+                <span>${nama}</span>
+                <button type="button" onclick="removeAdminEditTag('${emel}')" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        `;
+    });
+}
+
 window.editMemo = function(id) {
     const m = adminMemoData.find(x => x.id === id);
     if (!m) return;
+    
+    // Teks Asas
     document.getElementById('memoId').value = m.id;
     document.getElementById('memoNoRujukan').value = m.no_rujukan || '';
     document.getElementById('memoNoTambahan').value = m.no_tambahan || '';
@@ -776,29 +858,126 @@ window.editMemo = function(id) {
     document.getElementById('memoTarikhSurat').value = m.tarikh_surat || '';
     document.getElementById('memoTarikhTerima').value = m.tarikh_terima || '';
     document.getElementById('memoMasaRekod').value = m.masa_rekod || '';
+
+    // Logik Inisialisasi PIC (Pre-select data semasa)
+    adminEditSelected.clear();
+    if (m.emel_penerima && m.nama_penerima) {
+        const emels = m.emel_penerima.split(',').map(e => e.trim());
+        const namas = m.nama_penerima.split(',').map(n => n.trim());
+        emels.forEach((e, i) => {
+            if (e) adminEditSelected.set(e, namas[i] || e);
+        });
+    }
+
+    // Penduduk Sektor & Unit secara dinamik
+    populateAdminEditSektor();
+    const sSelect = document.getElementById('adminEditSektor');
+    sSelect.value = m.sektor || '';
+    
+    populateAdminEditUnit();
+    const uSelect = document.getElementById('adminEditUnit');
+    uSelect.value = m.unit || '';
+
+    populateAdminEditNama();
+    renderAdminEditTags();
+
     toggleModal('modalMemo', true);
 }
 
 async function handleMemoSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('memoId').value;
-    const payload = {
-        no_rujukan: document.getElementById('memoNoRujukan').value.toUpperCase(),
-        no_tambahan: document.getElementById('memoNoTambahan').value.toUpperCase(),
-        dari: document.getElementById('memoDari').value.toUpperCase(),
-        tajuk_program: document.getElementById('memoTajuk').value.toUpperCase(),
-        tarikh_surat: document.getElementById('memoTarikhSurat').value,
-        tarikh_terima: document.getElementById('memoTarikhTerima').value,
-        masa_rekod: document.getElementById('memoMasaRekod').value
-    };
+    const btn = document.getElementById('btnSimpanMemo');
+
+    const m = adminMemoData.find(x => x.id == id);
+    if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
+
+    if (adminEditSelected.size === 0) {
+        return window.showMessage("Sila pilih sekurang-kurangnya 1 pegawai penerima dari senarai unit.", "error");
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4"></div> Memproses...';
 
     try {
-        await _supabase.from('memo_rekod').update(payload).eq('id', id);
+        // 1. Padam Acara Kalendar Lama Jika Ada
+        if (m.calendar_event_id) {
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
+                });
+            } catch (err) {
+                console.warn("Gagal memadam kalendar lama. Sila lakukan pembersihan manual sekiranya terdapat pertindanan.", err);
+            }
+        }
+
+        // 2. Sediakan Data Baharu
+        const names = Array.from(adminEditSelected.values());
+        const emails = Array.from(adminEditSelected.keys());
+        const targetSektor = document.getElementById('adminEditSektor').value;
+        const targetUnit = document.getElementById('adminEditUnit').value;
+
+        const payload = {
+            no_rujukan: document.getElementById('memoNoRujukan').value.toUpperCase(),
+            no_tambahan: document.getElementById('memoNoTambahan').value.toUpperCase(),
+            dari: document.getElementById('memoDari').value.toUpperCase(),
+            tajuk_program: document.getElementById('memoTajuk').value.toUpperCase(),
+            tarikh_surat: document.getElementById('memoTarikhSurat').value,
+            tarikh_terima: document.getElementById('memoTarikhTerima').value,
+            masa_rekod: document.getElementById('memoMasaRekod').value,
+            sektor: targetSektor,
+            unit: targetUnit,
+            nama_penerima: names.join(', '),
+            emel_penerima: emails.join(', '),
+            calendar_event_id: null // Reset acara
+        };
+
+        // 3. Hantar Emel & Kalendar Baharu (Penentuan API GAS)
+        const isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
+        const gasAction = isTargetManager ? 'notifyManager' : 'notify';
+
+        const res = await fetch(GAS_URL, {
+            method: 'POST',
+            redirect: "follow",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+                action: gasAction,
+                sektor: targetSektor,
+                unit: targetUnit,
+                namaArray: names,
+                emailArray: emails,
+                noRujukan: payload.no_rujukan,
+                tajukProgram: payload.tajuk_program,
+                tarikhTerima: payload.tarikh_terima,
+                masaRekod: payload.masa_rekod,
+                fileUrl: m.file_url || 'Tiada Salinan'
+            })
+        });
+
+        const notify = await res.json();
+
+        if (notify.status === 'success' && notify.calendarEventId) {
+            payload.calendar_event_id = notify.calendarEventId;
+        }
+
+        // 4. Kemaskini Pangkalan Data Supabase dengan set lengkap
+        const { error } = await _supabase.from('memo_rekod').update(payload).eq('id', id);
+        if (error) throw error;
+
         toggleModal('modalMemo', false);
         loadAdminMemo();
-        window.showMessage("Rekod maklumat surat berjaya dikemaskini. Perhatian: Perubahan ini tidak dihantar secara automatik ke kalendar. Sila 'Segerak Kalendar' secara manual jika perlu.", "success");
+        if (typeof refreshIframeKalendar === 'function') refreshIframeKalendar();
+
+        window.showMessage("Selesai. Maklumat surat dan penerima baharu berjaya diagihkan semula. Rekod Kalendar telah dikemas kini.", "success");
+
     } catch (err) {
-        window.showMessage("Gagal mengemaskini maklumat surat: " + err.message, "error");
+        window.showMessage("Ralat Transaksi: Gagal mengemaskini maklumat surat. " + err.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Simpan & Kemaskini';
     }
 }
 
@@ -1142,7 +1321,9 @@ function filterAdminTable(type, query) {
             (m.tajuk_program && m.tajuk_program.toLowerCase().includes(q)) ||
             (m.no_rujukan && m.no_rujukan.toLowerCase().includes(q)) ||
             (m.no_tambahan && m.no_tambahan.toLowerCase().includes(q)) ||
-            (m.dari && m.dari.toLowerCase().includes(q))
+            (m.dari && m.dari.toLowerCase().includes(q)) ||
+            (m.sektor && m.sektor.toLowerCase().includes(q)) ||
+            (m.nama_penerima && m.nama_penerima.toLowerCase().includes(q))
         );
         renderAdminMemoTable(filtered);
     } else if (type === 'pegawai') {
