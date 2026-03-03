@@ -6,6 +6,7 @@
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & Integrasi Pengurus Dalam RSVP
  * Kemaskini Terbaharu: Modul Ubah Hala (Re-route) Memo & Automasi Kalendar (Edit Modal)
  * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama & Emel
+ * Patch Terkini: Kebenaran Pengurus Memilih Diri Sendiri (Self-Assign) di Modal Delegasi
  * ==============================================================================
  */
 
@@ -395,9 +396,9 @@ window.openManagerAssignModal = function(id) {
     const uSelect = document.getElementById('tppdUnitSelect');
     uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
     
-    // Cari semua unit yang wujud dalam sektor pengurus tersebut (Kecuali unit pengurus itu sendiri)
+    // Cari semua unit yang wujud dalam sektor pengurus tersebut (Kini pengurus boleh melihat unit mereka sendiri)
     const unitSektor = adminPegawaiData
-        .filter(p => p.sektor === currentAdmin.managerSektor && p.unit !== currentAdmin.managerUnit)
+        .filter(p => p.sektor === currentAdmin.managerSektor)
         .map(p => p.unit);
         
     const unikUnit = [...new Set(unitSektor)].sort();
