@@ -9,6 +9,7 @@
  * Patch Terkini: Pemampatan Antaramuka Jadual & Dialog SweetAlert2 (Pengganti Confirm)
  * Patch Khas: URL Parameter Interception untuk Laluan Ajaib (Magic Link) Delegasi Emel
  * Enjin Carian Pantas: Auto-Lengkap Untuk Modal Edit Admin & Delegasi TPPD
+ * Protokol RBAC Override: Bypass Carian Rentas Sektor Khusus untuk Profil TPPD
  * ==============================================================================
  */
 
@@ -442,14 +443,28 @@ window.openManagerAssignModal = function(id) {
     document.getElementById('tppdDisplayTajuk').textContent = m.tajuk_program;
     document.getElementById('tppdDisplayRujukan').textContent = m.no_rujukan || 'TIADA RUJUKAN';
 
-    // Populate Dropdown Unit berdasarkan Sektor Pengurus
+    // RBAC OVERRIDE: Penentuan Akses TPPD
+    const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+
+    // Placeholder Carian Pantas Dinamik
+    const carianInput = document.getElementById('carianPegawaiTppd');
+    if (carianInput) {
+        carianInput.placeholder = isRoleTPPD ? "Akses TPPD: Carian Rentas Sektor..." : "Taip nama pegawai seliaan anda...";
+    }
+
+    // Populate Dropdown Unit
     const uSelect = document.getElementById('tppdUnitSelect');
     uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
     
-    // Cari semua unit yang wujud dalam sektor pengurus tersebut
-    const unitSektor = adminPegawaiData
-        .filter(p => p.sektor === currentAdmin.managerSektor)
-        .map(p => p.unit);
+    // Logik Populasi Unit (Jika TPPD, panggil semua. Jika tidak, terhad pada Sektor Pengurus)
+    let unitSektor = [];
+    if (isRoleTPPD) {
+        unitSektor = adminPegawaiData.map(p => p.unit);
+    } else {
+        unitSektor = adminPegawaiData
+            .filter(p => p.sektor === currentAdmin.managerSektor)
+            .map(p => p.unit);
+    }
         
     const unikUnit = [...new Set(unitSektor)].sort();
 
@@ -460,7 +475,7 @@ window.openManagerAssignModal = function(id) {
     toggleModal('modalTppdAssign', true);
 }
 
-// ---------------- CARIAN PANTAS TPPD ----------------
+// ---------------- CARIAN PANTAS TPPD (DENGAN OVERRIDE RBAC) ----------------
 window.handleCarianTppd = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianTppd');
@@ -471,14 +486,17 @@ window.handleCarianTppd = function(e) {
         return;
     }
 
-    // TPPD HANYA boleh mencari pegawai dalam sektor mereka sahaja (Sandbox RBAC)
-    const results = adminPegawaiData.filter(p => 
-        p.sektor === currentAdmin.managerSektor &&
-        (p.nama.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query))
-    ).slice(0, 15); 
+    const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+
+    // Carian bergantung pada peranan profil (TPPD bebas, Pengurus lain dihadkan)
+    const results = adminPegawaiData.filter(p => {
+        const textMatch = p.nama.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query) || p.sektor.toLowerCase().includes(query);
+        if (isRoleTPPD) return textMatch;
+        return p.sektor === currentAdmin.managerSektor && textMatch;
+    }).slice(0, 15); 
 
     if (results.length === 0) {
-        dropdown.innerHTML = '<div class="p-3 text-sm text-slate-500 italic text-center font-medium">Tiada padanan di dalam sektor anda...</div>';
+        dropdown.innerHTML = `<div class="p-3 text-sm text-slate-500 italic text-center font-medium">${isRoleTPPD ? 'Tiada padanan dijumpai...' : 'Tiada padanan di dalam sektor anda...'}</div>`;
     } else {
         results.forEach(p => {
             const safeNama = p.nama.replace(/"/g, '&quot;');
@@ -489,7 +507,7 @@ window.handleCarianTppd = function(e) {
             div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
             div.innerHTML = `
                 <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
-                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${p.unit}</div>
+                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${isRoleTPPD ? p.sektor.replace(/^\d{2}\s/, '') + ' - ' + p.unit : p.unit}</div>
             `;
             div.onclick = () => selectPegawaiCarianTppd(safeEmel, safeNama, safeUnit);
             dropdown.appendChild(div);
@@ -524,15 +542,21 @@ function populateManagerNama() {
     const nc = document.getElementById('tppdNamaContainer');
     nc.innerHTML = '';
     
+    const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+
     if (un) {
         nc.innerHTML = `
             <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                <span class="text-xs font-bold text-slate-500 uppercase">Pegawai Seliaan Anda (${un})</span>
+                <span class="text-xs font-bold text-slate-500 uppercase">${isRoleTPPD ? 'Senarai Pegawai' : 'Pegawai Seliaan Anda'} (${un})</span>
                 <button type="button" onclick="selectAllManagerInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
             </div>
         `;
 
-        const pegs = adminPegawaiData.filter(p => p.sektor === currentAdmin.managerSektor && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
+        // Tapisan Senarai Checkbox dengan Logik Override
+        const pegs = adminPegawaiData.filter(p => {
+            if (isRoleTPPD) return p.unit === un;
+            return p.sektor === currentAdmin.managerSektor && p.unit === un;
+        }).sort((a,b)=>a.nama.localeCompare(b.nama));
         
         pegs.forEach((p, i) => {
             const isChecked = managerSelected.has(p.emel_rasmi) ? 'checked' : '';
@@ -540,7 +564,7 @@ function populateManagerNama() {
             nc.innerHTML += `
                 <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
                     <input type="checkbox" id="m_c_${i}" value="${safeNama}" data-email="${p.emel_rasmi}" onchange="toggleManagerPenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded m-checkbox focus:ring-indigo-500" ${isChecked}>
-                    <label for="m_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
+                    <label for="m_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama} ${isRoleTPPD ? `<span class="text-[10px] text-slate-400 ml-1">(${p.sektor.replace(/^\d{2}\s/, '')})</span>` : ''}</label>
                 </div>`;
         });
     } else {
