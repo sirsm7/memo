@@ -8,6 +8,7 @@
  * Patch UI: Penghindaran Ralat Watak Khas (Escape Character) pada Checkbox Nama & Emel
  * Patch Terkini: Pemampatan Antaramuka Jadual & Dialog SweetAlert2 (Pengganti Confirm)
  * Patch Khas: URL Parameter Interception untuk Laluan Ajaib (Magic Link) Delegasi Emel
+ * Enjin Carian Pantas: Auto-Lengkap Untuk Modal Edit Admin & Delegasi TPPD
  * ==============================================================================
  */
 
@@ -71,6 +72,10 @@ function setupAdminEventListeners() {
     document.getElementById('formMemo')?.addEventListener('submit', handleMemoSubmit);
     document.getElementById('adminEditSektor')?.addEventListener('change', populateAdminEditUnit);
     document.getElementById('adminEditUnit')?.addEventListener('change', populateAdminEditNama);
+    
+    // Carian Pantas (Smart Interceptor) Edit Memo & Delegasi TPPD
+    document.getElementById('carianPegawaiEdit')?.addEventListener('input', window.handleCarianAdminEdit);
+    document.getElementById('carianPegawaiTppd')?.addEventListener('input', window.handleCarianTppd);
 
     // Tindakan Pukal (Batch Processing) Kalendar
     document.getElementById('btnPukalSegerak')?.addEventListener('click', startBatchSync);
@@ -88,7 +93,7 @@ function setupAdminEventListeners() {
     document.getElementById('tppdUnitSelect')?.addEventListener('change', populateManagerNama);
     document.getElementById('formTppdAssign')?.addEventListener('submit', handleManagerAssignSubmit);
 
-    // Tutup sebarang modal
+    // Tutup sebarang modal & Dropdown Carian
     document.querySelectorAll('.btnTutupModal').forEach(btn => {
         btn.addEventListener('click', () => {
             if (isProcessingBatch) return; // Halang tutup jika sedang proses pukal
@@ -98,6 +103,21 @@ function setupAdminEventListeners() {
             toggleModal('modalTppdAssign', false);
             toggleModal('modalTambahAdmin', false);
         });
+    });
+
+    // Menutup dropdown carian pantas jika klik di luar
+    document.addEventListener('click', (e) => {
+        const inputEdit = document.getElementById('carianPegawaiEdit');
+        const dropEdit = document.getElementById('dropdownCarianEdit');
+        if (dropEdit && inputEdit && !dropEdit.contains(e.target) && e.target !== inputEdit) {
+            dropEdit.classList.add('hidden');
+        }
+
+        const inputTppd = document.getElementById('carianPegawaiTppd');
+        const dropTppd = document.getElementById('dropdownCarianTppd');
+        if (dropTppd && inputTppd && !dropTppd.contains(e.target) && e.target !== inputTppd) {
+            dropTppd.classList.add('hidden');
+        }
     });
 }
 
@@ -410,9 +430,12 @@ window.openManagerAssignModal = function(id) {
 
     // Reset Form & State
     document.getElementById('formTppdAssign').reset();
+    document.getElementById('carianPegawaiTppd').value = '';
+    document.getElementById('dropdownCarianTppd').classList.add('hidden');
+    
     managerSelected.clear();
     renderManagerTags();
-    document.getElementById('tppdNamaContainer').innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+    document.getElementById('tppdNamaContainer').innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
 
     // Isi Maklumat Header
     document.getElementById('tppdMemoId').value = m.id;
@@ -423,7 +446,7 @@ window.openManagerAssignModal = function(id) {
     const uSelect = document.getElementById('tppdUnitSelect');
     uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
     
-    // Cari semua unit yang wujud dalam sektor pengurus tersebut (Kini pengurus boleh melihat unit mereka sendiri)
+    // Cari semua unit yang wujud dalam sektor pengurus tersebut
     const unitSektor = adminPegawaiData
         .filter(p => p.sektor === currentAdmin.managerSektor)
         .map(p => p.unit);
@@ -436,6 +459,65 @@ window.openManagerAssignModal = function(id) {
 
     toggleModal('modalTppdAssign', true);
 }
+
+// ---------------- CARIAN PANTAS TPPD ----------------
+window.handleCarianTppd = function(e) {
+    const query = e.target.value.toLowerCase();
+    const dropdown = document.getElementById('dropdownCarianTppd');
+    dropdown.innerHTML = '';
+
+    if (query.length < 2) {
+        dropdown.classList.add('hidden');
+        return;
+    }
+
+    // TPPD HANYA boleh mencari pegawai dalam sektor mereka sahaja (Sandbox RBAC)
+    const results = adminPegawaiData.filter(p => 
+        p.sektor === currentAdmin.managerSektor &&
+        (p.nama.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query))
+    ).slice(0, 15); 
+
+    if (results.length === 0) {
+        dropdown.innerHTML = '<div class="p-3 text-sm text-slate-500 italic text-center font-medium">Tiada padanan di dalam sektor anda...</div>';
+    } else {
+        results.forEach(p => {
+            const safeNama = p.nama.replace(/"/g, '&quot;');
+            const safeUnit = p.unit.replace(/"/g, '&quot;');
+            const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
+            
+            const div = document.createElement('div');
+            div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
+            div.innerHTML = `
+                <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
+                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${p.unit}</div>
+            `;
+            div.onclick = () => selectPegawaiCarianTppd(safeEmel, safeNama, safeUnit);
+            dropdown.appendChild(div);
+        });
+    }
+    dropdown.classList.remove('hidden');
+};
+
+window.selectPegawaiCarianTppd = function(emel, nama, unit) {
+    const input = document.getElementById('carianPegawaiTppd');
+    const dropdown = document.getElementById('dropdownCarianTppd');
+    const elUnit = document.getElementById('tppdUnitSelect');
+
+    // Auto-pilih Unit
+    elUnit.value = unit;
+    
+    // Daftar Pilihan
+    managerSelected.set(emel, nama);
+    
+    // Update Senarai Checkbox
+    populateManagerNama(); 
+    
+    // Update Tags
+    renderManagerTags();
+
+    input.value = '';
+    dropdown.classList.add('hidden');
+};
 
 function populateManagerNama() {
     const un = document.getElementById('tppdUnitSelect').value;
@@ -462,7 +544,7 @@ function populateManagerNama() {
                 </div>`;
         });
     } else {
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
     }
 }
 
@@ -791,6 +873,72 @@ window.deletePegawai = function(id) {
 
 // ================= CRUD LOGIC: MEMO (Edit Maklumat & Ubah Hala PIC) =================
 
+// ---------------- CARIAN PANTAS ADMIN EDIT MEMO ----------------
+window.handleCarianAdminEdit = function(e) {
+    const query = e.target.value.toLowerCase();
+    const dropdown = document.getElementById('dropdownCarianEdit');
+    dropdown.innerHTML = '';
+
+    if (query.length < 2) {
+        dropdown.classList.add('hidden');
+        return;
+    }
+
+    // Admin bebas mencari seluruh sektor
+    const results = adminPegawaiData.filter(p => 
+        p.nama.toLowerCase().includes(query) || 
+        p.sektor.toLowerCase().includes(query) || 
+        p.unit.toLowerCase().includes(query)
+    ).slice(0, 15); 
+
+    if (results.length === 0) {
+        dropdown.innerHTML = '<div class="p-3 text-sm text-slate-500 italic text-center font-medium">Tiada padanan rekod dijumpai...</div>';
+    } else {
+        results.forEach(p => {
+            const safeNama = p.nama.replace(/"/g, '&quot;');
+            const safeSektor = p.sektor.replace(/"/g, '&quot;');
+            const safeUnit = p.unit.replace(/"/g, '&quot;');
+            const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
+            
+            const div = document.createElement('div');
+            div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
+            div.innerHTML = `
+                <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
+                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}</div>
+            `;
+            div.onclick = () => selectPegawaiCarianEdit(safeEmel, safeNama, safeSektor, safeUnit);
+            dropdown.appendChild(div);
+        });
+    }
+    dropdown.classList.remove('hidden');
+};
+
+window.selectPegawaiCarianEdit = function(emel, nama, sektor, unit) {
+    const input = document.getElementById('carianPegawaiEdit');
+    const dropdown = document.getElementById('dropdownCarianEdit');
+    const elSektor = document.getElementById('adminEditSektor');
+    const elUnit = document.getElementById('adminEditUnit');
+
+    // Auto-pilih Sektor
+    elSektor.value = sektor;
+    
+    // Auto-populasi Unit
+    populateAdminEditUnit();
+    elUnit.value = unit;
+    
+    // Daftar Pilihan
+    adminEditSelected.set(emel, nama);
+    
+    // Update Senarai Checkbox
+    populateAdminEditNama(); 
+    
+    // Update Tags
+    renderAdminEditTags();
+
+    input.value = '';
+    dropdown.classList.add('hidden');
+};
+
 function populateAdminEditSektor() {
     const sSelect = document.getElementById('adminEditSektor');
     if (!sSelect) return;
@@ -844,7 +992,7 @@ function populateAdminEditNama() {
                 </div>`;
         });
     } else {
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
     }
 }
 
@@ -903,6 +1051,10 @@ window.editMemo = function(id) {
     document.getElementById('memoTarikhSurat').value = m.tarikh_surat || '';
     document.getElementById('memoTarikhTerima').value = m.tarikh_terima || '';
     document.getElementById('memoMasaRekod').value = m.masa_rekod || '';
+
+    // Bersihkan Carian Pantas
+    document.getElementById('carianPegawaiEdit').value = '';
+    document.getElementById('dropdownCarianEdit').classList.add('hidden');
 
     // Logik Inisialisasi PIC (Pre-select data semasa)
     adminEditSelected.clear();

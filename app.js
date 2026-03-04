@@ -7,6 +7,7 @@
  * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & CORS Preflight
  * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
  * Patch UI: Integrasi SweetAlert2 & Pemampatan Saiz Jadual Analisis
+ * Patch Terkini: Enjin Carian Pantas Pegawai (Smart Autocomplete Interceptor)
  * ==============================================================================
  */
 
@@ -20,6 +21,7 @@ const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // PENGURUSAN STATE GLOBAL
 let groupedData = {};
+let globalPegawaiFlat = []; // Data rata (flat) untuk carian pantas
 let uploadedFileUrl = "";
 let allRecords = []; 
 let currentFilteredRecords = []; 
@@ -55,6 +57,9 @@ function setupEventListeners() {
     document.getElementById('sektor')?.addEventListener('change', populateUnit);
     document.getElementById('unit')?.addEventListener('change', populateNama);
     
+    // Pendaftar Event Carian Pantas (Smart Interceptor)
+    document.getElementById('carianPegawaiUtama')?.addEventListener('input', window.handleCarianDaftar);
+    
     document.getElementById('salinanSurat')?.addEventListener('change', function() { handleEarlyUpload(this); });
     document.getElementById('resetFileBtn')?.addEventListener('click', resetFileUpload);
     
@@ -66,6 +71,15 @@ function setupEventListeners() {
     document.getElementById('filterBulan')?.addEventListener('change', filterTable);
     document.getElementById('filterTarikh')?.addEventListener('change', filterTable);
     document.getElementById('btnResetFilter')?.addEventListener('click', resetAnalisisFilters);
+
+    // Menutup dropdown carian pantas jika pengguna klik di luar kawasan elemen
+    document.addEventListener('click', (e) => {
+        const inputUtama = document.getElementById('carianPegawaiUtama');
+        const dropUtama = document.getElementById('dropdownCarianUtama');
+        if (dropUtama && inputUtama && !dropUtama.contains(e.target) && e.target !== inputUtama) {
+            dropUtama.classList.add('hidden');
+        }
+    });
 }
 
 // ================= UTILITI GLOBAL: HIERARKI PENGURUSAN =================
@@ -156,6 +170,7 @@ window.switchTab = function(tabName) {
 // ================= DATA PEGAWAI & DROP-DOWN =================
 function processPegawai(data) {
     groupedData = {};
+    globalPegawaiFlat = data; // Pangkalan data rata disimpan untuk carian pantas
     data.forEach(p => {
         if (!groupedData[p.sektor]) groupedData[p.sektor] = {};
         if (!groupedData[p.sektor][p.unit]) groupedData[p.sektor][p.unit] = [];
@@ -220,6 +235,76 @@ window.populateNama = function() {
     } else {
         nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
     }
+};
+
+// ================= ENJIN CARIAN PANTAS PEGAWAI (SMART INTERCEPTOR) =================
+window.handleCarianDaftar = function(e) {
+    const query = e.target.value.toLowerCase();
+    const dropdown = document.getElementById('dropdownCarianUtama');
+    dropdown.innerHTML = '';
+
+    if (query.length < 2) {
+        dropdown.classList.add('hidden');
+        return;
+    }
+
+    // Tapis berdasarkan nama, sektor, atau unit. Dihadkan kepada 15 entri terbaik untuk prestasi antaramuka.
+    const results = globalPegawaiFlat.filter(p => 
+        p.nama.toLowerCase().includes(query) || 
+        p.sektor.toLowerCase().includes(query) || 
+        p.unit.toLowerCase().includes(query)
+    ).slice(0, 15); 
+
+    if (results.length === 0) {
+        dropdown.innerHTML = '<div class="p-3 text-sm text-slate-500 italic text-center font-medium">Tiada padanan rekod dijumpai...</div>';
+    } else {
+        results.forEach(p => {
+            const safeNama = p.nama.replace(/"/g, '&quot;');
+            const safeSektor = p.sektor.replace(/"/g, '&quot;');
+            const safeUnit = p.unit.replace(/"/g, '&quot;');
+            const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
+            
+            const div = document.createElement('div');
+            div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
+            div.innerHTML = `
+                <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
+                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}</div>
+            `;
+            // Eksekusi pemilihan automatik
+            div.onclick = () => selectPegawaiCarian(safeEmel, safeNama, safeSektor, safeUnit);
+            dropdown.appendChild(div);
+        });
+    }
+    dropdown.classList.remove('hidden');
+};
+
+window.selectPegawaiCarian = function(emel, nama, sektor, unit) {
+    const input = document.getElementById('carianPegawaiUtama');
+    const dropdown = document.getElementById('dropdownCarianUtama');
+    const elSektor = document.getElementById('sektor');
+    const elUnit = document.getElementById('unit');
+
+    // 1. Tulis auto-pemilihan Sektor
+    elSektor.value = sektor;
+    
+    // 2. Populasi Unit bersandarkan Sektor secara automatik
+    populateUnit();
+    
+    // 3. Tulis auto-pemilihan Unit
+    elUnit.value = unit;
+    
+    // 4. Mendaftarkan pegawai secara global 
+    globalSelected.set(emel, nama);
+    
+    // 5. Menjana semula Checkbox Nama, ia akan membaca rekod global dan menanda (check) secara automatik
+    populateNama(); 
+    
+    // 6. Mengemaskini UI Pil (Tags) dan rentetan teks emel
+    renderTags();
+
+    // Mengosongkan medan carian pantas
+    input.value = '';
+    dropdown.classList.add('hidden');
 };
 
 // ================= SISTEM TAG PENERIMA =================
@@ -744,7 +829,11 @@ window.showMessage = function(m, t) {
 
 function resetForm() {
     const mainForm = document.getElementById('mainForm');
+    const inputCarian = document.getElementById('carianPegawaiUtama');
+    
     if (mainForm) mainForm.reset();
+    if (inputCarian) inputCarian.value = '';
+    
     resetFileUpload();
     globalSelected.clear();
     renderTags();

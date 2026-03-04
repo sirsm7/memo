@@ -162,19 +162,29 @@
                             
                             <div class="col-span-1 md:col-span-2 border-b border-slate-100 pb-2 mt-4">
                                 <h3 class="text-lg font-bold text-slate-700">Langkah 2: Maklumat Pendaftaran</h3>
-                                <p class="text-xs text-slate-500 mt-1">Sektor yang dipilih di bawah akan dijadikan rujukan utama surat menyurat.</p>
+                                <p class="text-xs text-slate-500 mt-1">Sektor yang dipilih di bawah akan dijadikan rujukan utama surat menyurat. Anda boleh mencari terus pegawai menggunakan Carian Pantas.</p>
                             </div>
 
-                            <div class="col-span-1">
+                            <!-- CARIAN PANTAS PENDAFTARAN -->
+                            <div class="col-span-1 md:col-span-2 relative z-30 mb-2">
+                                <label for="carianPegawaiUtama" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Carian Pantas Pegawai <span class="text-indigo-500">(Auto-lengkap Sektor & Unit)</span></label>
+                                <div class="relative">
+                                    <input type="text" id="carianPegawaiUtama" autocomplete="off" class="w-full pl-10 pr-4 py-3 bg-indigo-50 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-colors text-sm font-semibold text-slate-700 placeholder-indigo-300" placeholder="Taip nama pegawai untuk carian pantas...">
+                                    <svg class="w-5 h-5 text-indigo-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <div id="dropdownCarianUtama" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar"></div>
+                            </div>
+
+                            <div class="col-span-1 z-10">
                                 <label for="sektor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sektor Utama <span class="text-red-500">*</span></label>
-                                <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100">
+                                <select id="sektor" name="sektor" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 transition-colors">
                                     <option value="">Sila pilih sektor...</option>
                                 </select>
                             </div>
 
-                            <div class="col-span-1">
+                            <div class="col-span-1 z-10">
                                 <label for="unit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Unit <span class="text-red-500">*</span></label>
-                                <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled>
+                                <select id="unit" name="unit" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 transition-colors" disabled>
                                     <option value="">Pilih Sektor Dahulu</option>
                                 </select>
                             </div>
@@ -184,14 +194,14 @@
                                 <div id="selectedTagsContainer" class="flex flex-wrap gap-2 mb-3 min-h-[44px] p-3 bg-white border border-slate-300 rounded-lg shadow-sm transition-colors focus-within:ring-2 focus-within:ring-indigo-500">
                                     <span class="text-sm text-slate-400 italic">Belum ada penerima dipilih...</span>
                                 </div>
-                                <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-52 overflow-y-auto custom-scrollbar shadow-inner relative">
-                                    <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
+                                <div id="namaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-52 overflow-y-auto custom-scrollbar shadow-inner relative transition-colors">
+                                    <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>
                                 </div>
                             </div>
 
                             <div class="col-span-1 md:col-span-2">
                                 <label for="email" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat Emel Penerima (Auto) <span class="text-red-500">*</span></label>
-                                <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none"></textarea>
+                                <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none transition-colors"></textarea>
                             </div>
 
                             <!-- MEDAN BAHARU: MAKLUMAT SURAT -->
@@ -201,37 +211,37 @@
 
                             <div class="col-span-1">
                                 <label for="noRujukan" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">No. Fail Kementerian Ibu Pejabat <span class="text-red-500">*</span></label>
-                                <input type="text" id="noRujukan" name="noRujukan" required pattern="[A-Za-z0-9/\-_\s\.]+" title="Sila masukkan aksara abjad angka (alphanumeric), titik, palang, atau sengkang sahaja" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: PPDAG.100-1/1/1">
+                                <input type="text" id="noRujukan" name="noRujukan" required pattern="[A-Za-z0-9/\-_\s\.]+" title="Sila masukkan aksara abjad angka (alphanumeric), titik, palang, atau sengkang sahaja" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium transition-colors" placeholder="CTH: PPDAG.100-1/1/1">
                             </div>
 
                             <div class="col-span-1">
                                 <label for="noTambahan" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombor-Nombor Yang Lain (EXT)</label>
-                                <input type="text" id="noTambahan" name="noTambahan" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="PILIHAN: JIKA ADA">
+                                <input type="text" id="noTambahan" name="noTambahan" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium transition-colors" placeholder="PILIHAN: JIKA ADA">
                             </div>
 
                             <div class="col-span-1">
                                 <label for="tarikhSurat" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Surat <span class="text-red-500">*</span></label>
-                                <input type="date" id="tarikhSurat" name="tarikhSurat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <input type="date" id="tarikhSurat" name="tarikhSurat" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-colors">
                             </div>
 
                             <div class="col-span-1">
                                 <label for="tarikhTerima" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tarikh Penerimaan <span class="text-red-500">*</span></label>
-                                <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <input type="date" id="tarikhTerima" name="tarikhTerima" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-colors">
                             </div>
 
                             <div class="col-span-1 md:col-span-2">
                                 <label for="dari" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Daripada Siapa <span class="text-red-500">*</span></label>
-                                <input type="text" id="dari" name="dari" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: KEMENTERIAN PENDIDIKAN MALAYSIA">
+                                <input type="text" id="dari" name="dari" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium transition-colors" placeholder="CTH: KEMENTERIAN PENDIDIKAN MALAYSIA">
                             </div>
 
                             <div class="col-span-1 md:col-span-2">
                                 <label for="tajukProgram" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Perkara / Tajuk Surat <span class="text-red-500">*</span></label>
-                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium" placeholder="CTH: SURAT ARAHAN PENGURUSAN DOKUMEN 2024">
+                                <input type="text" id="tajukProgram" name="tajukProgram" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase-input placeholder-slate-400 font-medium transition-colors" placeholder="CTH: SURAT ARAHAN PENGURUSAN DOKUMEN 2024">
                             </div>
 
                             <div class="col-span-1 md:col-span-2">
                                 <label for="masaRekod" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Masa Mula Tindakan (Auto) <span class="text-red-500">*</span></label>
-                                <input type="time" id="masaRekod" name="masaRekod" required readonly class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 focus:outline-none">
+                                <input type="time" id="masaRekod" name="masaRekod" required readonly class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 focus:outline-none transition-colors">
                                 <p class="text-xs text-indigo-500 mt-1 font-semibold">* Jemputan kalendar akan dijana secara automatik</p>
                             </div>
 
@@ -765,13 +775,24 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="col-span-1 md:col-span-2">
+                    
+                    <!-- CARIAN PANTAS EDIT MEMO -->
+                    <div class="col-span-1 md:col-span-2 relative z-20 mb-2">
+                        <label for="carianPegawaiEdit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Carian Pantas Pegawai</label>
+                        <div class="relative">
+                            <input type="text" id="carianPegawaiEdit" autocomplete="off" class="w-full pl-9 pr-3 py-2 border border-indigo-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" placeholder="Taip nama pegawai...">
+                            <svg class="w-4 h-4 text-indigo-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <div id="dropdownCarianEdit" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2 z-10">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sektor</label>
                         <select id="adminEditSektor" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50">
                             <option value="">-- Pilih Sektor --</option>
                         </select>
                     </div>
-                    <div class="col-span-1 md:col-span-2">
+                    <div class="col-span-1 md:col-span-2 z-10">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
                         <select id="adminEditUnit" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50" disabled>
                             <option value="">Pilih Sektor Dahulu</option>
@@ -783,7 +804,7 @@
                             <span class="text-sm text-slate-400 italic">Belum ada penerima dipilih...</span>
                         </div>
                         <div id="adminEditNamaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-40 overflow-y-auto custom-scrollbar shadow-inner relative">
-                            <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
+                            <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>
                         </div>
                     </div>
                 </div>
@@ -816,7 +837,17 @@
                     <p id="tppdDisplayRujukan" class="text-sm font-semibold text-slate-700">-</p>
                 </div>
 
-                <div>
+                <!-- CARIAN PANTAS TPPD DELEGASI -->
+                <div class="relative mb-4 z-20">
+                    <label for="carianPegawaiTppd" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Carian Pantas Pegawai (Dalam Sektor)</label>
+                    <div class="relative">
+                        <input type="text" id="carianPegawaiTppd" autocomplete="off" class="w-full pl-10 pr-4 py-3 bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm" placeholder="Taip nama pegawai seliaan anda...">
+                        <svg class="w-5 h-5 text-indigo-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <div id="dropdownCarianTppd" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar"></div>
+                </div>
+
+                <div class="z-10 relative">
                     <label for="tppdUnitSelect" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Unit (Seliaan Pengurusan Anda) <span class="text-red-500">*</span></label>
                     <select id="tppdUnitSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                         <option value="">-- Sila Pilih Unit --</option>
@@ -829,7 +860,7 @@
                         <span class="text-sm text-slate-400 italic">Belum ada penerima dipilih...</span>
                     </div>
                     <div id="tppdNamaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-52 overflow-y-auto custom-scrollbar shadow-inner relative">
-                        <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>
+                        <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>
                     </div>
                     <!-- Medan terselindung ini untuk memastikan borang tidak dihantar tanpa penerima -->
                     <input type="text" id="tppdHiddenEmailCheck" required class="opacity-0 h-0 w-0 absolute" tabindex="-1">
