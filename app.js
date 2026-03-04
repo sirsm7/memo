@@ -8,6 +8,7 @@
  * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
  * Patch UI: Integrasi SweetAlert2 & Pemampatan Saiz Jadual Analisis
  * Patch Terkini: Enjin Carian Pantas Pegawai (Smart Autocomplete Interceptor)
+ * Patch Terkini: Modul Pengesanan Status Tindakan (Menunggu Pengurusan vs Selesai)
  * ==============================================================================
  */
 
@@ -66,6 +67,7 @@ function setupEventListeners() {
     document.getElementById('mainForm')?.addEventListener('submit', handleFormSubmit);
     
     document.getElementById('searchInput')?.addEventListener('keyup', filterTable);
+    document.getElementById('filterStatus')?.addEventListener('change', filterTable);
     document.getElementById('filterSektor')?.addEventListener('change', filterTable);
     document.getElementById('filterUnit')?.addEventListener('change', filterTable);
     document.getElementById('filterBulan')?.addEventListener('change', filterTable);
@@ -86,7 +88,7 @@ function setupEventListeners() {
 /**
  * Logik pengesanan peranan pengurusan.
  * Kini disokong oleh semakan pangkalan data di handleFormSubmit,
- * namun dikekalkan untuk kegunaan UI (Client-Side Feedback).
+ * namun dikekalkan untuk kegunaan UI (Client-Side Feedback & Analisis KPI).
  */
 window.isManagerRole = function(unitName) {
     if (!unitName) return false;
@@ -559,7 +561,7 @@ async function loadDashboardData() {
         return;
     }
 
-    tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
+    tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
 
     try {
         const { data, error } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
@@ -571,7 +573,7 @@ async function loadDashboardData() {
         renderTable(data);
         populateAnalisisFilters(data);
     } catch (err) {
-        tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
     }
 }
 
@@ -583,6 +585,11 @@ function calculateKPIs(data) {
     
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
     document.getElementById('kpiToday').textContent = todayCount;
+
+    // KIRAAN KPI BAHARU: Menunggu Tindakan (Pengurusan)
+    const pendingCount = data.filter(r => window.isManagerRole && window.isManagerRole(r.unit)).length;
+    const kpiPendingEl = document.getElementById('kpiPending');
+    if (kpiPendingEl) kpiPendingEl.textContent = pendingCount;
 
     const sektorCounts = {};
     data.forEach(r => {
@@ -601,6 +608,7 @@ function calculateKPIs(data) {
 }
 
 function populateAnalisisFilters(data) {
+    const fStatus = document.getElementById('filterStatus');
     const fSektor = document.getElementById('filterSektor');
     const fUnit = document.getElementById('filterUnit');
     const fBulan = document.getElementById('filterBulan');
@@ -631,6 +639,7 @@ function populateAnalisisFilters(data) {
         return html;
     };
 
+    const currentStatus = fStatus ? fStatus.value : "";
     const currentSektor = fSektor.value;
     const currentUnit = fUnit.value;
     const currentBulan = fBulan.value;
@@ -641,6 +650,7 @@ function populateAnalisisFilters(data) {
     fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
     fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
 
+    if (fStatus && currentStatus) fStatus.value = currentStatus;
     if (currentSektor) fSektor.value = currentSektor;
     if (currentUnit) fUnit.value = currentUnit;
     if (currentBulan) fBulan.value = currentBulan;
@@ -659,7 +669,7 @@ function renderTable(dataArray) {
     tBody.innerHTML = '';
 
     if (dataArray.length === 0) {
-        tBody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Tiada rekod dijumpai berdasarkan tapisan.</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500">Tiada rekod dijumpai berdasarkan tapisan.</td></tr>`;
         return;
     }
 
@@ -667,6 +677,12 @@ function renderTable(dataArray) {
         const bilAuto = index + 1;
         const tarikhTerimaStr = formatDt(row.tarikh_terima);
         const tarikhSuratStr = formatDt(row.tarikh_surat);
+        
+        // Penentuan Lencana Status Tindakan
+        const isMenunggu = window.isManagerRole ? window.isManagerRole(row.unit) : false;
+        const statusBadge = isMenunggu
+            ? `<span class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan</span>`
+            : `<span class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Selesai Diagih</span>`;
         
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
@@ -700,6 +716,9 @@ function renderTable(dataArray) {
                 <div class="text-[10px] text-slate-600 break-words whitespace-normal leading-relaxed italic border-l-2 border-indigo-200 pl-1.5 mt-1" title="${row.nama_penerima}">${row.nama_penerima || '-'}</div>
             </td>
             <td class="p-2 align-top text-center">
+                ${statusBadge}
+            </td>
+            <td class="p-2 align-top text-center">
                 ${row.file_url ? 
                 `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded hover:bg-indigo-100 transition-colors">
                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
@@ -713,6 +732,7 @@ function renderTable(dataArray) {
 
 function filterTable() {
     const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
+    const vStatus = document.getElementById('filterStatus')?.value || "";
     const vSektor = document.getElementById('filterSektor')?.value || "";
     const vUnit = document.getElementById('filterUnit')?.value || "";
     const vBulan = document.getElementById('filterBulan')?.value || "";
@@ -734,7 +754,14 @@ function filterTable() {
         let bulanMatch = true;
         if (vBulan !== "") bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
 
-        return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch;
+        let statusMatch = true;
+        if (vStatus !== "") {
+            const isMenunggu = window.isManagerRole ? window.isManagerRole(r.unit) : false;
+            if (vStatus === "MENUNGGU") statusMatch = isMenunggu;
+            if (vStatus === "SELESAI") statusMatch = !isMenunggu;
+        }
+
+        return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch && statusMatch;
     });
 
     currentFilteredRecords = filtered;
@@ -743,6 +770,7 @@ function filterTable() {
 
 function resetAnalisisFilters() {
     if(document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
+    if(document.getElementById('filterStatus')) document.getElementById('filterStatus').value = "";
     if(document.getElementById('filterSektor')) document.getElementById('filterSektor').value = "";
     if(document.getElementById('filterUnit')) document.getElementById('filterUnit').value = "";
     if(document.getElementById('filterBulan')) document.getElementById('filterBulan').value = "";
@@ -757,24 +785,31 @@ window.exportToExcel = function() {
     }
 
     try {
-        const exportData = currentFilteredRecords.map((row, index) => ({
-            "Bil": index + 1,
-            "Tarikh Penerimaan": formatDt(row.tarikh_terima),
-            "No.Fail Kementerian Ibu Pejabat": row.no_rujukan || '-',
-            "Nombor-Nombor Yang Lain": row.no_tambahan || '-',
-            "Tarikh Surat": formatDt(row.tarikh_surat),
-            "Daripada Siapa": row.dari || '-',
-            "Perkara": row.tajuk_program || '-',
-            "Dirujukkan Kepada (Penerima)": row.nama_penerima || '-',
-            "Sektor Utama": row.sektor || '-',
-            "Masa Rekod": row.masa_rekod || '-',
-            "Pautan Salinan Dokumen": row.file_url || 'Tiada Fail Disertakan'
-        }));
+        const exportData = currentFilteredRecords.map((row, index) => {
+            const isMenunggu = window.isManagerRole ? window.isManagerRole(row.unit) : false;
+            const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';
+
+            return {
+                "Bil": index + 1,
+                "Tarikh Penerimaan": formatDt(row.tarikh_terima),
+                "No.Fail Kementerian Ibu Pejabat": row.no_rujukan || '-',
+                "Nombor-Nombor Yang Lain": row.no_tambahan || '-',
+                "Tarikh Surat": formatDt(row.tarikh_surat),
+                "Daripada Siapa": row.dari || '-',
+                "Perkara": row.tajuk_program || '-',
+                "Dirujukkan Kepada (Penerima)": row.nama_penerima || '-',
+                "Sektor Utama": row.sektor || '-',
+                "Status Tindakan": statusTxt,
+                "Masa Rekod": row.masa_rekod || '-',
+                "Pautan Salinan Dokumen": row.file_url || 'Tiada Fail Disertakan'
+            };
+        });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
+        // Telah ditambah {wch: 25} untuk menampung kolum 'Status Tindakan'
         const wscols = [
             {wch: 5}, {wch: 18}, {wch: 35}, {wch: 25}, {wch: 15}, 
-            {wch: 35}, {wch: 45}, {wch: 50}, {wch: 30}, {wch: 12}, {wch: 60}
+            {wch: 35}, {wch: 45}, {wch: 50}, {wch: 30}, {wch: 25}, {wch: 12}, {wch: 60}
         ];
         ws['!cols'] = wscols;
 
