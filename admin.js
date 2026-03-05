@@ -10,6 +10,7 @@
  * Patch Khas: URL Parameter Interception untuk Laluan Ajaib (Magic Link) Delegasi Emel
  * Enjin Carian Pantas: Auto-Lengkap Untuk Modal Edit Admin & Delegasi TPPD
  * Protokol RBAC Override: Bypass Carian Rentas Sektor Khusus untuk Profil TPPD
+ * Patch Pembedahan: Automasi Penyisihan Delegasi Terselesai & Override Penugasan Kendiri
  * ==============================================================================
  */
 
@@ -387,12 +388,13 @@ function renderAdminSistemTable(data) {
 async function loadManagerMemo() {
     if (!currentAdmin || !currentAdmin.isManager) return;
 
-    // Tarik memo KHUSUS untuk sektor dan unit pengurusan tersebut
+    // Tarik memo KHUSUS untuk sektor dan unit pengurusan tersebut YANG BELUM ADA KALENDAR (Menunggu Tindakan Selesai)
     const { data } = await _supabase
         .from('memo_rekod')
         .select('*')
         .eq('sektor', currentAdmin.managerSektor)
         .eq('unit', currentAdmin.managerUnit)
+        .is('calendar_event_id', null) // PINDAAN BAHARU: Menapis memo yang telah diagih sepenuhnya
         .order('created_at', { ascending: false });
 
     managerMemoData = data || [];
@@ -667,7 +669,15 @@ async function handleManagerAssignSubmit(e) {
 
         if (updateError) throw updateError;
 
-        const isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
+        // --- PINDAAN BAHARU: BYPASS DELEGASI UNTUK PENUGASAN KENDIRI ---
+        let isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
+        
+        // OVERRIDE: Jika unit yang dipilih adalah unit pengurus itu sendiri, ia bukan lagi delegasi tertunda (deferred), 
+        // sebaliknya ia adalah penetapan rasmi (final) yang memerlukan janaan RSVP Kalendar.
+        if (targetUnit === currentAdmin.managerUnit) {
+            isTargetManager = false;
+        }
+
         const gasAction = isTargetManager ? 'notifyManager' : 'notify';
 
         const res = await fetch(GAS_URL, {
@@ -696,7 +706,7 @@ async function handleManagerAssignSubmit(e) {
         }
 
         toggleModal('modalTppdAssign', false);
-        loadManagerMemo(); 
+        loadManagerMemo(); // Memuatkan semula senarai, rekod yang selesai tidak akan dipaparkan lagi
         
         if (isTargetManager) {
             window.showMessage("Pengesahan berjaya. Sistem telah memanjangkan memo ini ke peringkat pengurusan yang seterusnya.", "success");

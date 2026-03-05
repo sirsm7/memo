@@ -8,7 +8,7 @@
  * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
  * Patch UI: Integrasi SweetAlert2 & Pemampatan Saiz Jadual Analisis
  * Patch Terkini: Enjin Carian Pantas Pegawai (Smart Autocomplete Interceptor)
- * Patch Terkini: Modul Pengesanan Status Tindakan (Menunggu Pengurusan vs Selesai)
+ * Patch Pembedahan: Modul Pengesanan Status Tindakan Tepat (Semakan calendar_event_id)
  * ==============================================================================
  */
 
@@ -586,8 +586,8 @@ function calculateKPIs(data) {
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
     document.getElementById('kpiToday').textContent = todayCount;
 
-    // KIRAAN KPI BAHARU: Menunggu Tindakan (Pengurusan)
-    const pendingCount = data.filter(r => window.isManagerRole && window.isManagerRole(r.unit)).length;
+    // KIRAAN KPI BAHARU (PINDAAN): Menunggu Tindakan Pengurusan (Jika unit adalah pengurus DAN belum ada kalendar)
+    const pendingCount = data.filter(r => window.isManagerRole && window.isManagerRole(r.unit) && !r.calendar_event_id).length;
     const kpiPendingEl = document.getElementById('kpiPending');
     if (kpiPendingEl) kpiPendingEl.textContent = pendingCount;
 
@@ -678,8 +678,9 @@ function renderTable(dataArray) {
         const tarikhTerimaStr = formatDt(row.tarikh_terima);
         const tarikhSuratStr = formatDt(row.tarikh_surat);
         
-        // Penentuan Lencana Status Tindakan
-        const isMenunggu = window.isManagerRole ? window.isManagerRole(row.unit) : false;
+        // Penentuan Lencana Status Tindakan (PINDAAN BAHARU: Bergantung kepada pengesahan ID Kalendar)
+        const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && !row.calendar_event_id) : false;
+        
         const statusBadge = isMenunggu
             ? `<span class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan</span>`
             : `<span class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Selesai Diagih</span>`;
@@ -756,7 +757,8 @@ function filterTable() {
 
         let statusMatch = true;
         if (vStatus !== "") {
-            const isMenunggu = window.isManagerRole ? window.isManagerRole(r.unit) : false;
+            // PINDAAN BAHARU: Mematuhi logik semakan kalendar
+            const isMenunggu = window.isManagerRole ? (window.isManagerRole(r.unit) && !r.calendar_event_id) : false;
             if (vStatus === "MENUNGGU") statusMatch = isMenunggu;
             if (vStatus === "SELESAI") statusMatch = !isMenunggu;
         }
@@ -786,7 +788,8 @@ window.exportToExcel = function() {
 
     try {
         const exportData = currentFilteredRecords.map((row, index) => {
-            const isMenunggu = window.isManagerRole ? window.isManagerRole(row.unit) : false;
+            // PINDAAN BAHARU: Eksport mematuhi logik pengesahan kalendar
+            const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && !row.calendar_event_id) : false;
             const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';
 
             return {
