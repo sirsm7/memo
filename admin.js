@@ -11,6 +11,7 @@
  * Enjin Carian Pantas: Auto-Lengkap Untuk Modal Edit Admin & Delegasi TPPD
  * Protokol RBAC Override: Bypass Carian Rentas Sektor Khusus untuk Profil TPPD
  * Patch Pembedahan: Automasi Penyisihan Delegasi Terselesai & Override Penugasan Kendiri
+ * Versi Pukal (Bulk): Sokongan Penugasan Pukal (Batch Assignment) PIC TPPD & Progress UI
  * ==============================================================================
  */
 
@@ -21,9 +22,11 @@ let adminPegawaiData = [];
 let adminSistemData = [];
 let isProcessingBatch = false;
 
-// STATE PENGURUS KHUSUS (HIERARKI)
+// STATE PENGURUS KHUSUS (HIERARKI & PUKAL)
 let managerMemoData = [];
 let managerSelected = new Map(); // Menjejak email -> nama rentas pegawai untuk modal delegasi TPPD
+let managerSelectedMemos = new Set(); // Menjejak ID memo yang dipilih untuk penugasan pukal
+let isProcessingTppdBatch = false; // Flag pemprosesan pukal TPPD
 
 // STATE PENTADBIR KHUSUS (UBAH HALA MEMO)
 let adminEditSelected = new Map(); // Menjejak penerima semasa mod kemaskini (Edit Memo)
@@ -225,7 +228,7 @@ async function handleLogin(e) {
 }
 
 function handleLogout() {
-    if (isProcessingBatch) {
+    if (isProcessingBatch || isProcessingTppdBatch) {
         window.showMessage("Sila tunggu sehingga proses pukal selesai.", "error");
         return;
     }
@@ -388,6 +391,12 @@ function renderAdminSistemTable(data) {
 async function loadManagerMemo() {
     if (!currentAdmin || !currentAdmin.isManager) return;
 
+    // Reset Pemilihan Pukal
+    managerSelectedMemos.clear();
+    updateTppdBulkButton();
+    const checkAllBox = document.getElementById('tppdCheckAll');
+    if (checkAllBox) checkAllBox.checked = false;
+
     // Tarik memo KHUSUS untuk sektor dan unit pengurusan tersebut YANG BELUM ADA KALENDAR (Menunggu Tindakan Selesai)
     const { data } = await _supabase
         .from('memo_rekod')
@@ -403,47 +412,120 @@ async function loadManagerMemo() {
 
 function renderManagerTable(data) {
     const tbody = document.getElementById('tppdTableBody'); 
-    tbody.innerHTML = data.map(row => `
+    tbody.innerHTML = data.map(row => {
+        const isChecked = managerSelectedMemos.has(row.id) ? 'checked' : '';
+        return `
         <tr class="hover:bg-indigo-50/30 transition-colors">
-            <td class="p-2 border-b align-top">
+            <td class="p-4 border-b text-center align-top">
+                <input type="checkbox" value="${row.id}" onchange="toggleManagerMemoSelection(${row.id}, this.checked)" class="tppd-memo-checkbox w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer transition-colors border-slate-300" ${isChecked}>
+            </td>
+            <td class="p-4 border-b align-top">
                 <div class="font-bold text-slate-700 uppercase text-xs">${row.no_rujukan || 'TIADA'}</div>
                 <div class="text-[11px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
             </td>
-            <td class="p-2 border-b text-[11px] font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
-            <td class="p-2 border-b align-top">
+            <td class="p-4 border-b text-[11px] font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
+            <td class="p-4 border-b align-top">
                 <div class="font-semibold text-slate-700 text-[11px]">${row.tarikh_terima}</div>
                 <div class="text-[10px] text-indigo-600 font-bold mt-0.5">${row.masa_rekod || '-'}</div>
             </td>
-            <td class="p-2 border-b text-center align-top">
+            <td class="p-4 border-b text-center align-top">
                 ${row.file_url ? `<a href="${row.file_url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold underline">Lihat Fail</a>` : '-'}
             </td>
-            <td class="p-2 border-b text-center align-top">
-                <button onclick="openManagerAssignModal(${row.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto">
+            <td class="p-4 border-b text-center align-top">
+                <button onclick="openManagerAssignModal(${row.id}, false)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto">
                     <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                    Tetapkan Penerima
+                    Tindakan
                 </button>
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="5" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu pada unit anda.</td></tr>';
+    `}).join('') || '<tr><td colspan="6" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu pada unit anda.</td></tr>';
 }
 
-window.openManagerAssignModal = function(id) {
-    const m = managerMemoData.find(x => x.id === id);
-    if (!m) return;
+// ---------------- LOGIK PEMILIHAN PUKAL (BULK SELECTION) ----------------
+window.toggleManagerMemoSelection = function(id, isChecked) {
+    if (isChecked) managerSelectedMemos.add(id);
+    else managerSelectedMemos.delete(id);
+    updateTppdBulkButton();
+};
+
+window.toggleAllManagerMemos = function(isChecked) {
+    const checkboxes = document.querySelectorAll('.tppd-memo-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+        const id = parseInt(cb.value);
+        if (isChecked) managerSelectedMemos.add(id);
+        else managerSelectedMemos.delete(id);
+    });
+    updateTppdBulkButton();
+};
+
+function updateTppdBulkButton() {
+    const btn = document.getElementById('btnPukalTppdAssign');
+    const countSpan = document.getElementById('countPukalTppd');
+    if (managerSelectedMemos.size > 0) {
+        btn.classList.remove('hidden');
+        countSpan.textContent = managerSelectedMemos.size;
+    } else {
+        btn.classList.add('hidden');
+    }
+}
+
+function updateTppdBatchProgressUI(current, total, text) {
+    const container = document.getElementById('tppdBatchProgressContainer');
+    const bar = document.getElementById('tppdBatchProgressBar');
+    const percentage = document.getElementById('tppdBatchPercentage');
+    const statusText = document.getElementById('tppdBatchStatusText');
+
+    if (total === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    const perc = Math.round((current / total) * 100);
+    
+    bar.style.width = `${perc}%`;
+    percentage.textContent = `${perc}%`;
+    statusText.textContent = text || `Memproses ${current}/${total} delegasi...`;
+}
+
+// ---------------- MODAL DELEGASI & BORANG ----------------
+window.openManagerAssignModal = function(id = null, isBulk = false) {
+    if (isBulk && managerSelectedMemos.size === 0) {
+        return window.showMessage("Sila pilih sekurang-kurangnya satu memo daripada jadual untuk tindakan pukal.", "error");
+    }
 
     // Reset Form & State
     document.getElementById('formTppdAssign').reset();
     document.getElementById('carianPegawaiTppd').value = '';
     document.getElementById('dropdownCarianTppd').classList.add('hidden');
+    document.getElementById('tppdIsBulk').value = isBulk ? 'true' : 'false';
     
     managerSelected.clear();
     renderManagerTags();
     document.getElementById('tppdNamaContainer').innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
 
-    // Isi Maklumat Header
-    document.getElementById('tppdMemoId').value = m.id;
-    document.getElementById('tppdDisplayTajuk').textContent = m.tajuk_program;
-    document.getElementById('tppdDisplayRujukan').textContent = m.no_rujukan || 'TIADA RUJUKAN';
+    // Isi Maklumat Header Secara Dinamik (Pukal vs Tunggal)
+    const infoContainer = document.getElementById('tppdDisplayInfo');
+    
+    if (isBulk) {
+        infoContainer.innerHTML = `
+            <div class="flex items-center text-indigo-700 bg-indigo-100/50 p-2 rounded border border-indigo-200 shadow-sm mt-2">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                <span class="text-sm font-bold">Mod Pukal: ${managerSelectedMemos.size} Surat dipilih untuk penugasan serentak.</span>
+            </div>
+        `;
+    } else {
+        const m = managerMemoData.find(x => x.id === id);
+        if (!m) return;
+        document.getElementById('tppdMemoId').value = m.id;
+        infoContainer.innerHTML = `
+            <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5 mt-2">Perkara / Tajuk Surat</p>
+            <p class="text-sm font-semibold text-slate-700 mb-2 leading-tight">${m.tajuk_program}</p>
+            <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5">No. Rujukan</p>
+            <p class="text-sm font-semibold text-slate-700 leading-tight">${m.no_rujukan || 'TIADA RUJUKAN'}</p>
+        `;
+    }
 
     // RBAC OVERRIDE: Penentuan Akses TPPD
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
@@ -630,95 +712,132 @@ async function handleManagerAssignSubmit(e) {
     e.preventDefault();
     if (managerSelected.size === 0) return window.showMessage("Sila pilih sekurang-kurangnya 1 pegawai penerima.", "error");
 
+    const isBulk = document.getElementById('tppdIsBulk').value === 'true';
+    if (isBulk && managerSelectedMemos.size === 0) return window.showMessage("Ralat sistem: Tiada memo dipilih untuk tindakan pukal.", "error");
+
     const btn = document.getElementById('btnSubmitTppdAssign');
     btn.disabled = true;
     btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-600 w-4 h-4"></div> Memproses...';
 
-    const id = document.getElementById('tppdMemoId').value;
     const targetUnit = document.getElementById('tppdUnitSelect').value;
     
-    let names = Array.from(managerSelected.values());
-    let emails = Array.from(managerSelected.keys());
-
-    const m = managerMemoData.find(x => x.id == id);
-    if (!m) {
-        btn.disabled = false;
-        btn.textContent = 'Sahkan & Hantar Kalendar';
-        return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
-    }
+    let baseNames = Array.from(managerSelected.values());
+    let baseEmails = Array.from(managerSelected.keys());
 
     // --- LOGIK INTEGRASI PENGURUS DALAM RSVP KALENDAR ---
     const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === currentAdmin.email.toLowerCase());
-    const existingEmailsLowerCase = emails.map(e => e.toLowerCase());
+    const existingEmailsLowerCase = baseEmails.map(e => e.toLowerCase());
     
     if (managerProfile && !existingEmailsLowerCase.includes(managerProfile.emel_rasmi.toLowerCase())) {
-        names.push(managerProfile.nama);
-        emails.push(managerProfile.emel_rasmi);
+        baseNames.push(managerProfile.nama);
+        baseEmails.push(managerProfile.emel_rasmi);
     } else if (!managerProfile && !existingEmailsLowerCase.includes(currentAdmin.email.toLowerCase())) {
-        names.push(currentAdmin.role || 'PENGURUSAN');
-        emails.push(currentAdmin.email);
+        baseNames.push(currentAdmin.role || 'PENGURUSAN');
+        baseEmails.push(currentAdmin.email);
     }
     // ----------------------------------------------------
 
+    // Menutup Modal dan Menghidupkan Progress UI
+    toggleModal('modalTppdAssign', false);
+    isProcessingTppdBatch = true;
+    
+    const idsToProcess = isBulk ? Array.from(managerSelectedMemos) : [parseInt(document.getElementById('tppdMemoId').value)];
+    const totalJobs = idsToProcess.length;
+    let successCount = 0;
+    let errorCount = 0;
+
+    // --- PINDAAN BAHARU: BYPASS DELEGASI UNTUK PENUGASAN KENDIRI ---
+    let isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
+    // OVERRIDE: Jika unit yang dipilih adalah unit pengurus itu sendiri, ia bukan delegasi tertunda,
+    // sebaliknya penetapan rasmi (final) yang memerlukan janaan RSVP Kalendar.
+    if (targetUnit === currentAdmin.managerUnit) {
+        isTargetManager = false;
+    }
+    const gasAction = isTargetManager ? 'notifyManager' : 'notify';
+
     try {
-        const { error: updateError } = await _supabase.from('memo_rekod').update({
-            unit: targetUnit,
-            nama_penerima: names.join(', '),
-            emel_penerima: emails.join(', ')
-        }).eq('id', id);
+        for (let i = 0; i < totalJobs; i++) {
+            const currentId = idsToProcess[i];
+            const m = managerMemoData.find(x => x.id === currentId);
+            
+            if (!m) {
+                errorCount++;
+                continue;
+            }
 
-        if (updateError) throw updateError;
+            updateTppdBatchProgressUI(i, totalJobs, `Menetapkan ID #${currentId} (${i+1}/${totalJobs})...`);
 
-        // --- PINDAAN BAHARU: BYPASS DELEGASI UNTUK PENUGASAN KENDIRI ---
-        let isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
-        
-        // OVERRIDE: Jika unit yang dipilih adalah unit pengurus itu sendiri, ia bukan lagi delegasi tertunda (deferred), 
-        // sebaliknya ia adalah penetapan rasmi (final) yang memerlukan janaan RSVP Kalendar.
-        if (targetUnit === currentAdmin.managerUnit) {
-            isTargetManager = false;
+            try {
+                // 1. Kemaskini Rekod Supabase Terlebih Dahulu
+                const { error: updateError } = await _supabase.from('memo_rekod').update({
+                    unit: targetUnit,
+                    nama_penerima: baseNames.join(', '),
+                    emel_penerima: baseEmails.join(', ')
+                }).eq('id', currentId);
+
+                if (updateError) throw updateError;
+
+                // 2. Hantar Emel Notifikasi / Kalendar via GAS
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({
+                        action: gasAction,
+                        sektor: m.sektor,
+                        unit: targetUnit,
+                        namaArray: baseNames,
+                        emailArray: baseEmails,
+                        noRujukan: m.no_rujukan || 'TIADA',
+                        tajukProgram: m.tajuk_program,
+                        tarikhTerima: m.tarikh_terima,
+                        masaRekod: m.masa_rekod || '08:00',
+                        fileUrl: m.file_url || 'Tiada Salinan'
+                    })
+                });
+                const notify = await res.json();
+
+                // 3. Simpan ID Acara Kalendar Jika Berjaya
+                if (notify.status === 'success' && notify.calendarEventId) {
+                    await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', currentId);
+                }
+                
+                successCount++;
+            } catch (jobErr) {
+                console.error(`Ralat Penugasan ID ${currentId}:`, jobErr);
+                errorCount++;
+            }
         }
 
-        const gasAction = isTargetManager ? 'notifyManager' : 'notify';
+        // Selesai Semua Lelaran (Loop)
+        updateTppdBatchProgressUI(totalJobs, totalJobs, "Penugasan Selesai.");
+        loadManagerMemo(); // Memuatkan semula senarai
 
-        const res = await fetch(GAS_URL, {
-            method: 'POST',
-            redirect: "follow",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-            },
-            body: JSON.stringify({
-                action: gasAction,
-                sektor: m.sektor,
-                unit: targetUnit,
-                namaArray: names,
-                emailArray: emails,
-                noRujukan: m.no_rujukan || 'TIADA',
-                tajukProgram: m.tajuk_program,
-                tarikhTerima: m.tarikh_terima,
-                masaRekod: m.masa_rekod || '08:00',
-                fileUrl: m.file_url || 'Tiada Salinan'
-            })
-        });
-        const notify = await res.json();
-
-        if (notify.status === 'success' && notify.calendarEventId) {
-            await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
-        }
-
-        toggleModal('modalTppdAssign', false);
-        loadManagerMemo(); // Memuatkan semula senarai, rekod yang selesai tidak akan dipaparkan lagi
-        
-        if (isTargetManager) {
-            window.showMessage("Pengesahan berjaya. Sistem telah memanjangkan memo ini ke peringkat pengurusan yang seterusnya.", "success");
+        let finalMsg = '';
+        if (isBulk) {
+            finalMsg = `Operasi Pukal Selesai.<br><br>Berjaya: ${successCount} Memo<br>Gagal: ${errorCount} Memo<br><br>`;
+            finalMsg += isTargetManager ? 
+                "Sistem telah memanjangkan memo-memo ini ke peringkat pengurusan yang seterusnya." : 
+                "Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana.";
         } else {
-            window.showMessage("Pengesahan berjaya. Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana dan anda turut disertakan dalam rekod acara tersebut.", "success");
+            finalMsg = isTargetManager ? 
+                "Pengesahan berjaya. Sistem telah memanjangkan memo ini ke peringkat pengurusan yang seterusnya." : 
+                "Pengesahan berjaya. Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana dan anda turut disertakan dalam rekod acara tersebut.";
+        }
+
+        if (errorCount > 0) {
+            window.showMessage(finalMsg, "error");
+        } else {
+            window.showMessage(finalMsg, "success");
         }
 
     } catch (err) {
-        window.showMessage("Gagal mengesahkan penerima: " + err.message, "error");
+        window.showMessage("Ralat luar jangka: " + err.message, "error");
     } finally {
+        isProcessingTppdBatch = false;
         btn.disabled = false;
         btn.textContent = 'Sahkan & Hantar Kalendar';
+        setTimeout(() => updateTppdBatchProgressUI(0, 0), 2000); // Sembunyikan progress selepas 2 saat
     }
 }
 
