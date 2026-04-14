@@ -12,6 +12,7 @@
  * Protokol RBAC Override: Bypass Carian Rentas Sektor Khusus untuk Profil TPPD
  * Patch Pembedahan: Automasi Penyisihan Delegasi Terselesai & Override Penugasan Kendiri
  * Versi Pukal (Bulk): Sokongan Penugasan Pukal (Batch Assignment) PIC TPPD & Progress UI
+ * Patch Terbaharu: Hierarki Dinamik (Sektor -> Unit) pada Modal Delegasi TPPD
  * ==============================================================================
  */
 
@@ -94,7 +95,8 @@ function setupAdminEventListeners() {
     document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => filterAdminTable('memo', e.target.value));
     document.getElementById('adminSearchPegawai')?.addEventListener('input', (e) => filterAdminTable('pegawai', e.target.value));
 
-    // EVENT LISTENER KHUSUS PENGURUSAN (Menggunakan ID DOM TPPD Sedia Ada)
+    // EVENT LISTENER KHUSUS PENGURUSAN (Delegasi Dinamik Sektor -> Unit)
+    document.getElementById('tppdSektorSelect')?.addEventListener('change', window.populateManagerUnit);
     document.getElementById('tppdUnitSelect')?.addEventListener('change', populateManagerNama);
     document.getElementById('formTppdAssign')?.addEventListener('submit', handleManagerAssignSubmit);
 
@@ -503,7 +505,44 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     
     managerSelected.clear();
     renderManagerTags();
-    document.getElementById('tppdNamaContainer').innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
+    
+    // RBAC OVERRIDE: Penentuan Akses Pengurus
+    const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+
+    // Placeholder Carian Pantas Dinamik
+    const carianInput = document.getElementById('carianPegawaiTppd');
+    if (carianInput) {
+        carianInput.placeholder = isRoleTPPD ? "Akses TPPD: Carian Rentas Sektor..." : "Taip nama pegawai seliaan anda...";
+    }
+
+    // Populate Sektor Dinamik
+    const sSelect = document.getElementById('tppdSektorSelect');
+    sSelect.innerHTML = '<option value="">-- Sila Pilih Sektor --</option>';
+
+    let availableSektors = [];
+    if (isRoleTPPD) {
+        availableSektors = adminPegawaiData.map(p => p.sektor);
+    } else {
+        availableSektors = [currentAdmin.managerSektor];
+    }
+
+    const unikSektor = [...new Set(availableSektors)].sort();
+    unikSektor.forEach(s => {
+        sSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+
+    const uSelect = document.getElementById('tppdUnitSelect');
+    const nc = document.getElementById('tppdNamaContainer');
+
+    // Auto-select jika profil bukan TPPD (hanya ada 1 sektor pilihan)
+    if (!isRoleTPPD && unikSektor.length === 1) {
+        sSelect.value = unikSektor[0];
+        window.populateManagerUnit(); // Terus populasi unit
+    } else {
+        uSelect.innerHTML = '<option value="">Pilih Sektor Dahulu</option>';
+        uSelect.disabled = true;
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor Atau Gunakan Carian Pantas Dahulu</div>';
+    }
 
     // Isi Maklumat Header Secara Dinamik (Pukal vs Tunggal)
     const infoContainer = document.getElementById('tppdDisplayInfo');
@@ -527,37 +566,32 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
         `;
     }
 
-    // RBAC OVERRIDE: Penentuan Akses TPPD
-    const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
-
-    // Placeholder Carian Pantas Dinamik
-    const carianInput = document.getElementById('carianPegawaiTppd');
-    if (carianInput) {
-        carianInput.placeholder = isRoleTPPD ? "Akses TPPD: Carian Rentas Sektor..." : "Taip nama pegawai seliaan anda...";
-    }
-
-    // Populate Dropdown Unit
-    const uSelect = document.getElementById('tppdUnitSelect');
-    uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
-    
-    // Logik Populasi Unit (Jika TPPD, panggil semua. Jika tidak, terhad pada Sektor Pengurus)
-    let unitSektor = [];
-    if (isRoleTPPD) {
-        unitSektor = adminPegawaiData.map(p => p.unit);
-    } else {
-        unitSektor = adminPegawaiData
-            .filter(p => p.sektor === currentAdmin.managerSektor)
-            .map(p => p.unit);
-    }
-        
-    const unikUnit = [...new Set(unitSektor)].sort();
-
-    unikUnit.forEach(u => {
-        uSelect.innerHTML += `<option value="${u}">${u}</option>`;
-    });
-
     toggleModal('modalTppdAssign', true);
 }
+
+// ---------------- HIERARKI DINAMIK (SEKTOR -> UNIT -> PEGAWAI) ----------------
+window.populateManagerUnit = function() {
+    const sk = document.getElementById('tppdSektorSelect').value;
+    const uSelect = document.getElementById('tppdUnitSelect');
+    const nc = document.getElementById('tppdNamaContainer');
+
+    uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
+
+    if (sk) {
+        // Unit akan ditapis mengikut sektor yang dipilih
+        const unitSektor = adminPegawaiData.filter(p => p.sektor === sk).map(p => p.unit);
+        const unikUnit = [...new Set(unitSektor)].sort();
+
+        unikUnit.forEach(u => {
+            uSelect.innerHTML += `<option value="${u}">${u}</option>`;
+        });
+        uSelect.disabled = false;
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+    } else {
+        uSelect.disabled = true;
+        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
+    }
+};
 
 // ---------------- CARIAN PANTAS TPPD (DENGAN OVERRIDE RBAC) ----------------
 window.handleCarianTppd = function(e) {
@@ -584,6 +618,7 @@ window.handleCarianTppd = function(e) {
     } else {
         results.forEach(p => {
             const safeNama = p.nama.replace(/"/g, '&quot;');
+            const safeSektor = p.sektor.replace(/"/g, '&quot;');
             const safeUnit = p.unit.replace(/"/g, '&quot;');
             const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
             
@@ -593,18 +628,25 @@ window.handleCarianTppd = function(e) {
                 <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
                 <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${isRoleTPPD ? p.sektor.replace(/^\d{2}\s/, '') + ' - ' + p.unit : p.unit}</div>
             `;
-            div.onclick = () => selectPegawaiCarianTppd(safeEmel, safeNama, safeUnit);
+            div.onclick = () => selectPegawaiCarianTppd(safeEmel, safeNama, safeSektor, safeUnit);
             dropdown.appendChild(div);
         });
     }
     dropdown.classList.remove('hidden');
 };
 
-window.selectPegawaiCarianTppd = function(emel, nama, unit) {
+window.selectPegawaiCarianTppd = function(emel, nama, sektor, unit) {
     const input = document.getElementById('carianPegawaiTppd');
     const dropdown = document.getElementById('dropdownCarianTppd');
+    const elSektor = document.getElementById('tppdSektorSelect');
     const elUnit = document.getElementById('tppdUnitSelect');
 
+    // Auto-pilih Sektor
+    elSektor.value = sektor;
+    
+    // Auto-populasi Unit
+    window.populateManagerUnit();
+    
     // Auto-pilih Unit
     elUnit.value = unit;
     
@@ -622,13 +664,14 @@ window.selectPegawaiCarianTppd = function(emel, nama, unit) {
 };
 
 function populateManagerNama() {
+    const sk = document.getElementById('tppdSektorSelect').value;
     const un = document.getElementById('tppdUnitSelect').value;
     const nc = document.getElementById('tppdNamaContainer');
     nc.innerHTML = '';
     
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
 
-    if (un) {
+    if (sk && un) {
         nc.innerHTML = `
             <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
                 <span class="text-xs font-bold text-slate-500 uppercase">${isRoleTPPD ? 'Senarai Pegawai' : 'Pegawai Seliaan Anda'} (${un})</span>
@@ -636,11 +679,8 @@ function populateManagerNama() {
             </div>
         `;
 
-        // Tapisan Senarai Checkbox dengan Logik Override
-        const pegs = adminPegawaiData.filter(p => {
-            if (isRoleTPPD) return p.unit === un;
-            return p.sektor === currentAdmin.managerSektor && p.unit === un;
-        }).sort((a,b)=>a.nama.localeCompare(b.nama));
+        // Tapisan Senarai Checkbox dengan Logik Override Sektor dan Unit
+        const pegs = adminPegawaiData.filter(p => p.sektor === sk && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
         
         pegs.forEach((p, i) => {
             const isChecked = managerSelected.has(p.emel_rasmi) ? 'checked' : '';
@@ -719,6 +759,7 @@ async function handleManagerAssignSubmit(e) {
     btn.disabled = true;
     btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-600 w-4 h-4"></div> Memproses...';
 
+    const targetSektor = document.getElementById('tppdSektorSelect').value;
     const targetUnit = document.getElementById('tppdUnitSelect').value;
     
     let baseNames = Array.from(managerSelected.values());
@@ -768,8 +809,9 @@ async function handleManagerAssignSubmit(e) {
             updateTppdBatchProgressUI(i, totalJobs, `Menetapkan ID #${currentId} (${i+1}/${totalJobs})...`);
 
             try {
-                // 1. Kemaskini Rekod Supabase Terlebih Dahulu
+                // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Termasuk Sektor dan Unit Baharu)
                 const { error: updateError } = await _supabase.from('memo_rekod').update({
+                    sektor: targetSektor,
                     unit: targetUnit,
                     nama_penerima: baseNames.join(', '),
                     emel_penerima: baseEmails.join(', ')
@@ -784,7 +826,7 @@ async function handleManagerAssignSubmit(e) {
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({
                         action: gasAction,
-                        sektor: m.sektor,
+                        sektor: targetSektor,
                         unit: targetUnit,
                         namaArray: baseNames,
                         emailArray: baseEmails,

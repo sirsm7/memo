@@ -291,7 +291,7 @@
                     <!-- Card 3: Menunggu Tindakan (Pengurusan) -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
                         <div class="p-3 rounded-full bg-amber-100 text-amber-600 mr-4">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4ll3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </div>
                         <div>
                             <p class="text-[11px] sm:text-sm text-slate-500 font-bold uppercase tracking-wider">Menunggu Tindakan</p>
@@ -896,11 +896,19 @@
                     <div id="dropdownCarianTppd" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar"></div>
                 </div>
 
-                <div class="z-10 relative">
-                    <label for="tppdUnitSelect" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Unit (Seliaan Pengurusan Anda) <span class="text-red-500">*</span></label>
-                    <select id="tppdUnitSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">-- Sila Pilih Unit --</option>
-                    </select>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 z-10 relative">
+                    <div>
+                        <label for="tppdSektorSelect" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Sektor <span class="text-red-500">*</span></label>
+                        <select id="tppdSektorSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 transition-colors">
+                            <option value="">-- Sila Pilih Sektor --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tppdUnitSelect" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Unit <span class="text-red-500">*</span></label>
+                        <select id="tppdUnitSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 transition-colors" disabled>
+                            <option value="">Pilih Sektor Dahulu</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div>
