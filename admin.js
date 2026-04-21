@@ -1234,13 +1234,11 @@ function renderAdminEditTags() {
 }
 
 window.editMemo = function(id) {
-    // ── SURGICAL EDIT START: Sokongan Jambatan Data Global untuk PERAKAM ──
     let m = adminMemoData.find(x => x.id === id);
     if (!m && typeof allRecords !== 'undefined') {
         m = allRecords.find(x => x.id === id);
     }
     if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
-    // ── SURGICAL EDIT END ──
     
     // Teks Asas
     document.getElementById('memoId').value = m.id;
@@ -1286,12 +1284,10 @@ async function handleMemoSubmit(e) {
     const id = document.getElementById('memoId').value;
     const btn = document.getElementById('btnSimpanMemo');
 
-    // ── SURGICAL EDIT START: Sokongan Jambatan Data Global untuk PERAKAM ──
     let m = adminMemoData.find(x => x.id == id);
     if (!m && typeof allRecords !== 'undefined') {
         m = allRecords.find(x => x.id == id);
     }
-    // ── SURGICAL EDIT END ──
     if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
 
     if (adminEditSelected.size === 0) {
@@ -1302,14 +1298,21 @@ async function handleMemoSubmit(e) {
     btn.innerHTML = '<div class="loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4"></div> Memproses...';
 
     try {
-        // ── SURGICAL EDIT START: UBAH_EDIT_TANPA_EMEL ──
-        // KEMASKINI (Edit) - Hanya kemaskini data di Supabase.
-        // Tindakan padam kalendar lama dan hantar emel/kalendar baharu telah dilumpuhkan.
-
+        // ── SURGICAL EDIT START: PINTAS_EMEL_BAHARU (Smart Detection) ──
         const names = Array.from(adminEditSelected.values());
         const emails = Array.from(adminEditSelected.keys());
         const targetSektor = document.getElementById('adminEditSektor').value;
         const targetUnit = document.getElementById('adminEditUnit').value;
+
+        // 1. Algoritma Perbandingan (Diff Checker)
+        // Mengekstrak dan menyusun emel lama dari pangkalan data
+        const oldEmailsStr = m.emel_penerima || "";
+        const oldEmailsArr = oldEmailsStr.split(',').map(e => e.trim().toLowerCase()).filter(e => e).sort();
+        // Mengekstrak dan menyusun emel baharu dari borang
+        const newEmailsArr = emails.map(e => e.trim().toLowerCase()).filter(e => e).sort();
+        
+        // Membandingkan tatasusunan (true jika ada perubahan, false jika sama)
+        const isEmailChanged = JSON.stringify(oldEmailsArr) !== JSON.stringify(newEmailsArr);
 
         const payload = {
             no_rujukan: document.getElementById('memoNoRujukan').value.toUpperCase(),
@@ -1323,12 +1326,43 @@ async function handleMemoSubmit(e) {
             unit: targetUnit,
             nama_penerima: names.join(', '),
             emel_penerima: emails.join(', ')
-            // calendar_event_id tidak diusik/direset supaya RSVP asal kekal
+            // Nota Penting: calendar_event_id tidak diusik
         };
 
-        // Kemaskini Pangkalan Data Supabase dengan set lengkap
+        // 2. Kemaskini Pangkalan Data Supabase (Laksana Dalam Semua Keadaan)
         const { error } = await _supabase.from('memo_rekod').update(payload).eq('id', id);
         if (error) throw error;
+
+        // 3. Logik Seruan Pelayan (Hanya dicetus jika penerima berubah)
+        let messageText = "Maklumat surat dikemaskini. (Tiada notifikasi e-mel dihantar)";
+        
+        if (isEmailChanged) {
+            try {
+                // Memanggil GAS untuk menghantar notifikasi e-mel SAHAJA
+                // Memerlukan sokongan case 'notifyEmailOnly' di bahagian GAS (doPost)
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({
+                        action: 'notifyEmailOnly',
+                        sektor: targetSektor,
+                        unit: targetUnit,
+                        namaArray: names,
+                        emailArray: emails,
+                        noRujukan: payload.no_rujukan || 'TIADA',
+                        tajukProgram: payload.tajuk_program,
+                        tarikhTerima: payload.tarikh_terima,
+                        masaRekod: payload.masa_rekod || '08:00',
+                        fileUrl: m.file_url || 'Tiada Salinan'
+                    })
+                });
+                messageText = "Maklumat surat dikemaskini. (Notifikasi e-mel dihantar kepada senarai penerima baharu)";
+            } catch (gasErr) {
+                console.error("Ralat menghantar emel pemakluman:", gasErr);
+                messageText = "Maklumat dikemaskini, tetapi sistem gagal menghubungi pelayan e-mel.";
+            }
+        }
 
         toggleModal('modalMemo', false);
         
@@ -1340,7 +1374,7 @@ async function handleMemoSubmit(e) {
             loadDashboardData(); 
         }
         
-        window.showMessage("Selesai. Maklumat surat dikemaskini. (Tiada notifikasi e-mel dihantar)", "success");
+        window.showMessage("Selesai. " + messageText, "success");
         // ── SURGICAL EDIT END ──
 
     } catch (err) {
