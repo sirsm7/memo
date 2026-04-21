@@ -1302,21 +1302,10 @@ async function handleMemoSubmit(e) {
     btn.innerHTML = '<div class="loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4"></div> Memproses...';
 
     try {
-        // 1. Padam Acara Kalendar Lama Jika Ada
-        if (m.calendar_event_id) {
-            try {
-                await fetch(GAS_URL, {
-                    method: 'POST',
-                    redirect: "follow",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
-                });
-            } catch (err) {
-                console.warn("Gagal memadam kalendar lama. Sila lakukan pembersihan manual sekiranya terdapat pertindanan.", err);
-            }
-        }
+        // ── SURGICAL EDIT START: UBAH_EDIT_TANPA_EMEL ──
+        // KEMASKINI (Edit) - Hanya kemaskini data di Supabase.
+        // Tindakan padam kalendar lama dan hantar emel/kalendar baharu telah dilumpuhkan.
 
-        // 2. Sediakan Data Baharu
         const names = Array.from(adminEditSelected.values());
         const emails = Array.from(adminEditSelected.keys());
         const targetSektor = document.getElementById('adminEditSektor').value;
@@ -1333,56 +1322,26 @@ async function handleMemoSubmit(e) {
             sektor: targetSektor,
             unit: targetUnit,
             nama_penerima: names.join(', '),
-            emel_penerima: emails.join(', '),
-            calendar_event_id: null // Reset acara
+            emel_penerima: emails.join(', ')
+            // calendar_event_id tidak diusik/direset supaya RSVP asal kekal
         };
 
-        // 3. Hantar Emel & Kalendar Baharu (Penentuan API GAS)
-        const isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
-        const gasAction = isTargetManager ? 'notifyManager' : 'notify';
-
-        const res = await fetch(GAS_URL, {
-            method: 'POST',
-            redirect: "follow",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-                action: gasAction,
-                sektor: targetSektor,
-                unit: targetUnit,
-                namaArray: names,
-                emailArray: emails,
-                noRujukan: payload.no_rujukan,
-                tajukProgram: payload.tajuk_program,
-                tarikhTerima: payload.tarikh_terima,
-                masaRekod: payload.masa_rekod,
-                fileUrl: m.file_url || 'Tiada Salinan'
-            })
-        });
-
-        const notify = await res.json();
-
-        if (notify.status === 'success' && notify.calendarEventId) {
-            payload.calendar_event_id = notify.calendarEventId;
-        }
-
-        // 4. Kemaskini Pangkalan Data Supabase dengan set lengkap
+        // Kemaskini Pangkalan Data Supabase dengan set lengkap
         const { error } = await _supabase.from('memo_rekod').update(payload).eq('id', id);
         if (error) throw error;
 
         toggleModal('modalMemo', false);
         
-        // ── SURGICAL EDIT START: Penyegaran Jadual Automatik (Admin & Analisis) ──
+        // Penyegaran Jadual Automatik (Admin & Analisis)
         if (currentAdmin && currentAdmin.isSystemAdmin) {
             loadAdminMemo();
         }
         if (typeof loadDashboardData === 'function') {
-            loadDashboardData(); // Refresh jadual awam di tab Analisis secara automatik
+            loadDashboardData(); 
         }
-        // ── SURGICAL EDIT END ──
         
-        if (typeof refreshIframeKalendar === 'function') refreshIframeKalendar();
-
-        window.showMessage("Selesai. Maklumat surat dan penerima baharu berjaya diagihkan semula. Rekod Kalendar telah dikemas kini.", "success");
+        window.showMessage("Selesai. Maklumat surat dikemaskini. (Tiada notifikasi e-mel dihantar)", "success");
+        // ── SURGICAL EDIT END ──
 
     } catch (err) {
         window.showMessage("Ralat Transaksi: Gagal mengemaskini maklumat surat. " + err.message, "error");
