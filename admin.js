@@ -1234,8 +1234,13 @@ function renderAdminEditTags() {
 }
 
 window.editMemo = function(id) {
-    const m = adminMemoData.find(x => x.id === id);
-    if (!m) return;
+    // ── SURGICAL EDIT START: Sokongan Jambatan Data Global untuk PERAKAM ──
+    let m = adminMemoData.find(x => x.id === id);
+    if (!m && typeof allRecords !== 'undefined') {
+        m = allRecords.find(x => x.id === id);
+    }
+    if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
+    // ── SURGICAL EDIT END ──
     
     // Teks Asas
     document.getElementById('memoId').value = m.id;
@@ -1281,7 +1286,12 @@ async function handleMemoSubmit(e) {
     const id = document.getElementById('memoId').value;
     const btn = document.getElementById('btnSimpanMemo');
 
-    const m = adminMemoData.find(x => x.id == id);
+    // ── SURGICAL EDIT START: Sokongan Jambatan Data Global untuk PERAKAM ──
+    let m = adminMemoData.find(x => x.id == id);
+    if (!m && typeof allRecords !== 'undefined') {
+        m = allRecords.find(x => x.id == id);
+    }
+    // ── SURGICAL EDIT END ──
     if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
 
     if (adminEditSelected.size === 0) {
@@ -1360,7 +1370,16 @@ async function handleMemoSubmit(e) {
         if (error) throw error;
 
         toggleModal('modalMemo', false);
-        loadAdminMemo();
+        
+        // ── SURGICAL EDIT START: Penyegaran Jadual Automatik (Admin & Analisis) ──
+        if (currentAdmin && currentAdmin.isSystemAdmin) {
+            loadAdminMemo();
+        }
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData(); // Refresh jadual awam di tab Analisis secara automatik
+        }
+        // ── SURGICAL EDIT END ──
+        
         if (typeof refreshIframeKalendar === 'function') refreshIframeKalendar();
 
         window.showMessage("Selesai. Maklumat surat dan penerima baharu berjaya diagihkan semula. Rekod Kalendar telah dikemas kini.", "success");

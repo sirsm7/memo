@@ -685,6 +685,21 @@ function renderTable(dataArray) {
             ? `<span class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan</span>`
             : `<span class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Selesai Diagih</span>`;
         
+        // ── SURGICAL EDIT START: Logik Butang Edit Khusus Perakam & Admin (Kemas kini bertepatan saiz ruang) ──
+        const sessionStr = sessionStorage.getItem('memo_admin_session');
+        const adminData = sessionStr ? JSON.parse(sessionStr) : null;
+        const canEdit = adminData && (adminData.isSystemAdmin || adminData.isPerakam);
+        
+        let editBtnHtml = '';
+        if (canEdit) {
+            editBtnHtml = `
+                <button onclick="editMemo(${row.id})" class="inline-flex items-center mt-1 px-2 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded border border-amber-200 shadow-sm hover:bg-amber-100 transition-colors w-full justify-center">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Edit
+                </button>
+            `;
+        }
+        // ── SURGICAL EDIT END ──
+
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
         
@@ -720,11 +735,14 @@ function renderTable(dataArray) {
                 ${statusBadge}
             </td>
             <td class="p-2 align-top text-center">
-                ${row.file_url ? 
-                `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded hover:bg-indigo-100 transition-colors">
-                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
-                </a>` : 
-                `<span class="text-[10px] text-slate-400">Tiada Fail</span>`}
+                <div class="flex flex-col gap-1 items-center">
+                    ${row.file_url ? 
+                    `<a href="${row.file_url}" target="_blank" class="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded border border-indigo-100 hover:bg-indigo-100 transition-colors w-full justify-center">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka
+                    </a>` : 
+                    `<span class="text-[10px] text-slate-400">Tiada Fail</span>`}
+                    ${editBtnHtml}
+                </div>
             </td>
         `;
         tBody.appendChild(tr);
