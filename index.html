@@ -143,10 +143,13 @@
                         <!-- FASA 0: MUAT NAIK FAIL -->
                         <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/50 rounded-xl border-2 border-dashed border-indigo-200 mb-2 transition-all hover:border-indigo-400">
                             <label for="salinanSurat" class="block text-sm font-bold text-indigo-700 uppercase tracking-wider mb-2">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
-                            <p class="text-xs text-slate-500 mb-4">Sila muat naik dokumen (PDF/Imej) untuk mengaktifkan dan membuka kunci borang maklumat. Masa rekod akan ditetapkan secara automatik.</p>
+                            
+                            <!-- ── SURGICAL EDIT START: KEMASKINI_FORMAT_MUAT_NAIK ── -->
+                            <p class="text-xs text-slate-500 mb-4">Sila muat naik dokumen (PDF, PNG, JPG, DOC, DOCX) untuk mengaktifkan dan membuka kunci borang maklumat. Masa rekod akan ditetapkan secara automatik.</p>
                             
                             <div id="uploadContainer" class="relative">
-                                <input id="salinanSurat" type="file" accept=".pdf, image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-all">
+                                <input id="salinanSurat" type="file" accept=".pdf, image/png, image/jpeg, image/jpg, .doc, .docx, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-all">
+                            <!-- ── SURGICAL EDIT END ── -->
                                 
                                 <div id="uploadStatus" class="mt-4 hidden items-center space-x-3 bg-white p-3 rounded-lg border border-emerald-200 shadow-sm">
                                     <div id="uploadLoader" class="loader"></div>

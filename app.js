@@ -378,6 +378,31 @@ async function handleEarlyUpload(input) {
     if (!input.files || input.files.length === 0) return;
     
     const file = input.files[0];
+
+    // ── SURGICAL EDIT START: PINTASAN_MIME_TYPE_DAN_SAIZ_FAIL ──
+    const MAX_SIZE_MB = 5;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+    
+    if (file.size > MAX_SIZE_BYTES) {
+        resetFileUpload();
+        return showMessage(`Saiz fail melebihi had dibenarkan (${MAX_SIZE_MB}MB). Sila mampatkan fail anda sebelum muat naik.`, "error");
+    }
+
+    let resolvedMimeType = file.type;
+    if (!resolvedMimeType) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const mimeMap = {
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'pdf': 'application/pdf',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg'
+        };
+        resolvedMimeType = mimeMap[ext] || 'application/octet-stream';
+    }
+    // ── SURGICAL EDIT END ──
+
     const statusDiv = document.getElementById('uploadStatus');
     const loader = document.getElementById('uploadLoader');
     const text = document.getElementById('uploadText');
@@ -405,7 +430,9 @@ async function handleEarlyUpload(input) {
                 action: 'upload',
                 fileBase64: base64Full.split(',')[1],
                 fileName: file.name,
-                fileMimeType: file.type
+                // ── SURGICAL EDIT START: SUNTIK_MIME_TYPE_BAHARU ──
+                fileMimeType: resolvedMimeType
+                // ── SURGICAL EDIT END ──
             })
         });
         
