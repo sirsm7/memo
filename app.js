@@ -529,7 +529,12 @@ async function handleFormSubmit(e) {
 
         // 4. Simpan Acara Kalendar Jika Ada (Tindakan Pegawai Pelaksana / Bypass Mix)
         if (notify.status === 'success' && notify.calendarEventId) {
-            await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', rec[0].id);
+            // ── SURGICAL EDIT START: MERAKAM_KALENDAR_PENGURUS_DENGAN_PREFIX ──
+            // Sistem wajib merekodkan ID kalendar pengurus (Syarat 2b).
+            // Prefix 'PENDING_' disuntik secara maya untuk mengekalkan status "Menunggu" dalam pangkalan data.
+            const finalEventId = isManagerDeferred ? 'PENDING_' + notify.calendarEventId : notify.calendarEventId;
+            await _supabase.from('memo_rekod').update({ calendar_event_id: finalEventId }).eq('id', rec[0].id);
+            // ── SURGICAL EDIT END ──
         }
 
         // 5. Maklum Balas UI
@@ -586,10 +591,12 @@ function calculateKPIs(data) {
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
     document.getElementById('kpiToday').textContent = todayCount;
 
-    // KIRAAN KPI BAHARU (PINDAAN): Menunggu Tindakan Pengurusan (Jika unit adalah pengurus DAN belum ada kalendar)
-    const pendingCount = data.filter(r => window.isManagerRole && window.isManagerRole(r.unit) && !r.calendar_event_id).length;
+    // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_KPI ──
+    // KIRAAN KPI BAHARU: Mengesan status melalui ketiadaan ID atau kewujudan prefix 'PENDING_'
+    const pendingCount = data.filter(r => window.isManagerRole && window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))).length;
     const kpiPendingEl = document.getElementById('kpiPending');
     if (kpiPendingEl) kpiPendingEl.textContent = pendingCount;
+    // ── SURGICAL EDIT END ──
 
     const sektorCounts = {};
     data.forEach(r => {
@@ -678,14 +685,16 @@ function renderTable(dataArray) {
         const tarikhTerimaStr = formatDt(row.tarikh_terima);
         const tarikhSuratStr = formatDt(row.tarikh_surat);
         
-        // Penentuan Lencana Status Tindakan (PINDAAN BAHARU: Bergantung kepada pengesahan ID Kalendar)
-        const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && !row.calendar_event_id) : false;
-        
+        // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_TABLE ──
+        // Penentuan Lencana Status Tindakan (PINDAAN BAHARU: Membaca prefix 'PENDING_')
+        const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
+        // ── SURGICAL EDIT END ──
+
         const statusBadge = isMenunggu
             ? `<span class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan</span>`
             : `<span class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Selesai Diagih</span>`;
         
-        // ── SURGICAL EDIT START: Logik Butang Edit Khusus Perakam & Admin (Kemas kini bertepatan saiz ruang) ──
+        // Logik Butang Edit Khusus Perakam & Admin (Kemas kini bertepatan saiz ruang)
         const sessionStr = sessionStorage.getItem('memo_admin_session');
         const adminData = sessionStr ? JSON.parse(sessionStr) : null;
         const canEdit = adminData && (adminData.isSystemAdmin || adminData.isPerakam);
@@ -698,7 +707,6 @@ function renderTable(dataArray) {
                 </button>
             `;
         }
-        // ── SURGICAL EDIT END ──
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
@@ -773,13 +781,14 @@ function filterTable() {
         let bulanMatch = true;
         if (vBulan !== "") bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
 
+        // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_FILTER ──
         let statusMatch = true;
         if (vStatus !== "") {
-            // PINDAAN BAHARU: Mematuhi logik semakan kalendar
-            const isMenunggu = window.isManagerRole ? (window.isManagerRole(r.unit) && !r.calendar_event_id) : false;
+            const isMenunggu = window.isManagerRole ? (window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))) : false;
             if (vStatus === "MENUNGGU") statusMatch = isMenunggu;
             if (vStatus === "SELESAI") statusMatch = !isMenunggu;
         }
+        // ── SURGICAL EDIT END ──
 
         return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch && statusMatch;
     });
@@ -806,9 +815,10 @@ window.exportToExcel = function() {
 
     try {
         const exportData = currentFilteredRecords.map((row, index) => {
-            // PINDAAN BAHARU: Eksport mematuhi logik pengesahan kalendar
-            const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && !row.calendar_event_id) : false;
+            // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_EKSPORT ──
+            const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
             const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';
+            // ── SURGICAL EDIT END ──
 
             return {
                 "Bil": index + 1,

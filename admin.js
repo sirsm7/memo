@@ -13,6 +13,7 @@
  * Patch Pembedahan: Automasi Penyisihan Delegasi Terselesai & Override Penugasan Kendiri
  * Versi Pukal (Bulk): Sokongan Penugasan Pukal (Batch Assignment) PIC TPPD & Progress UI
  * Patch Terbaharu: Hierarki Dinamik (Sektor -> Unit) pada Modal Delegasi TPPD
+ * Patch Fasa 3: Pematuhan Delegasi Senyap, Filter E-mel Pengurus & Diff Checker Penerima Baharu
  * ==============================================================================
  */
 
@@ -390,6 +391,7 @@ function renderAdminSistemTable(data) {
 }
 
 // ================= MODUL DELEGASI HIERARKI PENGURUSAN (TAB TPPD) =================
+// ── SURGICAL EDIT START: BACA_PREFIX_PENDING_TPPD ──
 async function loadManagerMemo() {
     if (!currentAdmin || !currentAdmin.isManager) return;
 
@@ -399,18 +401,19 @@ async function loadManagerMemo() {
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) checkAllBox.checked = false;
 
-    // Tarik memo KHUSUS untuk sektor dan unit pengurusan tersebut YANG BELUM ADA KALENDAR (Menunggu Tindakan Selesai)
+    // Tarik memo KHUSUS untuk sektor dan unit pengurusan tersebut YANG BELUM ADA KALENDAR (Atau memegang status PENDING_)
     const { data } = await _supabase
         .from('memo_rekod')
         .select('*')
         .eq('sektor', currentAdmin.managerSektor)
         .eq('unit', currentAdmin.managerUnit)
-        .is('calendar_event_id', null) // PINDAAN BAHARU: Menapis memo yang telah diagih sepenuhnya
+        .or('calendar_event_id.is.null,calendar_event_id.ilike.PENDING_%') // PINDAAN BAHARU: Membaca rantaian PENDING_
         .order('created_at', { ascending: false });
 
     managerMemoData = data || [];
     renderManagerTable(managerMemoData);
 }
+// ── SURGICAL EDIT END ──
 
 function renderManagerTable(data) {
     const tbody = document.getElementById('tppdTableBody'); 
@@ -565,6 +568,10 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
             <p class="text-sm font-semibold text-slate-700 leading-tight">${m.no_rujukan || 'TIADA RUJUKAN'}</p>
         `;
     }
+
+    // Memastikan teks butang selaras dengan operasi (Sahkan Penugasan)
+    const btnSubmit = document.getElementById('btnSubmitTppdAssign');
+    if(btnSubmit) btnSubmit.textContent = 'Sahkan Penugasan';
 
     toggleModal('modalTppdAssign', true);
 }
@@ -748,6 +755,7 @@ function renderManagerTags() {
     });
 }
 
+// ── SURGICAL EDIT START: ROMBAKAN_LOGIK_DELEGASI_TPPD ──
 async function handleManagerAssignSubmit(e) {
     e.preventDefault();
     if (managerSelected.size === 0) return window.showMessage("Sila pilih sekurang-kurangnya 1 pegawai penerima.", "error");
@@ -765,19 +773,6 @@ async function handleManagerAssignSubmit(e) {
     let baseNames = Array.from(managerSelected.values());
     let baseEmails = Array.from(managerSelected.keys());
 
-    // --- LOGIK INTEGRASI PENGURUS DALAM RSVP KALENDAR ---
-    const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === currentAdmin.email.toLowerCase());
-    const existingEmailsLowerCase = baseEmails.map(e => e.toLowerCase());
-    
-    if (managerProfile && !existingEmailsLowerCase.includes(managerProfile.emel_rasmi.toLowerCase())) {
-        baseNames.push(managerProfile.nama);
-        baseEmails.push(managerProfile.emel_rasmi);
-    } else if (!managerProfile && !existingEmailsLowerCase.includes(currentAdmin.email.toLowerCase())) {
-        baseNames.push(currentAdmin.role || 'PENGURUSAN');
-        baseEmails.push(currentAdmin.email);
-    }
-    // ----------------------------------------------------
-
     // Menutup Modal dan Menghidupkan Progress UI
     toggleModal('modalTppdAssign', false);
     isProcessingTppdBatch = true;
@@ -787,14 +782,7 @@ async function handleManagerAssignSubmit(e) {
     let successCount = 0;
     let errorCount = 0;
 
-    // --- PINDAAN BAHARU: BYPASS DELEGASI UNTUK PENUGASAN KENDIRI ---
-    let isTargetManager = window.isManagerRole ? window.isManagerRole(targetUnit) : false;
-    // OVERRIDE: Jika unit yang dipilih adalah unit pengurus itu sendiri, ia bukan delegasi tertunda,
-    // sebaliknya penetapan rasmi (final) yang memerlukan janaan RSVP Kalendar.
-    if (targetUnit === currentAdmin.managerUnit) {
-        isTargetManager = false;
-    }
-    const gasAction = isTargetManager ? 'notifyManager' : 'notify';
+    const adminEmail = currentAdmin.email.toLowerCase();
 
     try {
         for (let i = 0; i < totalJobs; i++) {
@@ -809,39 +797,53 @@ async function handleManagerAssignSubmit(e) {
             updateTppdBatchProgressUI(i, totalJobs, `Menetapkan ID #${currentId} (${i+1}/${totalJobs})...`);
 
             try {
-                // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Termasuk Sektor dan Unit Baharu)
+                // Bersihkan prefix PENDING_ dari ID Kalendar untuk rekod status selesai (Syarat 2c)
+                let finalEventId = m.calendar_event_id || null;
+                if (finalEventId && finalEventId.startsWith('PENDING_')) {
+                    finalEventId = finalEventId.replace('PENDING_', '');
+                }
+
+                // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Termasuk Pembersihan Kalendar)
                 const { error: updateError } = await _supabase.from('memo_rekod').update({
                     sektor: targetSektor,
                     unit: targetUnit,
                     nama_penerima: baseNames.join(', '),
-                    emel_penerima: baseEmails.join(', ')
+                    emel_penerima: baseEmails.join(', '),
+                    calendar_event_id: finalEventId 
                 }).eq('id', currentId);
 
                 if (updateError) throw updateError;
 
-                // 2. Hantar Emel Notifikasi / Kalendar via GAS
-                const res = await fetch(GAS_URL, {
-                    method: 'POST',
-                    redirect: "follow",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({
-                        action: gasAction,
-                        sektor: targetSektor,
-                        unit: targetUnit,
-                        namaArray: baseNames,
-                        emailArray: baseEmails,
-                        noRujukan: m.no_rujukan || 'TIADA',
-                        tajukProgram: m.tajuk_program,
-                        tarikhTerima: m.tarikh_terima,
-                        masaRekod: m.masa_rekod || '08:00',
-                        fileUrl: m.file_url || 'Tiada Salinan'
-                    })
-                });
-                const notify = await res.json();
+                // 2. Semakan Syarat 2c(i) & 2c(ii)
+                // Periksa adakah senarai penerima HANYA mengandungi pengurus itu sendiri
+                const isSelfAssignOnly = baseEmails.length === 1 && baseEmails[0].toLowerCase() === adminEmail;
+                
+                if (isSelfAssignOnly) {
+                    // SYARAT 2c(i): Bypass - Tiada emel dan tiada rekod kalendar baharu. Silent override.
+                    successCount++;
+                    continue; 
+                }
 
-                // 3. Simpan ID Acara Kalendar Jika Berjaya
-                if (notify.status === 'success' && notify.calendarEventId) {
-                    await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', currentId);
+                // SYARAT 2c(ii): Jika melibatkan staf lain (Hantar emel kepada staf SAHAJA)
+                // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel
+                const notifyEmails = baseEmails.filter(e => e.toLowerCase() !== adminEmail);
+                
+                if (notifyEmails.length > 0) {
+                    // Hantar Emel Notifikasi Sahaja (Tanpa Kalendar Baharu) menggunakan API Fasa 1 GS
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: 'notifyExtraEmailsOnly',
+                            sektor: targetSektor,
+                            unit: targetUnit,
+                            newEmailsOnly: notifyEmails, 
+                            noRujukan: m.no_rujukan || 'TIADA',
+                            tajukProgram: m.tajuk_program,
+                            fileUrl: m.file_url || 'Tiada Salinan'
+                        })
+                    });
                 }
                 
                 successCount++;
@@ -857,14 +859,9 @@ async function handleManagerAssignSubmit(e) {
 
         let finalMsg = '';
         if (isBulk) {
-            finalMsg = `Operasi Pukal Selesai.<br><br>Berjaya: ${successCount} Memo<br>Gagal: ${errorCount} Memo<br><br>`;
-            finalMsg += isTargetManager ? 
-                "Sistem telah memanjangkan memo-memo ini ke peringkat pengurusan yang seterusnya." : 
-                "Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana.";
+            finalMsg = `Operasi Pukal Selesai.<br><br>Berjaya: ${successCount} Memo<br>Gagal: ${errorCount} Memo<br><br>Penugasan rekod telah dikemaskini.`;
         } else {
-            finalMsg = isTargetManager ? 
-                "Pengesahan berjaya. Sistem telah memanjangkan memo ini ke peringkat pengurusan yang seterusnya." : 
-                "Pengesahan berjaya. Sistem telah menghantar jemputan kalendar (RSVP) kepada pegawai pelaksana dan anda turut disertakan dalam rekod acara tersebut.";
+            finalMsg = "Pengesahan berjaya. Penugasan rekod telah dikemaskini dan emel pemakluman telah disalurkan kepada pegawai pelaksana (jika berkaitan).";
         }
 
         if (errorCount > 0) {
@@ -878,10 +875,11 @@ async function handleManagerAssignSubmit(e) {
     } finally {
         isProcessingTppdBatch = false;
         btn.disabled = false;
-        btn.textContent = 'Sahkan & Hantar Kalendar';
-        setTimeout(() => updateTppdBatchProgressUI(0, 0), 2000); // Sembunyikan progress selepas 2 saat
+        btn.textContent = 'Sahkan Penugasan';
+        setTimeout(() => updateTppdBatchProgressUI(0, 0), 2000); 
     }
 }
+// ── SURGICAL EDIT END ──
 
 // ================= NAVIGASI ADMIN =================
 function switchAdminSection(section) {
@@ -1279,6 +1277,7 @@ window.editMemo = function(id) {
     toggleModal('modalMemo', true);
 }
 
+// ── SURGICAL EDIT START: PINTAS_EMEL_BAHARU_KHUSUS (Syarat 3a) ──
 async function handleMemoSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('memoId').value;
@@ -1298,21 +1297,25 @@ async function handleMemoSubmit(e) {
     btn.innerHTML = '<div class="loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4"></div> Memproses...';
 
     try {
-        // ── SURGICAL EDIT START: PINTAS_EMEL_BAHARU (Smart Detection) ──
         const names = Array.from(adminEditSelected.values());
         const emails = Array.from(adminEditSelected.keys());
         const targetSektor = document.getElementById('adminEditSektor').value;
         const targetUnit = document.getElementById('adminEditUnit').value;
 
-        // 1. Algoritma Perbandingan (Diff Checker)
-        // Mengekstrak dan menyusun emel lama dari pangkalan data
+        // 1. Algoritma Perbandingan (Diff Checker) yang Tepat untuk Syarat 3a
         const oldEmailsStr = m.emel_penerima || "";
-        const oldEmailsArr = oldEmailsStr.split(',').map(e => e.trim().toLowerCase()).filter(e => e).sort();
-        // Mengekstrak dan menyusun emel baharu dari borang
-        const newEmailsArr = emails.map(e => e.trim().toLowerCase()).filter(e => e).sort();
+        const oldEmailsArr = oldEmailsStr.split(',').map(e => e.trim().toLowerCase()).filter(e => e);
         
-        // Membandingkan tatasusunan (true jika ada perubahan, false jika sama)
-        const isEmailChanged = JSON.stringify(oldEmailsArr) !== JSON.stringify(newEmailsArr);
+        // Cari HANYA emel yang baharu ditambah 
+        const newlyAddedEmails = [];
+        
+        emails.forEach(e => {
+            if (!oldEmailsArr.includes(e.trim().toLowerCase())) {
+                newlyAddedEmails.push(e);
+            }
+        });
+
+        const isEmailAdded = newlyAddedEmails.length > 0;
 
         const payload = {
             no_rujukan: document.getElementById('memoNoRujukan').value.toUpperCase(),
@@ -1326,38 +1329,34 @@ async function handleMemoSubmit(e) {
             unit: targetUnit,
             nama_penerima: names.join(', '),
             emel_penerima: emails.join(', ')
-            // Nota Penting: calendar_event_id tidak diusik
+            // Nota Penting: calendar_event_id dipelihara secara mutlak
         };
 
-        // 2. Kemaskini Pangkalan Data Supabase (Laksana Dalam Semua Keadaan)
+        // 2. Kemaskini Pangkalan Data Supabase 
         const { error } = await _supabase.from('memo_rekod').update(payload).eq('id', id);
         if (error) throw error;
 
-        // 3. Logik Seruan Pelayan (Hanya dicetus jika penerima berubah)
-        let messageText = "Maklumat surat dikemaskini. (Tiada notifikasi e-mel dihantar)";
+        // 3. Logik Seruan Pelayan (Hanya dicetus jika terdapat pertambahan penerima)
+        let messageText = "Maklumat surat dikemaskini. (Tiada notifikasi e-mel tambahan dihantar)";
         
-        if (isEmailChanged) {
+        if (isEmailAdded) {
             try {
-                // Memanggil GAS untuk menghantar notifikasi e-mel SAHAJA
-                // Memerlukan sokongan case 'notifyEmailOnly' di bahagian GAS (doPost)
+                // Memanggil GAS untuk menghantar notifikasi HANYA kepada e-mel baharu
                 await fetch(GAS_URL, {
                     method: 'POST',
                     redirect: "follow",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({
-                        action: 'notifyEmailOnly',
+                        action: 'notifyExtraEmailsOnly',
                         sektor: targetSektor,
                         unit: targetUnit,
-                        namaArray: names,
-                        emailArray: emails,
+                        newEmailsOnly: newlyAddedEmails, // Fungsi Fasa 1 GS akan menapisnya
                         noRujukan: payload.no_rujukan || 'TIADA',
                         tajukProgram: payload.tajuk_program,
-                        tarikhTerima: payload.tarikh_terima,
-                        masaRekod: payload.masa_rekod || '08:00',
                         fileUrl: m.file_url || 'Tiada Salinan'
                     })
                 });
-                messageText = "Maklumat surat dikemaskini. (Notifikasi e-mel dihantar kepada senarai penerima baharu)";
+                messageText = `Maklumat dikemaskini. (Notifikasi e-mel telah dipancarkan kepada ${newlyAddedEmails.length} penerima tambahan sahaja)`;
             } catch (gasErr) {
                 console.error("Ralat menghantar emel pemakluman:", gasErr);
                 messageText = "Maklumat dikemaskini, tetapi sistem gagal menghubungi pelayan e-mel.";
@@ -1375,7 +1374,6 @@ async function handleMemoSubmit(e) {
         }
         
         window.showMessage("Selesai. " + messageText, "success");
-        // ── SURGICAL EDIT END ──
 
     } catch (err) {
         window.showMessage("Ralat Transaksi: Gagal mengemaskini maklumat surat. " + err.message, "error");
@@ -1384,6 +1382,7 @@ async function handleMemoSubmit(e) {
         btn.innerHTML = 'Simpan & Kemaskini';
     }
 }
+// ── SURGICAL EDIT END ──
 
 // ================= TINDAKAN KALENDAR (INDIVIDU) =================
 window.syncSingleCalendar = async function(id) {
