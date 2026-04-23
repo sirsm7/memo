@@ -9,6 +9,7 @@
  * Patch UI: Integrasi SweetAlert2 & Pemampatan Saiz Jadual Analisis
  * Patch Terkini: Enjin Carian Pantas Pegawai (Smart Autocomplete Interceptor)
  * Patch Pembedahan: Modul Pengesanan Status Tindakan Tepat (Semakan calendar_event_id)
+ * Patch Terbaharu: Laksanakan Filter Dinamik (Cascading) & Reaktiviti KPI
  * ==============================================================================
  */
 
@@ -784,6 +785,7 @@ function renderTable(dataArray) {
     });
 }
 
+// ── SURGICAL EDIT START: LAKSANAKAN_FILTER_DINAMIK ──
 function filterTable() {
     const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
     const vStatus = document.getElementById('filterStatus')?.value || "";
@@ -808,20 +810,60 @@ function filterTable() {
         let bulanMatch = true;
         if (vBulan !== "") bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
 
-        // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_FILTER ──
         let statusMatch = true;
         if (vStatus !== "") {
             const isMenunggu = window.isManagerRole ? (window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))) : false;
             if (vStatus === "MENUNGGU") statusMatch = isMenunggu;
             if (vStatus === "SELESAI") statusMatch = !isMenunggu;
         }
-        // ── SURGICAL EDIT END ──
 
         return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch && statusMatch;
     });
 
     currentFilteredRecords = filtered;
     renderTable(filtered);
+    
+    // Panggilan Reaktiviti KPI: Kad dikemaskini mengikut rekod yang ditapis
+    calculateKPIs(filtered);
+    
+    // Panggilan Reaktiviti Filter: Kemaskini dropdown bersandar
+    updateCascadingFilters(vSektor, vBulan);
+}
+
+function updateCascadingFilters(currentSektor, currentBulan) {
+    const fUnit = document.getElementById('filterUnit');
+    const fTarikh = document.getElementById('filterTarikh');
+
+    if (!fUnit || !fTarikh) return;
+
+    const selectedUnit = fUnit.value;
+    const selectedTarikh = fTarikh.value;
+
+    const setUnit = new Set();
+    const setTarikh = new Set();
+
+    allRecords.forEach(r => {
+        if (currentSektor === "" || r.sektor === currentSektor) {
+            if (r.unit) setUnit.add(r.unit);
+        }
+        if (currentBulan === "" || (r.tarikh_terima && r.tarikh_terima.startsWith(currentBulan))) {
+            if (r.tarikh_terima) setTarikh.add(r.tarikh_terima);
+        }
+    });
+
+    const genOptions = (set, defaultText, formatFn = (val) => val) => {
+        let html = `<option value="">${defaultText}</option>`;
+        Array.from(set).sort().forEach(val => {
+            html += `<option value="${val}">${formatFn(val)}</option>`;
+        });
+        return html;
+    };
+
+    fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
+    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
+
+    if (Array.from(setUnit).includes(selectedUnit)) fUnit.value = selectedUnit;
+    if (Array.from(setTarikh).includes(selectedTarikh)) fTarikh.value = selectedTarikh;
 }
 
 function resetAnalisisFilters() {
@@ -831,8 +873,12 @@ function resetAnalisisFilters() {
     if(document.getElementById('filterUnit')) document.getElementById('filterUnit').value = "";
     if(document.getElementById('filterBulan')) document.getElementById('filterBulan').value = "";
     if(document.getElementById('filterTarikh')) document.getElementById('filterTarikh').value = "";
+    
+    // Set semula semua pilihan filter kepada asalnya
+    populateAnalisisFilters(allRecords);
     filterTable();
 }
+// ── SURGICAL EDIT END ──
 
 // ================= FUNGSI EKSPORT EXCEL =================
 window.exportToExcel = function() {
