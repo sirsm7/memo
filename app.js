@@ -826,27 +826,59 @@ function filterTable() {
     // Panggilan Reaktiviti KPI: Kad dikemaskini mengikut rekod yang ditapis
     calculateKPIs(filtered);
     
-    // Panggilan Reaktiviti Filter: Kemaskini dropdown bersandar
-    updateCascadingFilters(vSektor, vBulan);
+    // Panggilan Reaktiviti Filter: Rombakan logik untuk menyokong rantaian penuh
+    updateCascadingFilters();
 }
 
-function updateCascadingFilters(currentSektor, currentBulan) {
+function updateCascadingFilters() {
     const fUnit = document.getElementById('filterUnit');
+    const fBulan = document.getElementById('filterBulan');
     const fTarikh = document.getElementById('filterTarikh');
 
-    if (!fUnit || !fTarikh) return;
+    if (!fUnit || !fBulan || !fTarikh) return;
 
-    const selectedUnit = fUnit.value;
-    const selectedTarikh = fTarikh.value;
+    // Ambil status (value) terkini dari semua dropdown untuk disilang-semak
+    const vStatus = document.getElementById('filterStatus')?.value || "";
+    const vSektor = document.getElementById('filterSektor')?.value || "";
+    const vUnit = fUnit.value;
+    const vBulan = fBulan.value;
+    const vTarikh = fTarikh.value;
 
     const setUnit = new Set();
+    const setBulan = new Set();
     const setTarikh = new Set();
 
+    // Lelaran (Iteration) menyeluruh: Menyaring pilihan yang patut wujud sahaja
     allRecords.forEach(r => {
-        if (currentSektor === "" || r.sektor === currentSektor) {
+        let isMenunggu = false;
+        if (window.isManagerRole) {
+            isMenunggu = window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'));
+        }
+        
+        const matchStatus = vStatus === "" || (vStatus === "MENUNGGU" ? isMenunggu : !isMenunggu);
+        const matchSektor = vSektor === "" || r.sektor === vSektor;
+        const matchUnit = vUnit === "" || r.unit === vUnit;
+        
+        let bVal = "";
+        if (r.tarikh_terima) {
+            const parts = r.tarikh_terima.split('-');
+            if (parts.length >= 2) bVal = `${parts[0]}-${parts[1]}`;
+        }
+        const matchBulan = vBulan === "" || bVal === vBulan;
+        const matchTarikh = vTarikh === "" || r.tarikh_terima === vTarikh;
+
+        // Penapis Unit terikat kepada Status, Sektor, Bulan, dan Tarikh
+        if (matchStatus && matchSektor && matchBulan && matchTarikh) {
             if (r.unit) setUnit.add(r.unit);
         }
-        if (currentBulan === "" || (r.tarikh_terima && r.tarikh_terima.startsWith(currentBulan))) {
+
+        // Penapis Bulan terikat kepada Status, Sektor, dan Unit
+        if (matchStatus && matchSektor && matchUnit) {
+            if (bVal) setBulan.add(bVal);
+        }
+
+        // Penapis Tarikh terikat kepada Status, Sektor, Unit, dan Bulan
+        if (matchStatus && matchSektor && matchUnit && matchBulan) {
             if (r.tarikh_terima) setTarikh.add(r.tarikh_terima);
         }
     });
@@ -859,11 +891,15 @@ function updateCascadingFilters(currentSektor, currentBulan) {
         return html;
     };
 
+    // Muat turun (Render) pilihan baharu ke dalam elemen <select>
     fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
+    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
     fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
 
-    if (Array.from(setUnit).includes(selectedUnit)) fUnit.value = selectedUnit;
-    if (Array.from(setTarikh).includes(selectedTarikh)) fTarikh.value = selectedTarikh;
+    // Pelihara semula nilai (value) yang telah dipilih jika ia masih sah (valid)
+    if (Array.from(setUnit).includes(vUnit)) fUnit.value = vUnit;
+    if (Array.from(setBulan).includes(vBulan)) fBulan.value = vBulan;
+    if (Array.from(setTarikh).includes(vTarikh)) fTarikh.value = vTarikh;
 }
 
 function resetAnalisisFilters() {
