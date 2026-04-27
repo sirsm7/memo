@@ -500,16 +500,23 @@ async function handleFormSubmit(e) {
         const { data: adminList, error: adminError } = await _supabase.from('memo_admin').select('email, role');
         if (adminError) throw adminError;
 
-        // Saring hanya profil Pengurusan Tertinggi (TPPD, KETUA SEKTOR, KETUA UNIT)
-        const managerEmails = adminList
-            .filter(a => ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'].includes(a.role))
-            .map(a => a.email.toLowerCase());
+        // ── SURGICAL EDIT START: NORMALISASI_PENGESANAN_DELEGASI_EMAIL ──
+        const managerRoles = ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'];
+        const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+        const normalizeRole = (value) => String(value || '').trim().toUpperCase();
 
-        const selectedEmails = emels.map(e => e.toLowerCase());
-        
+        // Saring hanya profil Pengurusan Tertinggi (TPPD, KETUA SEKTOR, KETUA UNIT)
+        const managerEmails = (adminList || [])
+            .filter(a => managerRoles.includes(normalizeRole(a.role)))
+            .map(a => normalizeEmail(a.email))
+            .filter(email => email);
+
+        const selectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
+
         // Klasifikasikan sebagai 'Manager Deferred' HANYA jika KESEMUA penerima adalah Pengurus.
         // Jika wujud campuran (Pengurus + PIC Pelaksana), pemprosesan akan bypass dan terus ke Kalendar.
         const isManagerDeferred = selectedEmails.length > 0 && selectedEmails.every(email => managerEmails.includes(email));
+        // ── SURGICAL EDIT END ──
 
         setLoading(true, "Menyimpan Data...");
 
