@@ -562,6 +562,16 @@ async function handleFormSubmit(e) {
         });
         const notify = await res.json();
 
+        // ── SURGICAL EDIT START: PEMINTASAN_RALAT_API_GAS ──
+        if (notify.status === 'error') {
+            throw new Error("Pangkalan data dikemaskini, TETAPI pelayan emel Google memulangkan ralat: " + (notify.message || "Gagal menghantar notifikasi."));
+        }
+        // Jika terdapat amaran (warning), kita paparkannya dalam log tanpa memberhentikan proses UI
+        if (notify.status === 'warning') {
+            console.warn("Amaran Pelayan GAS:", notify.message);
+        }
+        // ── SURGICAL EDIT END ──
+
         // 4. Simpan Acara Kalendar Jika Ada (Tindakan Pegawai Pelaksana / Bypass Mix)
         if (notify.status === 'success' && notify.calendarEventId) {
             // ── SURGICAL EDIT START: MERAKAM_KALENDAR_PENGURUS_DENGAN_PREFIX ──
