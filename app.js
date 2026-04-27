@@ -16,7 +16,7 @@
 // KONFIGURASI UTAMA
 const SUPABASE_URL = 'https://app.tech4ag.my';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzYgErqgtLfqkFq4Odp1fP543_NmFDxt1iSjWPBS91X3tCnvhN5DJiHFWllsRfZdyDN/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxaK3ifWFHX70UlNjZyJKJNPyRQQK6Y__whs-VWO7G0gvurkVmoOgmHPVtF-nl2Nu6S/exec';
 
 // INISIALISASI SUPABASE KLIEN
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
