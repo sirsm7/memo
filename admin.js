@@ -815,19 +815,17 @@ async function handleManagerAssignSubmit(e) {
                 if (updateError) throw updateError;
 
                 // 2. Semakan Syarat 2c(i) & 2c(ii)
-                // Periksa adakah senarai penerima HANYA mengandungi pengurus itu sendiri
-                const isSelfAssignOnly = baseEmails.length === 1 && baseEmails[0].toLowerCase() === adminEmail;
-                
-                if (isSelfAssignOnly) {
-                    // SYARAT 2c(i): Bypass - Tiada emel dan tiada rekod kalendar baharu. Silent override.
-                    successCount++;
-                    continue; 
-                }
+                // Periksa adakah senarai penerima mengandungi pengurus itu sendiri
+                const selfDelegationEmail = baseEmails.find(e => e.toLowerCase() === adminEmail);
+                const isSelfAssigned = !!selfDelegationEmail;
+                const isSelfAssignOnly = baseEmails.length === 1 && isSelfAssigned;
+                const selfDelegationName = selfDelegationEmail ? (managerSelected.get(selfDelegationEmail) || currentAdmin.email) : '';
 
                 // SYARAT 2c(ii): Jika melibatkan staf lain (Hantar emel kepada staf SAHAJA)
-                // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel
+                // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel PIC
                 const notifyEmails = baseEmails.filter(e => e.toLowerCase() !== adminEmail);
-                
+                const notifyNames = notifyEmails.map(e => managerSelected.get(e) || e);
+
                 if (notifyEmails.length > 0) {
                     // Hantar Emel Notifikasi Sahaja (Tanpa Kalendar Baharu) menggunakan API Fasa 1 GS
                     await fetch(GAS_URL, {
@@ -839,6 +837,29 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             newEmailsOnly: notifyEmails, 
+                            noRujukan: m.no_rujukan || 'TIADA',
+                            tajukProgram: m.tajuk_program,
+                            fileUrl: m.file_url || 'Tiada Salinan'
+                        })
+                    });
+                }
+
+                if (isSelfAssigned) {
+                    // SYARAT TAMBAHAN: Hantar confirmation ringkas kepada delegasi jika beliau memilih dirinya sendiri.
+                    // Emel ini berasingan daripada notifikasi PIC supaya pengurus tidak menerima emel tugasan PIC berulang.
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        redirect: "follow",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: 'notifyDelegationSelfConfirmation',
+                            sektor: targetSektor,
+                            unit: targetUnit,
+                            delegasiEmail: selfDelegationEmail,
+                            delegasiNama: selfDelegationName,
+                            picNames: notifyNames,
+                            picEmails: notifyEmails,
+                            isSelfAssignOnly: isSelfAssignOnly,
                             noRujukan: m.no_rujukan || 'TIADA',
                             tajukProgram: m.tajuk_program,
                             fileUrl: m.file_url || 'Tiada Salinan'
@@ -861,7 +882,7 @@ async function handleManagerAssignSubmit(e) {
         if (isBulk) {
             finalMsg = `Operasi Pukal Selesai.<br><br>Berjaya: ${successCount} Memo<br>Gagal: ${errorCount} Memo<br><br>Penugasan rekod telah dikemaskini.`;
         } else {
-            finalMsg = "Pengesahan berjaya. Penugasan rekod telah dikemaskini dan emel pemakluman telah disalurkan kepada pegawai pelaksana (jika berkaitan).";
+            finalMsg = "Pengesahan berjaya. Penugasan rekod telah dikemaskini dan emel pemakluman telah disalurkan kepada pegawai pelaksana atau delegasi berkaitan (jika berkaitan).";
         }
 
         if (errorCount > 0) {
