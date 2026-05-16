@@ -369,7 +369,7 @@ function renderManagerTags() {
     });
 }
 
-// ── SURGICAL EDIT START: ROMBAKAN_LOGIK_DELEGASI_TPPD ──
+// ── SURGICAL EDIT START: ROMBAKAN_LOGIK_DELEGASI_TPPD_DAN_PAYLOAD ──
 async function handleManagerAssignSubmit(e) {
     e.preventDefault();
     if (managerSelected.size === 0) return window.showMessage("Sila pilih sekurang-kurangnya 1 pegawai penerima.", "error");
@@ -398,7 +398,7 @@ async function handleManagerAssignSubmit(e) {
 
     const adminEmail = currentAdmin.email.toLowerCase();
     
-    // SUNTIKAN BAHARU: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai
+    // PEMBAIKAN: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai
     const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
     const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || 'Pihak Pengurusan');
 
@@ -433,18 +433,18 @@ async function handleManagerAssignSubmit(e) {
                 if (updateError) throw updateError;
 
                 // 2. Semakan Syarat 2c(i) & 2c(ii)
-                // Periksa adakah senarai penerima mengandungi pengurus itu sendiri
                 const selfDelegationEmail = baseEmails.find(e => e.toLowerCase() === adminEmail);
                 const isSelfAssigned = !!selfDelegationEmail;
                 const isSelfAssignOnly = baseEmails.length === 1 && isSelfAssigned;
 
-                // SYARAT 2c(ii): Jika melibatkan staf lain (Hantar emel kepada staf SAHAJA)
                 // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel PIC
                 const notifyEmails = baseEmails.filter(e => e.toLowerCase() !== adminEmail);
+                
+                // PEMBAIKAN: Ekstrak `nama` sebenar untuk dibekalkan kepada payload
                 const notifyNames = notifyEmails.map(e => managerSelected.get(e) || e);
 
                 if (notifyEmails.length > 0) {
-                    // Hantar Emel Notifikasi Sahaja (Tanpa Kalendar Baharu) menggunakan API Fasa 1 GS
+                    // Hantar Emel Notifikasi Sahaja (Tanpa Kalendar Baharu)
                     await fetch(GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
@@ -454,8 +454,8 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             newEmailsOnly: notifyEmails, 
-                            delegasiNama: actualDelegasiNama, // SUNTIKAN BAHARU
-                            picNames: notifyNames,            // SUNTIKAN BAHARU
+                            delegasiNama: actualDelegasiNama, // SUNTIKAN: Nama delegasi
+                            picNames: notifyNames,            // SUNTIKAN: Array nama penerima
                             noRujukan: m.no_rujukan || 'TIADA',
                             tajukProgram: m.tajuk_program,
                             fileUrl: m.file_url || 'Tiada Salinan'
@@ -474,8 +474,8 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             delegasiEmail: selfDelegationEmail,
-                            delegasiNama: actualDelegasiNama, // SUNTIKAN BAHARU
-                            picNames: notifyNames,
+                            delegasiNama: actualDelegasiNama, // SUNTIKAN: Nama delegasi
+                            picNames: notifyNames,            // SUNTIKAN: Array nama rakan tugas
                             picEmails: notifyEmails,
                             isSelfAssignOnly: isSelfAssignOnly,
                             noRujukan: m.no_rujukan || 'TIADA',
