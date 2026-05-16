@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/admin-delegation.js
  * Tujuan: Aliran TPPD/Ketua Sektor/Ketua Unit, delegasi memo, pemilihan pukal,
- *         carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
+ * carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
  * ==============================================================================
  */
 
@@ -28,7 +28,6 @@ async function loadManagerMemo() {
     managerMemoData = data || [];
     renderManagerTable(managerMemoData);
 }
-// ── SURGICAL EDIT END ──
 
 function renderManagerTable(data) {
     const tbody = document.getElementById('tppdTableBody'); 
@@ -398,6 +397,10 @@ async function handleManagerAssignSubmit(e) {
     let errorCount = 0;
 
     const adminEmail = currentAdmin.email.toLowerCase();
+    
+    // SUNTIKAN BAHARU: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai
+    const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
+    const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || 'Pihak Pengurusan');
 
     try {
         for (let i = 0; i < totalJobs; i++) {
@@ -434,7 +437,6 @@ async function handleManagerAssignSubmit(e) {
                 const selfDelegationEmail = baseEmails.find(e => e.toLowerCase() === adminEmail);
                 const isSelfAssigned = !!selfDelegationEmail;
                 const isSelfAssignOnly = baseEmails.length === 1 && isSelfAssigned;
-                const selfDelegationName = selfDelegationEmail ? (managerSelected.get(selfDelegationEmail) || currentAdmin.email) : '';
 
                 // SYARAT 2c(ii): Jika melibatkan staf lain (Hantar emel kepada staf SAHAJA)
                 // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel PIC
@@ -452,6 +454,8 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             newEmailsOnly: notifyEmails, 
+                            delegasiNama: actualDelegasiNama, // SUNTIKAN BAHARU
+                            picNames: notifyNames,            // SUNTIKAN BAHARU
                             noRujukan: m.no_rujukan || 'TIADA',
                             tajukProgram: m.tajuk_program,
                             fileUrl: m.file_url || 'Tiada Salinan'
@@ -461,7 +465,6 @@ async function handleManagerAssignSubmit(e) {
 
                 if (isSelfAssigned) {
                     // SYARAT TAMBAHAN: Hantar confirmation ringkas kepada delegasi jika beliau memilih dirinya sendiri.
-                    // Emel ini berasingan daripada notifikasi PIC supaya pengurus tidak menerima emel tugasan PIC berulang.
                     await fetch(GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
@@ -471,7 +474,7 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             delegasiEmail: selfDelegationEmail,
-                            delegasiNama: selfDelegationName,
+                            delegasiNama: actualDelegasiNama, // SUNTIKAN BAHARU
                             picNames: notifyNames,
                             picEmails: notifyEmails,
                             isSelfAssignOnly: isSelfAssignOnly,
