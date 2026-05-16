@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/admin-crud.js
  * Tujuan: CRUD pegawai, edit memo, ubah hala PIC/penerima, carian pantas edit memo,
- *         daftar akses sistem dan gugur akses admin/perakam.
+ * daftar akses sistem dan gugur akses admin/perakam.
  * ==============================================================================
  */
 
@@ -357,16 +357,23 @@ async function handleMemoSubmit(e) {
         const oldEmailsStr = m.emel_penerima || "";
         const oldEmailsArr = oldEmailsStr.split(',').map(e => e.trim().toLowerCase()).filter(e => e);
         
-        // Cari HANYA emel yang baharu ditambah 
+        // Cari HANYA emel dan nama yang baharu ditambah 
         const newlyAddedEmails = [];
+        const newlyAddedNames = []; // SUNTIKAN BAHARU
         
         emails.forEach(e => {
             if (!oldEmailsArr.includes(e.trim().toLowerCase())) {
                 newlyAddedEmails.push(e);
+                newlyAddedNames.push(adminEditSelected.get(e) || e); // SUNTIKAN BAHARU
             }
         });
 
         const isEmailAdded = newlyAddedEmails.length > 0;
+
+        // SUNTIKAN BAHARU: Cari nama sebenar pentadbir dari pangkalan data pegawai
+        const adminEmail = currentAdmin.email.toLowerCase();
+        const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
+        const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || currentAdmin.role || 'Pentadbir Sistem');
 
         const payload = {
             no_rujukan: document.getElementById('memoNoRujukan').value.toUpperCase(),
@@ -401,7 +408,9 @@ async function handleMemoSubmit(e) {
                         action: 'notifyExtraEmailsOnly',
                         sektor: targetSektor,
                         unit: targetUnit,
-                        newEmailsOnly: newlyAddedEmails, // Fungsi Fasa 1 GS akan menapisnya
+                        newEmailsOnly: newlyAddedEmails, 
+                        delegasiNama: actualDelegasiNama, // SUNTIKAN BAHARU
+                        picNames: newlyAddedNames,        // SUNTIKAN BAHARU
                         noRujukan: payload.no_rujukan || 'TIADA',
                         tajukProgram: payload.tajuk_program,
                         fileUrl: m.file_url || 'Tiada Salinan'
