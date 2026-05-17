@@ -497,39 +497,47 @@ async function handleFormSubmit(e) {
         const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
         const normalizeRole = (value) => String(value || '').trim().toUpperCase();
 
-        // 1. Ekstrak senarai penuh e-mel berstatus TPPD
-        const tppdEmails = (adminList || [])
-            .filter(a => normalizeRole(a.role) === 'TPPD')
-            .map(a => normalizeEmail(a.email))
-            .filter(email => email);
-
-        // 2. Semak jika mana-mana TPPD telah dipilih oleh pengguna
-        let currentSelectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
-        const isAnyTPPDSelected = currentSelectedEmails.some(email => tppdEmails.includes(email));
-
-        // 3. Pengembangan Automatik (Auto-Expand) untuk Kolaborasi TPPD
-        if (isAnyTPPDSelected) {
-            tppdEmails.forEach(tppdEmail => {
-                if (!currentSelectedEmails.includes(tppdEmail)) {
-                    emels.push(tppdEmail);
-                    currentSelectedEmails.push(tppdEmail); // Kemaskini jejak
-                    const pegInfo = globalPegawaiFlat.find(p => normalizeEmail(p.emel_rasmi) === tppdEmail);
-                    names.push(pegInfo ? pegInfo.nama : 'PENGURUSAN TPPD (KOLABORATIF)');
-                }
-            });
-        }
-
-        // Saring hanya profil Pengurusan Tertinggi (TPPD, KETUA SEKTOR, KETUA UNIT)
+        // 1. Ekstrak senarai e-mel berasaskan peranan
         const managerEmails = (adminList || [])
             .filter(a => managerRoles.includes(normalizeRole(a.role)))
             .map(a => normalizeEmail(a.email))
             .filter(email => email);
 
-        const selectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
+        const tppdEmails = (adminList || [])
+            .filter(a => normalizeRole(a.role) === 'TPPD')
+            .map(a => normalizeEmail(a.email))
+            .filter(email => email);
 
-        // Klasifikasikan sebagai 'Manager Deferred' HANYA jika KESEMUA penerima adalah Pengurus.
-        // Jika wujud campuran (Pengurus + PIC Pelaksana), pemprosesan akan bypass dan terus ke Kalendar.
-        const isManagerDeferred = selectedEmails.length > 0 && selectedEmails.every(email => managerEmails.includes(email));
+        // 2. Analisis pilihan asal pengguna (SEBELUM sebarang Auto-Expand dilakukan)
+        let currentSelectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
+        const isAnyTPPDSelected = currentSelectedEmails.some(email => tppdEmails.includes(email));
+
+        // 3. Tentukan ketulenan pilihan (Adakah HANYA pihak pengurusan yang dipilih? Tiada langsung pegawai pelaksana?)
+        const isPureManagement = currentSelectedEmails.length > 0 && currentSelectedEmails.every(email => managerEmails.includes(email));
+
+        let isManagerDeferred = false;
+
+        // 4. Logik Pemintasan (Bypass) & Pengembangan (Auto-Expand) Pintar
+        if (isPureManagement) {
+            isManagerDeferred = true; // Status akan menjadi PENDING_ dan masuk Tab Delegasi
+            
+            // Jika terdapat sekurang-kurangnya 1 TPPD, kita libatkan semua TPPD yang lain (Auto-Expand)
+            if (isAnyTPPDSelected) {
+                tppdEmails.forEach(tppdEmail => {
+                    if (!currentSelectedEmails.includes(tppdEmail)) {
+                        emels.push(tppdEmail);
+                        currentSelectedEmails.push(tppdEmail); // Jejak dikemaskini
+                        const pegInfo = globalPegawaiFlat.find(p => normalizeEmail(p.emel_rasmi) === tppdEmail);
+                        names.push(pegInfo ? pegInfo.nama : 'PENGURUSAN TPPD (KOLABORATIF)');
+                    }
+                });
+            }
+        } else {
+            // Jika pilihan TIDAK TULEN (Wujud campuran TPPD + Pegawai Biasa, atau Pegawai Biasa sahaja),
+            // Sistem akan MEMBATALKAN keperluan delegasi.
+            isManagerDeferred = false;
+            // Tiada letusan Auto-Expand ke semua TPPD. Sistem hanya hantar kepada PIC yang dipilih.
+        }
         // ── SURGICAL EDIT END ──
 
         setLoading(true, "Menyimpan Data...");
@@ -598,9 +606,9 @@ async function handleFormSubmit(e) {
 
         // 5. Maklum Balas UI
         if (isManagerDeferred) {
-            showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong><br><br>Rekod surat disimpan. Notifikasi emel telah dihantar kepada pentadbir sistem (TPPD/KS/KU) untuk tujuan delegasi unit.", "success");
+            showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong><br><br>Rekod surat disimpan. Notifikasi emel telah dihantar kepada barisan Pengurusan (TPPD/KS/KU) untuk tujuan delegasi.", "success");
         } else {
-            showMessage("<strong>Rekod Berjaya!</strong><br><br>Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik kepada semua pegawai penerima.", "success");
+            showMessage("<strong>Rekod & Agihan Berjaya!</strong><br><br>Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik terus kepada semua pegawai penerima.", "success");
         }
         
         const calFrame = document.getElementById('calendarFrame');

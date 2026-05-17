@@ -439,13 +439,19 @@ async function handleManagerAssignSubmit(e) {
             updateTppdBatchProgressUI(i, totalJobs, `Menetapkan ID #${currentId} (${i+1}/${totalJobs})...`);
 
             try {
-                // Bersihkan prefix PENDING_ dari ID Kalendar untuk rekod status selesai (Syarat 2c)
-                let finalEventId = m.calendar_event_id || null;
-                if (finalEventId && finalEventId.startsWith('PENDING_')) {
+                // ── SURGICAL EDIT START: PEMUTUSAN_RANGKAIAN_DELEGASI_MUTLAK ──
+                // Pembersihan prefix PENDING_ untuk menandakan status "Selesai Diagih" secara mutlak.
+                // Logik Penyelamat (Failsafe): Jika rekod tiada ID kalendar (null) sebelum ini, 
+                // ia akan disuntik dengan 'RESOLVED_NO_CAL' supaya memintas (bypass) query '.is.null' di Tab Delegasi.
+                let finalEventId = m.calendar_event_id;
+                
+                if (!finalEventId) {
+                    finalEventId = 'RESOLVED_NO_CAL';
+                } else if (finalEventId.startsWith('PENDING_')) {
                     finalEventId = finalEventId.replace('PENDING_', '');
                 }
 
-                // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Termasuk Pembersihan Kalendar)
+                // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Penimpaan Rekod Mutlak)
                 const { error: updateError } = await _supabase.from('memo_rekod').update({
                     sektor: targetSektor,
                     unit: targetUnit,
@@ -453,6 +459,7 @@ async function handleManagerAssignSubmit(e) {
                     emel_penerima: baseEmails.join(', '),
                     calendar_event_id: finalEventId 
                 }).eq('id', currentId);
+                // ── SURGICAL EDIT END ──
 
                 if (updateError) throw updateError;
 
