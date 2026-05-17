@@ -16,16 +16,39 @@ async function loadManagerMemo() {
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) checkAllBox.checked = false;
 
-    // Tarik memo KHUSUS untuk sektor dan unit pengurusan tersebut YANG BELUM ADA KALENDAR (Atau memegang status PENDING_)
-    const { data } = await _supabase
+    // ── SURGICAL EDIT START: LOGIK_PERTANYAAN_KOLABORATIF_TPPD ──
+    // 1. Inisialisasi binaan pertanyaan (Query Builder) asas
+    let queryBuilder = _supabase
         .from('memo_rekod')
         .select('*')
-        .eq('sektor', currentAdmin.managerSektor)
-        .eq('unit', currentAdmin.managerUnit)
-        .or('calendar_event_id.is.null,calendar_event_id.ilike.PENDING_%') // PINDAAN BAHARU: Membaca rantaian PENDING_
-        .order('created_at', { ascending: false });
+        .or('calendar_event_id.is.null,calendar_event_id.ilike.PENDING_%'); // Membaca rantaian PENDING_
 
-    managerMemoData = data || [];
+    // 2. Tentukan cawangan logik (Branching Logic) berdasarkan peranan
+    const userRole = String(currentAdmin.role || '').trim().toUpperCase();
+
+    if (userRole === 'TPPD') {
+        // Aliran Kolaboratif TPPD: Batalkan ikatan sektor/unit.
+        // Cari mana-mana rekod di mana emel pengguna ini tersenarai di dalam lajur emel_penerima.
+        queryBuilder = queryBuilder.ilike('emel_penerima', `%${currentAdmin.email}%`);
+    } else {
+        // Aliran Standard (Ketua Sektor / Ketua Unit): Terhad kepada sektor & unit masing-masing.
+        queryBuilder = queryBuilder
+            .eq('sektor', currentAdmin.managerSektor)
+            .eq('unit', currentAdmin.managerUnit);
+    }
+
+    // 3. Eksekusi pertanyaan dengan susunan kronologi (terbaharu ke terlama)
+    const { data, error } = await queryBuilder.order('created_at', { ascending: false });
+
+    if (error) {
+        console.error("Ralat memuatkan rekod delegasi:", error);
+        window.showMessage("Gagal memuatkan rekod delegasi. Sila semak konsol.", "error");
+        managerMemoData = [];
+    } else {
+        managerMemoData = data || [];
+    }
+    // ── SURGICAL EDIT END ──
+
     renderManagerTable(managerMemoData);
 }
 
@@ -369,7 +392,6 @@ function renderManagerTags() {
     });
 }
 
-// ── SURGICAL EDIT START: ROMBAKAN_LOGIK_DELEGASI_TPPD_DAN_PAYLOAD ──
 async function handleManagerAssignSubmit(e) {
     e.preventDefault();
     if (managerSelected.size === 0) return window.showMessage("Sila pilih sekurang-kurangnya 1 pegawai penerima.", "error");
@@ -518,4 +540,3 @@ async function handleManagerAssignSubmit(e) {
         setTimeout(() => updateTppdBatchProgressUI(0, 0), 2000); 
     }
 }
-// ── SURGICAL EDIT END ──

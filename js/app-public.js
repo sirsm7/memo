@@ -492,10 +492,32 @@ async function handleFormSubmit(e) {
         const { data: adminList, error: adminError } = await _supabase.from('memo_admin').select('email, role');
         if (adminError) throw adminError;
 
-        // ── SURGICAL EDIT START: NORMALISASI_PENGESANAN_DELEGASI_EMAIL ──
+        // ── SURGICAL EDIT START: NORMALISASI_PENGESANAN_DELEGASI_EMAIL_DAN_KOLABORATIF_TPPD ──
         const managerRoles = ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'];
         const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
         const normalizeRole = (value) => String(value || '').trim().toUpperCase();
+
+        // 1. Ekstrak senarai penuh e-mel berstatus TPPD
+        const tppdEmails = (adminList || [])
+            .filter(a => normalizeRole(a.role) === 'TPPD')
+            .map(a => normalizeEmail(a.email))
+            .filter(email => email);
+
+        // 2. Semak jika mana-mana TPPD telah dipilih oleh pengguna
+        let currentSelectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
+        const isAnyTPPDSelected = currentSelectedEmails.some(email => tppdEmails.includes(email));
+
+        // 3. Pengembangan Automatik (Auto-Expand) untuk Kolaborasi TPPD
+        if (isAnyTPPDSelected) {
+            tppdEmails.forEach(tppdEmail => {
+                if (!currentSelectedEmails.includes(tppdEmail)) {
+                    emels.push(tppdEmail);
+                    currentSelectedEmails.push(tppdEmail); // Kemaskini jejak
+                    const pegInfo = globalPegawaiFlat.find(p => normalizeEmail(p.emel_rasmi) === tppdEmail);
+                    names.push(pegInfo ? pegInfo.nama : 'PENGURUSAN TPPD (KOLABORATIF)');
+                }
+            });
+        }
 
         // Saring hanya profil Pengurusan Tertinggi (TPPD, KETUA SEKTOR, KETUA UNIT)
         const managerEmails = (adminList || [])
