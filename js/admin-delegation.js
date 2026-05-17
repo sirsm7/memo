@@ -16,7 +16,7 @@ async function loadManagerMemo() {
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) checkAllBox.checked = false;
 
-    // ── SURGICAL EDIT START: LOGIK_PERTANYAAN_KOLABORATIF_TPPD ──
+// ── SURGICAL EDIT START: SUNTIKAN_SEMULA_TAPISAN_UNIT_TPPD ──
     // 1. Inisialisasi binaan pertanyaan (Query Builder) asas
     let queryBuilder = _supabase
         .from('memo_rekod')
@@ -27,9 +27,11 @@ async function loadManagerMemo() {
     const userRole = String(currentAdmin.role || '').trim().toUpperCase();
 
     if (userRole === 'TPPD') {
-        // Aliran Kolaboratif TPPD: Batalkan ikatan sektor/unit.
-        // Cari mana-mana rekod di mana emel pengguna ini tersenarai di dalam lajur emel_penerima.
-        queryBuilder = queryBuilder.ilike('emel_penerima', `%${currentAdmin.email}%`);
+        // Aliran Kolaboratif TPPD: Batalkan ikatan sektor, TAPI kekalkan ikatan unit.
+        // Cari rekod emel TPPD, dan pastikan ia MASIH berada dalam unit TPPD (Belum ditukar/diagih)
+        queryBuilder = queryBuilder
+            .ilike('emel_penerima', `%${currentAdmin.email}%`)
+            .eq('unit', currentAdmin.managerUnit); 
     } else {
         // Aliran Standard (Ketua Sektor / Ketua Unit): Terhad kepada sektor & unit masing-masing.
         queryBuilder = queryBuilder
@@ -47,7 +49,7 @@ async function loadManagerMemo() {
     } else {
         managerMemoData = data || [];
     }
-    // ── SURGICAL EDIT END ──
+// ── SURGICAL EDIT END ──
 
     renderManagerTable(managerMemoData);
 }
