@@ -3,7 +3,7 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/admin-calendar.js
  * Tujuan: Tindakan kalendar individu, pemadaman memo, batch sync/delete kalendar,
- *         progress UI dan refresh iframe kalendar.
+ * progress UI dan refresh iframe kalendar.
  * ==============================================================================
  */
 
@@ -11,8 +11,13 @@
 window.syncSingleCalendar = async function(id) {
     if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
     
-    const m = adminMemoData.find(x => x.id === id);
-    if (!m) return;
+    // ── SURGICAL EDIT START: FALLBACK_CARIAN_REKOD_PERAKAM ──
+    let m = adminMemoData.find(x => x.id === id);
+    if (!m && typeof allRecords !== 'undefined') {
+        m = allRecords.find(x => x.id === id);
+    }
+    if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
+    // ── SURGICAL EDIT END ──
 
     try {
         setProcessingState(true, `Menyegerak rekod #${id}...`);
@@ -46,7 +51,16 @@ window.syncSingleCalendar = async function(id) {
         if (notify.status === 'success' && notify.calendarEventId) {
             await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
             window.showMessage("Penyegerakan kalendar berjaya.", "success");
-            loadAdminMemo();
+            
+            // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
+            if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                loadAdminMemo();
+            }
+            if (typeof loadDashboardData === 'function') {
+                loadDashboardData();
+            }
+            // ── SURGICAL EDIT END ──
+            
             refreshIframeKalendar();
         } else {
             throw new Error(notify.message || "Ralat tidak diketahui.");
@@ -62,8 +76,13 @@ window.syncSingleCalendar = async function(id) {
 window.removeSingleCalendar = function(id) {
     if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
 
-    const m = adminMemoData.find(x => x.id === id);
-    if (!m || !m.calendar_event_id) return;
+    // ── SURGICAL EDIT START: FALLBACK_CARIAN_REKOD_PERAKAM ──
+    let m = adminMemoData.find(x => x.id === id);
+    if (!m && typeof allRecords !== 'undefined') {
+        m = allRecords.find(x => x.id === id);
+    }
+    if (!m || !m.calendar_event_id) return window.showMessage("Ralat: Memo atau rekod kalendar tidak dijumpai.", "error");
+    // ── SURGICAL EDIT END ──
 
     Swal.fire({
         title: 'Pengesahan',
@@ -94,7 +113,16 @@ window.removeSingleCalendar = function(id) {
                 if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
                     await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
                     window.showMessage("Acara kalendar berjaya ditanggalkan.", "success");
-                    loadAdminMemo();
+                    
+                    // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
+                    if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                        loadAdminMemo();
+                    }
+                    if (typeof loadDashboardData === 'function') {
+                        loadDashboardData();
+                    }
+                    // ── SURGICAL EDIT END ──
+                    
                     refreshIframeKalendar();
                 } else {
                     throw new Error(responseJSON.message);
@@ -113,8 +141,13 @@ window.removeSingleCalendar = function(id) {
 window.deleteMemo = function(id) {
     if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
 
-    const m = adminMemoData.find(x => x.id === id);
-    if (!m) return;
+    // ── SURGICAL EDIT START: FALLBACK_CARIAN_REKOD_PERAKAM ──
+    let m = adminMemoData.find(x => x.id === id);
+    if (!m && typeof allRecords !== 'undefined') {
+        m = allRecords.find(x => x.id === id);
+    }
+    if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
+    // ── SURGICAL EDIT END ──
 
     const confirmMsg = "AMARAN: Ini akan memadam rekod surat selamanya dari pangkalan data sistem. " +
                        (m.calendar_event_id ? "Acara kalendar berkaitan juga akan turut dipadam. " : "") +
@@ -153,7 +186,15 @@ window.deleteMemo = function(id) {
                 const { error } = await _supabase.from('memo_rekod').delete().eq('id', id);
                 if (error) throw error;
 
-                loadAdminMemo();
+                // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
+                if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                    loadAdminMemo();
+                }
+                if (typeof loadDashboardData === 'function') {
+                    loadDashboardData();
+                }
+                // ── SURGICAL EDIT END ──
+                
                 refreshIframeKalendar();
                 window.showMessage("Rekod surat telah berjaya dihapuskan sepenuhnya.", "success");
 
@@ -275,7 +316,16 @@ window.startBatchSync = function() {
 
             updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
             setProcessingState(false);
-            loadAdminMemo();
+            
+            // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
+            if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                loadAdminMemo();
+            }
+            if (typeof loadDashboardData === 'function') {
+                loadDashboardData();
+            }
+            // ── SURGICAL EDIT END ──
+            
             refreshIframeKalendar();
             
             window.showMessage(`Operasi Segerak Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
@@ -338,7 +388,16 @@ window.startBatchDelete = function() {
 
             updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
             setProcessingState(false);
-            loadAdminMemo();
+            
+            // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
+            if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                loadAdminMemo();
+            }
+            if (typeof loadDashboardData === 'function') {
+                loadDashboardData();
+            }
+            // ── SURGICAL EDIT END ──
+            
             refreshIframeKalendar();
 
             window.showMessage(`Operasi Padam Kalendar Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
