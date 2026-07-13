@@ -31,7 +31,7 @@ async function loadManagerMemo() {
         // Cari rekod emel TPPD, dan pastikan ia MASIH berada dalam unit TPPD (Belum ditukar/diagih)
         queryBuilder = queryBuilder
             .ilike('emel_penerima', `%${currentAdmin.email}%`)
-            .eq('unit', currentAdmin.managerUnit); 
+            .eq('unit', currentAdmin.managerUnit);
     } else {
         // Aliran Standard (Ketua Sektor / Ketua Unit): Terhad kepada sektor & unit masing-masing.
         queryBuilder = queryBuilder
@@ -55,9 +55,14 @@ async function loadManagerMemo() {
 }
 
 function renderManagerTable(data) {
-    const tbody = document.getElementById('tppdTableBody'); 
+    const tbody = document.getElementById('tppdTableBody');
     tbody.innerHTML = data.map(row => {
         const isChecked = managerSelectedMemos.has(row.id) ? 'checked' : '';
+        
+        // ── SURGICAL EDIT START: DELEGASI_ASAL ──
+        const penerimaAsal = row.nama_penerima ? row.nama_penerima.split(',')[0].trim() : '-';
+        // ── SURGICAL EDIT END ──
+
         return `
         <tr class="hover:bg-indigo-50/30 transition-colors">
             <td class="p-4 border-b text-center align-top">
@@ -66,6 +71,9 @@ function renderManagerTable(data) {
             <td class="p-4 border-b align-top">
                 <div class="font-bold text-slate-700 uppercase text-xs">${row.no_rujukan || 'TIADA'}</div>
                 <div class="text-[11px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
+                <!-- ── SURGICAL EDIT START: DELEGASI_ASAL ── -->
+                <div class="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded inline-block mt-1.5" title="Penerima Asal">Asal: ${penerimaAsal}</div>
+                <!-- ── SURGICAL EDIT END ── -->
             </td>
             <td class="p-4 border-b text-[11px] font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
             <td class="p-4 border-b align-top">
@@ -127,7 +135,7 @@ function updateTppdBatchProgressUI(current, total, text) {
 
     container.classList.remove('hidden');
     const perc = Math.round((current / total) * 100);
-    
+
     bar.style.width = `${perc}%`;
     percentage.textContent = `${perc}%`;
     statusText.textContent = text || `Memproses ${current}/${total} delegasi...`;
@@ -144,10 +152,10 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     document.getElementById('carianPegawaiTppd').value = '';
     document.getElementById('dropdownCarianTppd').classList.add('hidden');
     document.getElementById('tppdIsBulk').value = isBulk ? 'true' : 'false';
-    
+
     managerSelected.clear();
     renderManagerTags();
-    
+
     // RBAC OVERRIDE: Penentuan Akses Pengurus
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
 
@@ -188,7 +196,7 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
 
     // Isi Maklumat Header Secara Dinamik (Pukal vs Tunggal)
     const infoContainer = document.getElementById('tppdDisplayInfo');
-    
+
     if (isBulk) {
         infoContainer.innerHTML = `
             <div class="flex items-center text-indigo-700 bg-indigo-100/50 p-2 rounded border border-indigo-200 shadow-sm mt-2">
@@ -257,7 +265,7 @@ window.handleCarianTppd = function(e) {
         const textMatch = p.nama.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query) || p.sektor.toLowerCase().includes(query);
         if (isRoleTPPD) return textMatch;
         return p.sektor === currentAdmin.managerSektor && textMatch;
-    }).slice(0, 15); 
+    }).slice(0, 15);
 
     if (results.length === 0) {
         dropdown.innerHTML = `<div class="p-3 text-sm text-slate-500 italic text-center font-medium">${isRoleTPPD ? 'Tiada padanan dijumpai...' : 'Tiada padanan di dalam sektor anda...'}</div>`;
@@ -267,7 +275,7 @@ window.handleCarianTppd = function(e) {
             const safeSektor = p.sektor.replace(/"/g, '&quot;');
             const safeUnit = p.unit.replace(/"/g, '&quot;');
             const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
-            
+
             const div = document.createElement('div');
             div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
             div.innerHTML = `
@@ -289,19 +297,19 @@ window.selectPegawaiCarianTppd = function(emel, nama, sektor, unit) {
 
     // Auto-pilih Sektor
     elSektor.value = sektor;
-    
+
     // Auto-populasi Unit
     window.populateManagerUnit();
-    
+
     // Auto-pilih Unit
     elUnit.value = unit;
-    
+
     // Daftar Pilihan
     managerSelected.set(emel, nama);
-    
+
     // Update Senarai Checkbox
-    populateManagerNama(); 
-    
+    populateManagerNama();
+
     // Update Tags
     renderManagerTags();
 
@@ -314,7 +322,7 @@ function populateManagerNama() {
     const un = document.getElementById('tppdUnitSelect').value;
     const nc = document.getElementById('tppdNamaContainer');
     nc.innerHTML = '';
-    
+
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
 
     if (sk && un) {
@@ -327,7 +335,7 @@ function populateManagerNama() {
 
         // Tapisan Senarai Checkbox dengan Logik Override Sektor dan Unit
         const pegs = adminPegawaiData.filter(p => p.sektor === sk && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
-        
+
         pegs.forEach((p, i) => {
             const isChecked = managerSelected.has(p.emel_rasmi) ? 'checked' : '';
             const safeNama = p.nama.replace(/"/g, '&quot;');
@@ -372,7 +380,7 @@ window.removeManagerTag = function(emel) {
 function renderManagerTags() {
     const container = document.getElementById('tppdSelectedTagsContainer');
     const hiddenCheck = document.getElementById('tppdHiddenEmailCheck');
-    
+
     if (managerSelected.size === 0) {
         container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
         hiddenCheck.value = '';
@@ -380,8 +388,8 @@ function renderManagerTags() {
     }
 
     container.innerHTML = '';
-    hiddenCheck.value = 'OK'; 
-    
+    hiddenCheck.value = 'OK';
+
     managerSelected.forEach((nama, emel) => {
         container.innerHTML += `
             <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
@@ -407,21 +415,21 @@ async function handleManagerAssignSubmit(e) {
 
     const targetSektor = document.getElementById('tppdSektorSelect').value;
     const targetUnit = document.getElementById('tppdUnitSelect').value;
-    
+
     let baseNames = Array.from(managerSelected.values());
     let baseEmails = Array.from(managerSelected.keys());
 
     // Menutup Modal dan Menghidupkan Progress UI
     toggleModal('modalTppdAssign', false);
     isProcessingTppdBatch = true;
-    
+
     const idsToProcess = isBulk ? Array.from(managerSelectedMemos) : [parseInt(document.getElementById('tppdMemoId').value)];
     const totalJobs = idsToProcess.length;
     let successCount = 0;
     let errorCount = 0;
 
     const adminEmail = currentAdmin.email.toLowerCase();
-    
+
     // PEMBAIKAN: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai
     const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
     const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || 'Pihak Pengurusan');
@@ -430,7 +438,7 @@ async function handleManagerAssignSubmit(e) {
         for (let i = 0; i < totalJobs; i++) {
             const currentId = idsToProcess[i];
             const m = managerMemoData.find(x => x.id === currentId);
-            
+
             if (!m) {
                 errorCount++;
                 continue;
@@ -441,10 +449,10 @@ async function handleManagerAssignSubmit(e) {
             try {
                 // ── SURGICAL EDIT START: PEMUTUSAN_RANGKAIAN_DELEGASI_MUTLAK ──
                 // Pembersihan prefix PENDING_ untuk menandakan status "Selesai Diagih" secara mutlak.
-                // Logik Penyelamat (Failsafe): Jika rekod tiada ID kalendar (null) sebelum ini, 
+                // Logik Penyelamat (Failsafe): Jika rekod tiada ID kalendar (null) sebelum ini,
                 // ia akan disuntik dengan 'RESOLVED_NO_CAL' supaya memintas (bypass) query '.is.null' di Tab Delegasi.
                 let finalEventId = m.calendar_event_id;
-                
+
                 if (!finalEventId) {
                     finalEventId = 'RESOLVED_NO_CAL';
                 } else if (finalEventId.startsWith('PENDING_')) {
@@ -457,7 +465,7 @@ async function handleManagerAssignSubmit(e) {
                     unit: targetUnit,
                     nama_penerima: baseNames.join(', '),
                     emel_penerima: baseEmails.join(', '),
-                    calendar_event_id: finalEventId 
+                    calendar_event_id: finalEventId
                 }).eq('id', currentId);
                 // ── SURGICAL EDIT END ──
 
@@ -470,7 +478,7 @@ async function handleManagerAssignSubmit(e) {
 
                 // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel PIC
                 const notifyEmails = baseEmails.filter(e => e.toLowerCase() !== adminEmail);
-                
+
                 // PEMBAIKAN: Ekstrak `nama` sebenar untuk dibekalkan kepada payload
                 const notifyNames = notifyEmails.map(e => managerSelected.get(e) || e);
 
@@ -484,7 +492,7 @@ async function handleManagerAssignSubmit(e) {
                             action: 'notifyExtraEmailsOnly',
                             sektor: targetSektor,
                             unit: targetUnit,
-                            newEmailsOnly: notifyEmails, 
+                            newEmailsOnly: notifyEmails,
                             delegasiNama: actualDelegasiNama, // SUNTIKAN: Nama delegasi
                             picNames: notifyNames,            // SUNTIKAN: Array nama penerima
                             noRujukan: m.no_rujukan || 'TIADA',
@@ -515,7 +523,7 @@ async function handleManagerAssignSubmit(e) {
                         })
                     });
                 }
-                
+
                 successCount++;
             } catch (jobErr) {
                 console.error(`Ralat Penugasan ID ${currentId}:`, jobErr);
@@ -546,6 +554,6 @@ async function handleManagerAssignSubmit(e) {
         isProcessingTppdBatch = false;
         btn.disabled = false;
         btn.textContent = 'Sahkan Penugasan';
-        setTimeout(() => updateTppdBatchProgressUI(0, 0), 2000); 
+        setTimeout(() => updateTppdBatchProgressUI(0, 0), 2000);
     }
 }
