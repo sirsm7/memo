@@ -39,12 +39,40 @@ function calculateKPIs(data) {
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
     document.getElementById('kpiToday').textContent = todayCount;
 
-    // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_KPI ──
-    // KIRAAN KPI BAHARU: Mengesan status melalui ketiadaan ID atau kewujudan prefix 'PENDING_'
-    const pendingCount = data.filter(r => window.isManagerRole && window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))).length;
+    // KIRAAN KPI BAHARU (Jumlah Keseluruhan & Pecahan Hierarki Pengurusan)
+    let totalPending = 0;
+    let pendingTppd = 0;
+    let pendingKS = 0;
+    let pendingKU = 0;
+
+    data.forEach(r => {
+        // Cek jika status adalah tergendala/menunggu
+        if (window.isManagerRole && window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))) {
+            totalPending++;
+            
+            // Pengesanan berasaskan teks nama Unit secara terus dari pangkalan data
+            const unitName = (r.unit || '').toUpperCase();
+            
+            if (unitName === 'TPPD') {
+                pendingTppd++;
+            } else if (unitName === 'KETUA SEKTOR') {
+                pendingKS++;
+            } else if (unitName.startsWith('KETUA UNIT')) {
+                pendingKU++;
+            }
+        }
+    });
+
     const kpiPendingEl = document.getElementById('kpiPending');
-    if (kpiPendingEl) kpiPendingEl.textContent = pendingCount;
-    // ── SURGICAL EDIT END ──
+    if (kpiPendingEl) kpiPendingEl.textContent = totalPending;
+    
+    const elTppd = document.getElementById('kpiPendingTppd');
+    const elKS = document.getElementById('kpiPendingKS');
+    const elKU = document.getElementById('kpiPendingKU');
+    
+    if (elTppd) elTppd.textContent = pendingTppd;
+    if (elKS) elKS.textContent = pendingKS;
+    if (elKU) elKU.textContent = pendingKU;
 
     const sektorCounts = {};
     data.forEach(r => {
@@ -133,10 +161,8 @@ function renderTable(dataArray) {
         const tarikhTerimaStr = formatDt(row.tarikh_terima);
         const tarikhSuratStr = formatDt(row.tarikh_surat);
         
-        // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_TABLE ──
         // Penentuan Lencana Status Tindakan (PINDAAN BAHARU: Membaca prefix 'PENDING_')
         const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
-        // ── SURGICAL EDIT END ──
 
         const statusBadge = isMenunggu
             ? `<span class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan</span>`
@@ -147,7 +173,6 @@ function renderTable(dataArray) {
         const adminData = sessionStr ? JSON.parse(sessionStr) : null;
         const canEdit = adminData && (adminData.isSystemAdmin || adminData.isPerakam);
         
-        // ── SURGICAL EDIT START: SUNTIKAN_BUTANG_PADAM_PERAKAM ──
         let editBtnHtml = '';
         if (canEdit) {
             editBtnHtml = `
@@ -159,7 +184,6 @@ function renderTable(dataArray) {
                 </button>
             `;
         }
-        // ── SURGICAL EDIT END ──
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
@@ -210,7 +234,6 @@ function renderTable(dataArray) {
     });
 }
 
-// ── SURGICAL EDIT START: LAKSANAKAN_FILTER_DINAMIK ──
 function filterTable() {
     const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
     const vStatus = document.getElementById('filterStatus')?.value || "";
@@ -339,9 +362,7 @@ function resetAnalisisFilters() {
     populateAnalisisFilters(allRecords);
     filterTable();
 }
-// ── SURGICAL EDIT END ──
 
-// ================= FUNGSI EKSPORT EXCEL =================
 window.exportToExcel = function() {
     if (!currentFilteredRecords || currentFilteredRecords.length === 0) {
         return window.showMessage("Tiada rekod sedia ada untuk dieksport.", "error");
@@ -349,10 +370,8 @@ window.exportToExcel = function() {
 
     try {
         const exportData = currentFilteredRecords.map((row, index) => {
-            // ── SURGICAL EDIT START: KEMASKINI_LOGIK_IS_MENUNGGU_EKSPORT ──
             const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
             const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';
-            // ── SURGICAL EDIT END ──
 
             return {
                 "Bil": index + 1,
