@@ -309,13 +309,14 @@
                         </div>
                     </div>
                     <!-- Card 4: Sektor Teraktif -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center overflow-hidden">
-                        <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4 flex-shrink-0">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-start sm:items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4 flex-shrink-0 mt-1 sm:mt-0">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                         </div>
-                        <div class="w-full min-w-0">
-                            <p class="text-[11px] sm:text-sm text-slate-500 font-bold uppercase tracking-wider">Sektor Teraktif</p>
-                            <p id="kpiTopSektor" class="text-lg font-extrabold text-slate-800 break-words truncate" title="-">-</p>
+                        <div class="flex-1 w-full min-w-0">
+                            <p class="text-[11px] sm:text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">Sektor Teraktif</p>
+                            <!-- Membuang kelas truncate dan menggunakan whitespace-normal dengan leading-tight -->
+                            <p id="kpiTopSektor" class="text-sm font-extrabold text-slate-800 break-words whitespace-normal leading-tight" title="-">-</p>
                         </div>
                     </div>
                 </div>
