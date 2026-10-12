@@ -292,18 +292,18 @@
                         </div>
                     </div>
                     <!-- Card 3: Menunggu Tindakan (Pengurusan) -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-start sm:items-center">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-start sm:items-center overflow-hidden">
                         <div class="p-3 rounded-full bg-amber-100 text-amber-600 mr-4 flex-shrink-0 mt-1 sm:mt-0">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </div>
-                        <div class="flex-1 w-full">
-                            <p class="text-[11px] sm:text-sm text-slate-500 font-bold uppercase tracking-wider leading-tight">Menunggu Tindakan</p>
-                            <div class="flex flex-col sm:flex-row sm:items-baseline sm:space-x-3 mt-1 sm:mt-0">
-                                <p id="kpiPending" class="text-3xl font-extrabold text-slate-800 leading-none">0</p>
-                                <div class="flex items-center space-x-2 mt-2 sm:mt-0 text-[10px] sm:text-xs font-semibold text-slate-500">
-                                    <span title="Tindakan TPPD" class="flex items-center"><span class="w-2 h-2 rounded-full bg-indigo-400 mr-1"></span>TPPD: <span id="kpiPendingTppd" class="ml-1 text-slate-700">0</span></span>
-                                    <span title="Tindakan Ketua Sektor" class="flex items-center"><span class="w-2 h-2 rounded-full bg-amber-400 mr-1"></span>KS: <span id="kpiPendingKS" class="ml-1 text-slate-700">0</span></span>
-                                    <span title="Tindakan Ketua Unit" class="flex items-center"><span class="w-2 h-2 rounded-full bg-emerald-400 mr-1"></span>KU: <span id="kpiPendingKU" class="ml-1 text-slate-700">0</span></span>
+                        <div class="flex-1 w-full min-w-0">
+                            <p class="text-[11px] sm:text-sm text-slate-500 font-bold uppercase tracking-wider leading-tight whitespace-nowrap truncate">Menunggu Tindakan</p>
+                            <div class="flex flex-wrap items-center mt-1 sm:mt-0 gap-x-3 gap-y-1">
+                                <p id="kpiPending" class="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-none mr-1">0</p>
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-slate-500">
+                                    <span title="Tindakan TPPD" class="flex items-center whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-indigo-400 mr-1 flex-shrink-0"></span>TPPD: <span id="kpiPendingTppd" class="ml-1 text-slate-700">0</span></span>
+                                    <span title="Tindakan Ketua Sektor" class="flex items-center whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-amber-400 mr-1 flex-shrink-0"></span>KS: <span id="kpiPendingKS" class="ml-1 text-slate-700">0</span></span>
+                                    <span title="Tindakan Ketua Unit" class="flex items-center whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-emerald-400 mr-1 flex-shrink-0"></span>KU: <span id="kpiPendingKU" class="ml-1 text-slate-700">0</span></span>
                                 </div>
                             </div>
                         </div>
