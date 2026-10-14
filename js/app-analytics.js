@@ -130,8 +130,11 @@ function populateAnalisisFilters(data) {
 
     fSektor.innerHTML = genOptions(setSektor, "Semua Sektor", (v) => v.replace(/^\d{2}\s/, ''));
     fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
-    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
-    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
+    
+    // ── SURGICAL EDIT START: TEKS_DEFAULT_PENERIMAAN ──
+    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan Penerimaan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
+    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh Penerimaan", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
+    // ── SURGICAL EDIT END ──
 
     if (fStatus && currentStatus) fStatus.value = currentStatus;
     if (currentSektor) fSektor.value = currentSektor;
@@ -341,8 +344,11 @@ function updateCascadingFilters() {
 
     // Muat turun (Render) pilihan baharu ke dalam elemen <select>
     fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
-    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
-    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
+    
+    // ── SURGICAL EDIT START: TEKS_DEFAULT_PENERIMAAN_CASCADE ──
+    fBulan.innerHTML = genOptions(setBulan, "Semua Bulan Penerimaan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
+    fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh Penerimaan", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
+    // ── SURGICAL EDIT END ──
 
     // Pelihara semula nilai (value) yang telah dipilih jika ia masih sah (valid)
     if (Array.from(setUnit).includes(vUnit)) fUnit.value = vUnit;
