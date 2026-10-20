@@ -32,6 +32,8 @@ async function loadManagerMemo() {
     if (currentAdmin.isSystemAdmin) {
         // Aliran Pentadbir Sistem: Tiada sebarang tapisan Sektor/Unit dikenakan.
         // Admin mempunyai pandangan global ke atas semua memo yang "Menunggu Tindakan".
+        // Oleh kerana kita sudah meletakkan .or() di atas, kita tidak perlu letak apa-apa tapisan Sektor/Unit di sini.
+        // queryBuilder akan mengekalkan keadaan asalnya (semua rekod yang is.null ATAU PENDING_).
     } else if (userRole === 'TPPD') {
         // Aliran Kolaboratif TPPD: Batalkan ikatan sektor, TAPI kekalkan ikatan unit.
         // Cari rekod emel TPPD, dan pastikan ia MASIH berada dalam unit TPPD (Belum ditukar/diagih)
