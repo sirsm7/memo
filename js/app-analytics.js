@@ -3,31 +3,42 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/app-analytics.js
  * Tujuan: Dashboard analisis, KPI, jadual rekod, filter dinamik dan eksport Excel.
+ * Patch SWR: Integrasi CacheService (IndexedDB) untuk pemuatan rekod pantas & segar.
  * ==============================================================================
  */
 
-async function loadDashboardData() {
+function loadDashboardData() {
     const tBody = document.getElementById('tableBody');
-    if (allRecords.length > 0) {
-        renderTable(allRecords);
-        populateAnalisisFilters(allRecords);
+    
+    if (allRecords.length === 0) {
+        tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500"><div class="loader mr-2 border-slate-300 border-top-slate-500"></div> Memuat turun rekod...</td></tr>`;
+    }
+
+    if (!window.CacheService) {
+        console.error("CacheService tidak dijumpai. Sila pastikan cache-service.js dimuatkan.");
+        tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-red-500">Gagal memuatkan Cache Service.</td></tr>`;
         return;
     }
 
-    tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500"><div class="loader mr-2"></div> Memuat turun rekod pelayan...</td></tr>`;
+    // Menggunakan strategi Stale-While-Revalidate (SWR)
+    window.CacheService.fetchSWR('memo_rekod', 'created_at', false, (data, isCached) => {
+        if (!data) return;
 
-    try {
-        const { data, error } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        
         allRecords = data;
-        currentFilteredRecords = data;
-        calculateKPIs(data);
-        renderTable(data);
-        populateAnalisisFilters(data);
-    } catch (err) {
-        tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-red-500">Gagal mengambil rekod: ${err.message}</td></tr>`;
-    }
+        
+        // Memastikan dropdown filter mendapat senarai pilihan terbaharu dari data mentah
+        populateAnalisisFilters(allRecords);
+        
+        // Memanggil filterTable() akan mengaplikasikan tapisan sedia ada (jika ada),
+        // merender jadual (renderTable), dan mengira semula KPI (calculateKPIs)
+        filterTable();
+
+        if (isCached) {
+            console.log("[SWR] Data analitik dipaparkan pantas dari IndexedDB.");
+        } else {
+            console.log("[SWR] Data analitik disegerakkan dengan Supabase.");
+        }
+    });
 }
 
 function calculateKPIs(data) {

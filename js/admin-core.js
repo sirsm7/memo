@@ -4,6 +4,7 @@
  * Modul: js/admin-core.js
  * Tujuan: State pentadbir, sesi RBAC, login/logout, data admin, rendering jadual,
  *         sorting/filtering, helper modal dan intercept URL delegasi.
+ * Patch SWR: Memuatkan pangkalan data pegawai & admin menggunakan IndexedDB Cache.
  * ==============================================================================
  */
 
@@ -268,43 +269,53 @@ function showAdminUI(isLoggedIn) {
 // ================= DATA FETCHING (PENGASINGAN LOGIK) =================
 async function loadAdminData() {
     // Pengurusan sentiasa perlukan data pegawai untuk dropdown modal mereka
-    await loadAdminPegawai(); 
+    loadAdminPegawai(); 
 
     if (currentAdmin.isManager) {
-        loadManagerMemo();
+        if (typeof loadManagerMemo === 'function') loadManagerMemo();
     } else if (currentAdmin.isSystemAdmin) {
         loadAdminMemo();
         loadAdminSistem();
     }
 }
 
-async function loadAdminMemo() {
-    const { data } = await _supabase.from('memo_rekod').select('*').order('created_at', { ascending: false });
-    adminMemoData = data || [];
-    
-    // Tetapkan susunan lalai ke state
-    adminSortState.memo = { column: 'id', direction: 'desc' };
-    
-    filterAdminTable('memo', document.getElementById('adminSearchMemo')?.value || '');
-    updateSortIcons('memo');
+function loadAdminMemo() {
+    if (!window.CacheService) return;
+
+    window.CacheService.fetchSWR('memo_rekod', 'created_at', false, (data, isCached) => {
+        if (!data) return;
+        adminMemoData = data;
+        
+        adminSortState.memo = { column: 'id', direction: 'desc' };
+        
+        filterAdminTable('memo', document.getElementById('adminSearchMemo')?.value || '');
+        updateSortIcons('memo');
+    });
 }
 
-async function loadAdminPegawai() {
-    const { data } = await _supabase.from('memo_pegawai').select('*').order('nama');
-    adminPegawaiData = data || [];
-    
-    if (currentAdmin && currentAdmin.isSystemAdmin) {
-        // Tetapkan susunan lalai ke state jika admin
-        adminSortState.pegawai = { column: 'nama', direction: 'asc' };
-        filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
-        updateSortIcons('pegawai');
-    }
+function loadAdminPegawai() {
+    if (!window.CacheService) return;
+
+    window.CacheService.fetchSWR('memo_pegawai', 'nama', true, (data, isCached) => {
+        if (!data) return;
+        adminPegawaiData = data;
+        
+        if (currentAdmin && currentAdmin.isSystemAdmin) {
+            adminSortState.pegawai = { column: 'nama', direction: 'asc' };
+            filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
+            updateSortIcons('pegawai');
+        }
+    });
 }
 
-async function loadAdminSistem() {
-    const { data } = await _supabase.from('memo_admin').select('*').order('id');
-    adminSistemData = data || [];
-    renderAdminSistemTable(adminSistemData);
+function loadAdminSistem() {
+    if (!window.CacheService) return;
+
+    window.CacheService.fetchSWR('memo_admin', 'id', true, (data, isCached) => {
+        if (!data) return;
+        adminSistemData = data;
+        renderAdminSistemTable(adminSistemData);
+    });
 }
 
 // ================= RENDERING TABLES (ADMIN) =================

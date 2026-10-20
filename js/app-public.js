@@ -10,6 +10,7 @@
  * Patch Terkini: Enjin Carian Pantas Pegawai (Smart Autocomplete Interceptor)
  * Patch Pembedahan: Modul Pengesanan Status Tindakan Tepat (Semakan calendar_event_id)
  * Patch Terbaharu: Laksanakan Filter Dinamik (Cascading) & Reaktiviti KPI
+ * Patch SWR: Integrasi CacheService (IndexedDB) untuk pemuatan data pantas
  * ==============================================================================
  */
 
@@ -22,20 +23,13 @@ var currentFilteredRecords = [];
 var globalSelected = new Map(); // Menjejak email -> nama rentas sektor
 
 // ================= INISIALISASI SISTEM =================
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     // 1. Set Tahun Semasa
     const yearElem = document.getElementById('currentYear');
     if (yearElem) yearElem.textContent = new Date().getFullYear();
 
-    // 2. Muatkan Data Pegawai 
-    try {
-        const { data, error } = await _supabase.from('memo_pegawai').select('*').order('sektor');
-        if (error) throw error;
-        processPegawai(data);
-        populateSektor();
-    } catch (err) {
-        showMessage("Ralat memuatkan pangkalan data pegawai: " + err.message, 'error');
-    }
+    // 2. Muatkan Data Pegawai Menggunakan SWR Cache Strategy
+    loadPublicPegawaiData();
 
     // 3. Daftarkan Event Listeners
     setupEventListeners();
@@ -43,6 +37,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 4. Paparan Lalai
     switchTab('utama');
 });
+
+function loadPublicPegawaiData() {
+    if (!window.CacheService) {
+        console.error("CacheService tidak dijumpai. Sila pastikan cache-service.js dimuatkan.");
+        return;
+    }
+
+    window.CacheService.fetchSWR('memo_pegawai', 'sektor', true, (data, isCached) => {
+        if (!data || data.length === 0) return;
+        
+        processPegawai(data);
+        populateSektor();
+        
+        // Logika pilihan: Boleh tambah indikator visual jika ia memuatkan data dari cache
+        if (isCached) {
+            console.log("[SWR] Data pegawai dimuatkan dari IndexedDB.");
+        } else {
+            console.log("[SWR] Data pegawai dikemaskini dari Supabase.");
+        }
+    });
+}
 
 function setupEventListeners() {
     document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
@@ -158,7 +173,9 @@ window.switchTab = function(tabName) {
     }
 
     if (tabName === 'analisis') {
-        loadDashboardData();
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
     }
 };
 
@@ -176,18 +193,28 @@ function processPegawai(data) {
 window.populateSektor = function() {
     const s = document.getElementById('sektor');
     if (!s) return;
+    
+    // Simpan pilihan sedia ada jika ada
+    const currentVal = s.value;
+    
     s.innerHTML = '<option value="">-- PILIH SEKTOR --</option>';
     Object.keys(groupedData).sort().forEach(sk => {
         const opt = document.createElement('option');
         opt.value = sk; opt.textContent = sk;
         s.appendChild(opt);
     });
+    
+    if (currentVal && groupedData[currentVal]) {
+        s.value = currentVal;
+    }
 };
 
 window.populateUnit = function() {
     const sk = document.getElementById('sektor').value;
     const u = document.getElementById('unit');
     const nc = document.getElementById('namaContainer');
+    
+    const currentVal = u.value;
     u.innerHTML = '<option value="">-- PILIH UNIT --</option>';
     
     if (sk && groupedData[sk]) {
@@ -197,7 +224,12 @@ window.populateUnit = function() {
             u.appendChild(opt);
         });
         u.disabled = false;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        
+        if (currentVal && groupedData[sk][currentVal]) {
+            u.value = currentVal;
+        } else {
+            nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        }
     } else {
         u.disabled = true;
         nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
@@ -488,9 +520,24 @@ async function handleFormSubmit(e) {
         const currentUnit = document.getElementById('unit').value;
 
         // 1. Logik Intercept: Semakan Silang terhadap jadual memo_admin (Pindaan Hierarki)
-        // Mengekstrak emel beserta peranan (role) untuk tapisan pengurusan
-        const { data: adminList, error: adminError } = await _supabase.from('memo_admin').select('email, role');
-        if (adminError) throw adminError;
+        // Kita menggunakan CacheService untuk mengambil data ini bagi mengelakkan panggilan berterusan ke API
+        let adminList = [];
+        try {
+            adminList = await window.CacheService.getAll('memo_admin', 'id', true);
+            if (!adminList || adminList.length === 0) {
+                 // Fallback to supabase if cache empty
+                 const { data, error } = await _supabase.from('memo_admin').select('email, role');
+                 if (error) throw error;
+                 adminList = data;
+                 await window.CacheService.setAll('memo_admin', data); // populate cache
+            }
+        } catch (adminErr) {
+             console.error("Gagal mendapatkan senarai admin dari cache:", adminErr);
+             const { data, error } = await _supabase.from('memo_admin').select('email, role');
+             if (error) throw error;
+             adminList = data;
+        }
+
 
         // ── SURGICAL EDIT START: NORMALISASI_PENGESANAN_DELEGASI_EMAIL_DAN_KOLABORATIF_TPPD ──
         const managerRoles = ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'];
@@ -560,6 +607,11 @@ async function handleFormSubmit(e) {
 
         if (subError) throw subError;
 
+        // SWR INVALIDATION: Bersihkan cache memo_rekod tempatan kerana data telah berubah
+        if (window.CacheService) {
+            await window.CacheService.clearStore('memo_rekod');
+        }
+
         // 3. Notifikasi GAS (Tentukan Action Berdasarkan Status Hierarki)
         setLoading(true, isManagerDeferred ? "Menghantar Notifikasi Pengurusan..." : "Menghantar Notifikasi RSVP & Kalendar...");
 
@@ -615,7 +667,7 @@ async function handleFormSubmit(e) {
         if (calFrame) calFrame.src = calFrame.src; 
 
         resetForm();
-        allRecords = []; 
+        allRecords = []; // Reset global records list so it fetches fresh SWR data on next tab visit
 
     } catch (err) {
         showMessage("Ralat Transaksi: " + err.message, "error");

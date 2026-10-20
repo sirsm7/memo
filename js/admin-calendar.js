@@ -4,6 +4,7 @@
  * Modul: js/admin-calendar.js
  * Tujuan: Tindakan kalendar individu, pemadaman memo, batch sync/delete kalendar,
  * progress UI dan refresh iframe kalendar.
+ * Patch SWR: Integrasi CacheService invalidation selepas penimpaan/pemadaman data.
  * ==============================================================================
  */
 
@@ -27,7 +28,7 @@ window.syncSingleCalendar = async function(id) {
         const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
 
         // Pastikan kita gunakan fungsi kalendar secara paksa di peringkat Admin
-        const res = await fetch(GAS_URL, {
+        const res = await fetch(window.GAS_URL, {
             method: 'POST',
             redirect: "follow",
             headers: {
@@ -49,7 +50,11 @@ window.syncSingleCalendar = async function(id) {
         const notify = await res.json();
 
         if (notify.status === 'success' && notify.calendarEventId) {
-            await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
+            await window._supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
+            
+            // SWR INVALIDATION
+            if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
+            
             window.showMessage("Penyegerakan kalendar berjaya.", "success");
             
             // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
@@ -57,6 +62,7 @@ window.syncSingleCalendar = async function(id) {
                 loadAdminMemo();
             }
             if (typeof loadDashboardData === 'function') {
+                allRecords = []; // force swr update for public table
                 loadDashboardData();
             }
             // ── SURGICAL EDIT END ──
@@ -99,7 +105,7 @@ window.removeSingleCalendar = function(id) {
             try {
                 setProcessingState(true, `Memadam rekod kalendar #${id}...`);
 
-                const res = await fetch(GAS_URL, {
+                const res = await fetch(window.GAS_URL, {
                     method: 'POST',
                     redirect: "follow",
                     headers: {
@@ -111,7 +117,11 @@ window.removeSingleCalendar = function(id) {
 
                 // Sama ada berjaya atau "not_found", kita putuskan pautan di Supabase
                 if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
-                    await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
+                    await window._supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
+                    
+                    // SWR INVALIDATION
+                    if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
+                    
                     window.showMessage("Acara kalendar berjaya ditanggalkan.", "success");
                     
                     // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
@@ -119,6 +129,7 @@ window.removeSingleCalendar = function(id) {
                         loadAdminMemo();
                     }
                     if (typeof loadDashboardData === 'function') {
+                        allRecords = []; // force swr update
                         loadDashboardData();
                     }
                     // ── SURGICAL EDIT END ──
@@ -169,28 +180,34 @@ window.deleteMemo = function(id) {
                 setProcessingState(true, "Memadam data secara menyeluruh...");
 
                 // 1. Padam Kalendar Dahulu Jika Ada
-                if (m.calendar_event_id) {
-                    try {
-                        await fetch(GAS_URL, {
+                if (m.calendar_event_id && !m.calendar_event_id.startsWith('RESOLVED')) {
+                     // Cleanup proper event ids, bypass virtual placeholder
+                     let eventId = m.calendar_event_id.replace('PENDING_', '');
+                     try {
+                        await fetch(window.GAS_URL, {
                             method: 'POST',
                             redirect: "follow",
                             headers: {
                                 "Content-Type": "text/plain;charset=utf-8",
                             },
-                            body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
+                            body: JSON.stringify({ action: 'deleteEvent', eventId: eventId })
                         });
                     } catch (e) { console.error("Ralat padam kalendar ketika hapus data", e); }
                 }
 
                 // 2. Padam Dari Supabase
-                const { error } = await _supabase.from('memo_rekod').delete().eq('id', id);
+                const { error } = await window._supabase.from('memo_rekod').delete().eq('id', id);
                 if (error) throw error;
+                
+                // SWR INVALIDATION
+                if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
 
                 // ── SURGICAL EDIT START: SUNTIK_REFRESH_ANALITIK ──
                 if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
                     loadAdminMemo();
                 }
                 if (typeof loadDashboardData === 'function') {
+                    allRecords = []; // force swr
                     loadDashboardData();
                 }
                 // ── SURGICAL EDIT END ──
@@ -272,6 +289,7 @@ window.startBatchSync = function() {
             setProcessingState(true);
             let successCount = 0;
             let errorCount = 0;
+            let dbUpdated = false;
 
             for (let i = 0; i < queue.length; i++) {
                 const m = queue[i];
@@ -281,7 +299,7 @@ window.startBatchSync = function() {
                     const names = m.nama_penerima ? m.nama_penerima.split(',').map(n => n.trim()) : [];
                     const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
 
-                    const res = await fetch(GAS_URL, {
+                    const res = await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
                         headers: {
@@ -303,8 +321,9 @@ window.startBatchSync = function() {
                     const notify = await res.json();
 
                     if (notify.status === 'success' && notify.calendarEventId) {
-                        await _supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', m.id);
+                        await window._supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', m.id);
                         successCount++;
+                        dbUpdated = true;
                     } else {
                         errorCount++;
                     }
@@ -312,6 +331,10 @@ window.startBatchSync = function() {
                     errorCount++;
                     console.error(`Ralat Pukal Sync ID ${m.id}:`, err);
                 }
+            }
+            
+            if (dbUpdated && window.CacheService) {
+                 await window.CacheService.clearStore('memo_rekod');
             }
 
             updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
@@ -322,6 +345,7 @@ window.startBatchSync = function() {
                 loadAdminMemo();
             }
             if (typeof loadDashboardData === 'function') {
+                allRecords = []; // force swr fetch
                 loadDashboardData();
             }
             // ── SURGICAL EDIT END ──
@@ -337,10 +361,10 @@ window.startBatchSync = function() {
 window.startBatchDelete = function() {
     if (isProcessingBatch) return;
 
-    // Cari yang ada kalendar sahaja
-    const queue = adminMemoData.filter(m => m.calendar_event_id);
+    // Cari yang ada kalendar sahaja (abaikan PENDING_/RESOLVED_)
+    const queue = adminMemoData.filter(m => m.calendar_event_id && !m.calendar_event_id.startsWith('PENDING_') && !m.calendar_event_id.startsWith('RESOLVED'));
     if (queue.length === 0) {
-        return window.showMessage("Tiada rekod kalendar yang dijumpai untuk dipadam.", "success");
+        return window.showMessage("Tiada rekod kalendar yang sah dijumpai untuk dipadam secara pukal.", "success");
     }
 
     Swal.fire({
@@ -358,13 +382,14 @@ window.startBatchDelete = function() {
             setProcessingState(true);
             let successCount = 0;
             let errorCount = 0;
+            let dbUpdated = false;
 
             for (let i = 0; i < queue.length; i++) {
                 const m = queue[i];
                 updateBatchProgressUI(i, queue.length, `Memadam Kalendar ID #${m.id} (${i+1}/${queue.length})...`);
 
                 try {
-                    const res = await fetch(GAS_URL, {
+                    const res = await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
                         headers: {
@@ -375,8 +400,9 @@ window.startBatchDelete = function() {
                     const responseJSON = await res.json();
 
                     if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
-                        await _supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', m.id);
+                        await window._supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', m.id);
                         successCount++;
+                        dbUpdated = true;
                     } else {
                         errorCount++;
                     }
@@ -384,6 +410,10 @@ window.startBatchDelete = function() {
                     errorCount++;
                     console.error(`Ralat Pukal Delete ID ${m.id}:`, err);
                 }
+            }
+
+            if (dbUpdated && window.CacheService) {
+                 await window.CacheService.clearStore('memo_rekod');
             }
 
             updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
@@ -394,6 +424,7 @@ window.startBatchDelete = function() {
                 loadAdminMemo();
             }
             if (typeof loadDashboardData === 'function') {
+                allRecords = []; // force swr fetch
                 loadDashboardData();
             }
             // ── SURGICAL EDIT END ──

@@ -4,6 +4,7 @@
  * Modul: js/admin-delegation.js
  * Tujuan: Aliran TPPD/Ketua Sektor/Ketua Unit, delegasi memo, pemilihan pukal,
  * carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
+ * Patch SWR: Integrasi CacheService invalidation selepas delegasi pukal/tunggal.
  * ==============================================================================
  */
 
@@ -18,7 +19,7 @@ async function loadManagerMemo() {
 
 // ── SURGICAL EDIT START: SUNTIKAN_SEMULA_TAPISAN_UNIT_TPPD ──
     // 1. Inisialisasi binaan pertanyaan (Query Builder) asas
-    let queryBuilder = _supabase
+    let queryBuilder = window._supabase
         .from('memo_rekod')
         .select('*')
         .or('calendar_event_id.is.null,calendar_event_id.ilike.PENDING_%'); // Membaca rantaian PENDING_
@@ -40,6 +41,8 @@ async function loadManagerMemo() {
     }
 
     // 3. Eksekusi pertanyaan dengan susunan kronologi (terbaharu ke terlama)
+    // NOTA: Untuk senarai delegasi spesifik pengurus, kita buat carian terus ke pangkalan data
+    // kerana filter `.or()` dan `.ilike()` mungkin sukar dipadankan sepenuhnya melalui cache mentah.
     const { data, error } = await queryBuilder.order('created_at', { ascending: false });
 
     if (error) {
@@ -460,7 +463,7 @@ async function handleManagerAssignSubmit(e) {
                 }
 
                 // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Penimpaan Rekod Mutlak)
-                const { error: updateError } = await _supabase.from('memo_rekod').update({
+                const { error: updateError } = await window._supabase.from('memo_rekod').update({
                     sektor: targetSektor,
                     unit: targetUnit,
                     nama_penerima: baseNames.join(', '),
@@ -484,7 +487,7 @@ async function handleManagerAssignSubmit(e) {
 
                 if (notifyEmails.length > 0) {
                     // Hantar Emel Notifikasi Sahaja (Tanpa Kalendar Baharu)
-                    await fetch(GAS_URL, {
+                    await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -504,7 +507,7 @@ async function handleManagerAssignSubmit(e) {
 
                 if (isSelfAssigned) {
                     // SYARAT TAMBAHAN: Hantar confirmation ringkas kepada delegasi jika beliau memilih dirinya sendiri.
-                    await fetch(GAS_URL, {
+                    await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
                         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -531,9 +534,15 @@ async function handleManagerAssignSubmit(e) {
             }
         }
 
+        // SWR INVALIDATION: Bersihkan cache memo_rekod tempatan kerana data delegasi telah berubah
+        if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
+
         // Selesai Semua Lelaran (Loop)
         updateTppdBatchProgressUI(totalJobs, totalJobs, "Penugasan Selesai.");
-        loadManagerMemo(); // Memuatkan semula senarai
+        loadManagerMemo(); // Memuatkan semula senarai (ini direct query, jadi akan sentiasa fresh)
+
+        // Sekiranya paparan dashboard pernah dimuatkan, bersihkan tatasusunan supaya SWR fetch yang baru dicetuskan
+        allRecords = []; 
 
         let finalMsg = '';
         if (isBulk) {

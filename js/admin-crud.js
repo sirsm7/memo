@@ -4,6 +4,7 @@
  * Modul: js/admin-crud.js
  * Tujuan: CRUD pegawai, edit memo, ubah hala PIC/penerima, carian pantas edit memo,
  * daftar akses sistem dan gugur akses admin/perakam.
+ * Patch SWR: Integrasi CacheService invalidation selepas setiap operasi DB.
  * ==============================================================================
  */
 
@@ -77,14 +78,20 @@ async function handlePegawaiSubmit(e) {
 
     try {
         if (id) {
-            await _supabase.from('memo_pegawai').update(payload).eq('id', id);
+            await window._supabase.from('memo_pegawai').update(payload).eq('id', id);
             window.showMessage("Data pegawai berjaya dikemaskini.", "success");
         } else {
-            await _supabase.from('memo_pegawai').insert([payload]);
+            await window._supabase.from('memo_pegawai').insert([payload]);
             window.showMessage("Pegawai baharu berjaya didaftarkan.", "success");
         }
+        
+        // SWR INVALIDATION
+        if (window.CacheService) await window.CacheService.clearStore('memo_pegawai');
+        
         toggleModal('modalPegawai', false);
-        await loadAdminPegawai();
+        
+        if (typeof loadAdminPegawai === 'function') loadAdminPegawai();
+        
     } catch (err) {
         window.showMessage("Gagal menyimpan pegawai: " + err.message, "error");
     }
@@ -105,8 +112,13 @@ window.deletePegawai = function(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
-                await _supabase.from('memo_pegawai').delete().eq('id', id);
-                loadAdminPegawai();
+                await window._supabase.from('memo_pegawai').delete().eq('id', id);
+                
+                // SWR INVALIDATION
+                if (window.CacheService) await window.CacheService.clearStore('memo_pegawai');
+                
+                if (typeof loadAdminPegawai === 'function') loadAdminPegawai();
+                
                 window.showMessage("Pegawai telah dikeluarkan dari sistem.", "success");
             } catch (err) {
                 window.showMessage("Ralat padam: " + err.message, "error");
@@ -391,8 +403,11 @@ async function handleMemoSubmit(e) {
         };
 
         // 2. Kemaskini Pangkalan Data Supabase 
-        const { error } = await _supabase.from('memo_rekod').update(payload).eq('id', id);
+        const { error } = await window._supabase.from('memo_rekod').update(payload).eq('id', id);
         if (error) throw error;
+
+        // SWR INVALIDATION
+        if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
 
         // 3. Logik Seruan Pelayan (Hanya dicetus jika terdapat pertambahan penerima)
         let messageText = "Maklumat surat dikemaskini. (Tiada notifikasi e-mel tambahan dihantar)";
@@ -400,7 +415,7 @@ async function handleMemoSubmit(e) {
         if (isEmailAdded) {
             try {
                 // Memanggil GAS untuk menghantar notifikasi HANYA kepada e-mel baharu
-                await fetch(GAS_URL, {
+                await fetch(window.GAS_URL, {
                     method: 'POST',
                     redirect: "follow",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -427,7 +442,7 @@ async function handleMemoSubmit(e) {
         
         // Penyegaran Jadual Automatik (Admin & Analisis)
         if (currentAdmin && currentAdmin.isSystemAdmin) {
-            loadAdminMemo();
+            if (typeof loadAdminMemo === 'function') loadAdminMemo();
         }
         if (typeof loadDashboardData === 'function') {
             loadDashboardData(); 
@@ -456,12 +471,17 @@ async function handleTambahAdminSubmit(e) {
     btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Menyimpan...';
 
     try {
-        await _supabase.from('memo_admin').insert([{
+        await window._supabase.from('memo_admin').insert([{
             email: email,
             password: pass,
             role: role
         }]);
-        loadAdminSistem();
+        
+        // SWR INVALIDATION
+        if (window.CacheService) await window.CacheService.clearStore('memo_admin');
+        
+        if (typeof loadAdminSistem === 'function') loadAdminSistem();
+        
         toggleModal('modalTambahAdmin', false);
         document.getElementById('formTambahAdmin').reset();
         window.showMessage(`Akses pengguna baharu berjawatan ${role} berjaya didaftarkan.`, "success");
@@ -488,8 +508,13 @@ window.deleteAdmin = function(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
-                await _supabase.from('memo_admin').delete().eq('id', id);
-                loadAdminSistem();
+                await window._supabase.from('memo_admin').delete().eq('id', id);
+                
+                // SWR INVALIDATION
+                if (window.CacheService) await window.CacheService.clearStore('memo_admin');
+                
+                if (typeof loadAdminSistem === 'function') loadAdminSistem();
+                
                 window.showMessage("Akses profil telah berjaya dibatalkan.", "success");
             } catch (err) {
                 window.showMessage("Gagal membatalkan akses profil.", "error");
