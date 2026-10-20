@@ -5,6 +5,7 @@
  * Tujuan: State pentadbir, sesi RBAC, login/logout, data admin, rendering jadual,
  *         sorting/filtering, helper modal dan intercept URL delegasi.
  * Patch SWR: Memuatkan pangkalan data pegawai & admin menggunakan IndexedDB Cache.
+ * Patch Global Scope: Membenarkan Pentadbir (System Admin) mengakses tab Delegasi.
  * ==============================================================================
  */
 
@@ -252,9 +253,10 @@ function showAdminUI(isLoggedIn) {
             if (tabAdmin) tabAdmin.classList.add('hidden');
             window.switchTab('tppd');
         } else if (currentAdmin.isSystemAdmin) {
+            // Pindaan Global Scope: Admin kini mempunyai butang dan paparan untuk mengakses tab Delegasi (tppd)
             if (menuCardDaftar) menuCardDaftar.classList.remove('hidden');
             if (tabAdmin) tabAdmin.classList.remove('hidden');
-            if (tabTppd) tabTppd.classList.add('hidden');
+            if (tabTppd) tabTppd.classList.remove('hidden');
             window.switchTab('admin');
         }
     } else {
@@ -276,6 +278,8 @@ async function loadAdminData() {
     } else if (currentAdmin.isSystemAdmin) {
         loadAdminMemo();
         loadAdminSistem();
+        // Tambahan untuk memuatkan data Delegasi secara berpusat bagi Admin
+        if (typeof loadManagerMemo === 'function') loadManagerMemo();
     }
 }
 

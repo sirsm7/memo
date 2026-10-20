@@ -5,11 +5,13 @@
  * Tujuan: Aliran TPPD/Ketua Sektor/Ketua Unit, delegasi memo, pemilihan pukal,
  * carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
  * Patch SWR: Integrasi CacheService invalidation selepas delegasi pukal/tunggal.
+ * Patch Global Scope: Pintasan query membenarkan Pentadbir (System Admin) mengurus delegasi.
  * ==============================================================================
  */
 
 async function loadManagerMemo() {
-    if (!currentAdmin || !currentAdmin.isManager) return;
+    // Pindaan Global Scope: Benarkan System Admin untuk memuatkan data ini
+    if (!currentAdmin || (!currentAdmin.isManager && !currentAdmin.isSystemAdmin)) return;
 
     // Reset Pemilihan Pukal
     managerSelectedMemos.clear();
@@ -27,7 +29,10 @@ async function loadManagerMemo() {
     // 2. Tentukan cawangan logik (Branching Logic) berdasarkan peranan
     const userRole = String(currentAdmin.role || '').trim().toUpperCase();
 
-    if (userRole === 'TPPD') {
+    if (currentAdmin.isSystemAdmin) {
+        // Aliran Pentadbir Sistem: Tiada sebarang tapisan Sektor/Unit dikenakan.
+        // Admin mempunyai pandangan global ke atas semua memo yang "Menunggu Tindakan".
+    } else if (userRole === 'TPPD') {
         // Aliran Kolaboratif TPPD: Batalkan ikatan sektor, TAPI kekalkan ikatan unit.
         // Cari rekod emel TPPD, dan pastikan ia MASIH berada dalam unit TPPD (Belum ditukar/diagih)
         queryBuilder = queryBuilder
@@ -93,7 +98,7 @@ function renderManagerTable(data) {
                 </button>
             </td>
         </tr>
-    `}).join('') || '<tr><td colspan="6" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu pada unit anda.</td></tr>';
+    `}).join('') || '<tr><td colspan="6" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu dipaparkan.</td></tr>';
 }
 
 // ---------------- LOGIK PEMILIHAN PUKAL (BULK SELECTION) ----------------
@@ -159,13 +164,14 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     managerSelected.clear();
     renderManagerTags();
 
-    // RBAC OVERRIDE: Penentuan Akses Pengurus
+    // RBAC OVERRIDE: Penentuan Akses Pengurus (Admin kini dianggap sebagai Global)
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+    const isGlobalAdmin = currentAdmin && currentAdmin.isSystemAdmin;
 
     // Placeholder Carian Pantas Dinamik
     const carianInput = document.getElementById('carianPegawaiTppd');
     if (carianInput) {
-        carianInput.placeholder = isRoleTPPD ? "Akses TPPD: Carian Rentas Sektor..." : "Taip nama pegawai seliaan anda...";
+        carianInput.placeholder = (isRoleTPPD || isGlobalAdmin) ? "Akses Global: Carian Rentas Sektor..." : "Taip nama pegawai seliaan anda...";
     }
 
     // Populate Sektor Dinamik
@@ -173,7 +179,7 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     sSelect.innerHTML = '<option value="">-- Sila Pilih Sektor --</option>';
 
     let availableSektors = [];
-    if (isRoleTPPD) {
+    if (isRoleTPPD || isGlobalAdmin) {
         availableSektors = adminPegawaiData.map(p => p.sektor);
     } else {
         availableSektors = [currentAdmin.managerSektor];
@@ -188,7 +194,7 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     const nc = document.getElementById('tppdNamaContainer');
 
     // Auto-select jika profil bukan TPPD (hanya ada 1 sektor pilihan)
-    if (!isRoleTPPD && unikSektor.length === 1) {
+    if (!(isRoleTPPD || isGlobalAdmin) && unikSektor.length === 1) {
         sSelect.value = unikSektor[0];
         window.populateManagerUnit(); // Terus populasi unit
     } else {
@@ -262,16 +268,17 @@ window.handleCarianTppd = function(e) {
     }
 
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+    const isGlobalAdmin = currentAdmin && currentAdmin.isSystemAdmin;
 
-    // Carian bergantung pada peranan profil (TPPD bebas, Pengurus lain dihadkan)
+    // Carian bergantung pada peranan profil (TPPD & Admin bebas, Pengurus lain dihadkan)
     const results = adminPegawaiData.filter(p => {
         const textMatch = p.nama.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query) || p.sektor.toLowerCase().includes(query);
-        if (isRoleTPPD) return textMatch;
+        if (isRoleTPPD || isGlobalAdmin) return textMatch;
         return p.sektor === currentAdmin.managerSektor && textMatch;
     }).slice(0, 15);
 
     if (results.length === 0) {
-        dropdown.innerHTML = `<div class="p-3 text-sm text-slate-500 italic text-center font-medium">${isRoleTPPD ? 'Tiada padanan dijumpai...' : 'Tiada padanan di dalam sektor anda...'}</div>`;
+        dropdown.innerHTML = `<div class="p-3 text-sm text-slate-500 italic text-center font-medium">${(isRoleTPPD || isGlobalAdmin) ? 'Tiada padanan dijumpai...' : 'Tiada padanan di dalam sektor anda...'}</div>`;
     } else {
         results.forEach(p => {
             const safeNama = p.nama.replace(/"/g, '&quot;');
@@ -283,7 +290,7 @@ window.handleCarianTppd = function(e) {
             div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
             div.innerHTML = `
                 <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
-                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${isRoleTPPD ? p.sektor.replace(/^\d{2}\s/, '') + ' - ' + p.unit : p.unit}</div>
+                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${(isRoleTPPD || isGlobalAdmin) ? p.sektor.replace(/^\d{2}\s/, '') + ' - ' + p.unit : p.unit}</div>
             `;
             div.onclick = () => selectPegawaiCarianTppd(safeEmel, safeNama, safeSektor, safeUnit);
             dropdown.appendChild(div);
@@ -327,11 +334,12 @@ function populateManagerNama() {
     nc.innerHTML = '';
 
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
+    const isGlobalAdmin = currentAdmin && currentAdmin.isSystemAdmin;
 
     if (sk && un) {
         nc.innerHTML = `
             <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                <span class="text-xs font-bold text-slate-500 uppercase">${isRoleTPPD ? 'Senarai Pegawai' : 'Pegawai Seliaan Anda'} (${un})</span>
+                <span class="text-xs font-bold text-slate-500 uppercase">${(isRoleTPPD || isGlobalAdmin) ? 'Senarai Pegawai' : 'Pegawai Seliaan Anda'} (${un})</span>
                 <button type="button" onclick="selectAllManagerInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
             </div>
         `;
@@ -345,7 +353,7 @@ function populateManagerNama() {
             nc.innerHTML += `
                 <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
                     <input type="checkbox" id="m_c_${i}" value="${safeNama}" data-email="${p.emel_rasmi}" onchange="toggleManagerPenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded m-checkbox focus:ring-indigo-500" ${isChecked}>
-                    <label for="m_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama} ${isRoleTPPD ? `<span class="text-[10px] text-slate-400 ml-1">(${p.sektor.replace(/^\d{2}\s/, '')})</span>` : ''}</label>
+                    <label for="m_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama} ${(isRoleTPPD || isGlobalAdmin) ? `<span class="text-[10px] text-slate-400 ml-1">(${p.sektor.replace(/^\d{2}\s/, '')})</span>` : ''}</label>
                 </div>`;
         });
     } else {
@@ -433,9 +441,18 @@ async function handleManagerAssignSubmit(e) {
 
     const adminEmail = currentAdmin.email.toLowerCase();
 
-    // PEMBAIKAN: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai
+    // PEMBAIKAN: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai.
+    // Sekiranya Admin (System Admin) yang melaksanakan tugas ini, nama delegasi akan dimanipulasi dengan selamat.
     const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
-    const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || 'Pihak Pengurusan');
+    let actualDelegasiNama = 'Pihak Pengurusan';
+    
+    if (managerProfile) {
+        actualDelegasiNama = managerProfile.nama;
+    } else if (currentAdmin.isSystemAdmin) {
+        actualDelegasiNama = 'Pentadbir Sistem (Bagi Pihak Pengurusan)';
+    } else if (currentAdmin.managerUnit) {
+        actualDelegasiNama = currentAdmin.managerUnit;
+    }
 
     try {
         for (let i = 0; i < totalJobs; i++) {

@@ -11,6 +11,7 @@
  * Patch Pembedahan: Modul Pengesanan Status Tindakan Tepat (Semakan calendar_event_id)
  * Patch Terbaharu: Laksanakan Filter Dinamik (Cascading) & Reaktiviti KPI
  * Patch SWR: Integrasi CacheService (IndexedDB) untuk pemuatan data pantas
+ * Patch Global Scope: Membenarkan Pentadbir (System Admin) melepasi Guard Tab Delegasi.
  * ==============================================================================
  */
 
@@ -126,8 +127,9 @@ window.switchTab = function(tabName) {
         }
         
         if (tabName === 'tppd') {
-            if (!adminData || !adminData.isManager) {
-                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada hierarki PENGURUSAN sahaja.", "error");
+            // Pindaan Global Scope: PENTADBIR SISTEM kini dibenarkan masuk
+            if (!adminData || (!adminData.isManager && !adminData.isSystemAdmin)) {
+                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada hierarki PENGURUSAN atau PENTADBIR SISTEM sahaja.", "error");
                 return;
             }
         }
