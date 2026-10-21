@@ -43,8 +43,13 @@ async function loadManagerMemo() {
     
     // 3. Laksanakan Tapisan Array Javascript (Client-Side Filter)
     managerMemoData = rawData.filter(m => {
-        // A. Tapisan Asas: MESTI belum diagihkan (calendar_event_id is null ATAU bermula dengan PENDING_)
-        const isPending = !m.calendar_event_id || String(m.calendar_event_id).startsWith('PENDING_');
+        // A. Tapisan Asas: Ketatkan syarat "Menunggu Tindakan"
+        // 1. Jika ID kalendar mempunyai prefix PENDING_ (Sahkan ia sedang menunggu delegasi)
+        // 2. ATAU jika tiada ID kalendar (null) TETAPI unit sasaran semasa adalah unit Pengurusan (TPPD/KS/KU)
+        const isPendingCalendar = String(m.calendar_event_id).startsWith('PENDING_');
+        const isNoCalendarAndIsManager = (!m.calendar_event_id) && window.isManagerRole && window.isManagerRole(m.unit);
+        
+        const isPending = isPendingCalendar || isNoCalendarAndIsManager;
         
         if (!isPending) return false;
 
