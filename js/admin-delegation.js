@@ -6,7 +6,7 @@
  * carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
  * Patch SWR: Integrasi CacheService invalidation selepas delegasi pukal/tunggal.
  * Patch Global Scope: Pintasan query membenarkan Pentadbir (System Admin) mengurus delegasi.
- * Patch Pembaikan: Tapisan logik .filter() di peringkat klien untuk ketepatan status "Menunggu Tindakan".
+ * Patch Pembaikan: Tapisan logik mutlak untuk menghalang "ghost records" dari dipaparkan.
  * ==============================================================================
  */
 
@@ -49,8 +49,15 @@ async function loadManagerMemo() {
         const isPendingCalendar = String(m.calendar_event_id).startsWith('PENDING_');
         const isNoCalendarAndIsManager = (!m.calendar_event_id) && window.isManagerRole && window.isManagerRole(m.unit);
         
-        const isPending = isPendingCalendar || isNoCalendarAndIsManager;
+        let isPending = isPendingCalendar || isNoCalendarAndIsManager;
         
+        // TAPISAN MUTLAK (ABSOLUTE FILTER): Menghapus "Ghost Records"
+        // Jika statusnya PENDING_ tetapi unit sasaran sekarang BUKAN lagi unit pengurusan,
+        // ini bermakna ia adalah saki-baki dari data sejarah (sebelum patch). Buang ia dari senarai.
+        if (isPendingCalendar && window.isManagerRole && !window.isManagerRole(m.unit)) {
+            isPending = false;
+        }
+
         if (!isPending) return false;
 
         // B. Tapisan Spesifik Peranan
