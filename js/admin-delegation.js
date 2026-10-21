@@ -6,6 +6,7 @@
  * carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
  * Patch SWR: Integrasi CacheService invalidation selepas delegasi pukal/tunggal.
  * Patch Global Scope: Pintasan query membenarkan Pentadbir (System Admin) mengurus delegasi.
+ * Patch Pembaikan: Tapisan logik .filter() di peringkat klien untuk ketepatan status "Menunggu Tindakan".
  * ==============================================================================
  */
 
@@ -19,46 +20,51 @@ async function loadManagerMemo() {
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) checkAllBox.checked = false;
 
-// ── SURGICAL EDIT START: SUNTIKAN_SEMULA_TAPISAN_UNIT_TPPD ──
-    // 1. Inisialisasi binaan pertanyaan (Query Builder) asas
+// ── SURGICAL EDIT START: SUNTIKAN_SEMULA_TAPISAN_UNIT_TPPD_DENGAN_ARRAY_FILTER ──
+    // 1. Inisialisasi binaan pertanyaan asas HANYA DENGAN TERTIB KRONOLOGI
     let queryBuilder = window._supabase
         .from('memo_rekod')
-        .select('*')
-        .or('calendar_event_id.is.null,calendar_event_id.ilike.PENDING_%'); // Membaca rantaian PENDING_
+        .select('*');
 
-    // 2. Tentukan cawangan logik (Branching Logic) berdasarkan peranan
-    const userRole = String(currentAdmin.role || '').trim().toUpperCase();
-
-    if (currentAdmin.isSystemAdmin) {
-        // Aliran Pentadbir Sistem: Tiada sebarang tapisan Sektor/Unit dikenakan.
-        // Admin mempunyai pandangan global ke atas semua memo yang "Menunggu Tindakan".
-        // Oleh kerana kita sudah meletakkan .or() di atas, kita tidak perlu letak apa-apa tapisan Sektor/Unit di sini.
-        // queryBuilder akan mengekalkan keadaan asalnya (semua rekod yang is.null ATAU PENDING_).
-    } else if (userRole === 'TPPD') {
-        // Aliran Kolaboratif TPPD: Batalkan ikatan sektor, TAPI kekalkan ikatan unit.
-        // Cari rekod emel TPPD, dan pastikan ia MASIH berada dalam unit TPPD (Belum ditukar/diagih)
-        queryBuilder = queryBuilder
-            .ilike('emel_penerima', `%${currentAdmin.email}%`)
-            .eq('unit', currentAdmin.managerUnit);
-    } else {
-        // Aliran Standard (Ketua Sektor / Ketua Unit): Terhad kepada sektor & unit masing-masing.
-        queryBuilder = queryBuilder
-            .eq('sektor', currentAdmin.managerSektor)
-            .eq('unit', currentAdmin.managerUnit);
-    }
-
-    // 3. Eksekusi pertanyaan dengan susunan kronologi (terbaharu ke terlama)
-    // NOTA: Untuk senarai delegasi spesifik pengurus, kita buat carian terus ke pangkalan data
-    // kerana filter `.or()` dan `.ilike()` mungkin sukar dipadankan sepenuhnya melalui cache mentah.
+    // 2. Eksekusi pertanyaan untuk mendapatkan rekod mentah terlebih dahulu
     const { data, error } = await queryBuilder.order('created_at', { ascending: false });
 
     if (error) {
         console.error("Ralat memuatkan rekod delegasi:", error);
         window.showMessage("Gagal memuatkan rekod delegasi. Sila semak konsol.", "error");
         managerMemoData = [];
-    } else {
-        managerMemoData = data || [];
+        renderManagerTable(managerMemoData);
+        return;
     }
+
+    const rawData = data || [];
+    const userRole = String(currentAdmin.role || '').trim().toUpperCase();
+    const currentEmail = String(currentAdmin.email || '').trim().toLowerCase();
+    
+    // 3. Laksanakan Tapisan Array Javascript (Client-Side Filter)
+    managerMemoData = rawData.filter(m => {
+        // A. Tapisan Asas: MESTI belum diagihkan (calendar_event_id is null ATAU bermula dengan PENDING_)
+        const isPending = !m.calendar_event_id || String(m.calendar_event_id).startsWith('PENDING_');
+        
+        if (!isPending) return false;
+
+        // B. Tapisan Spesifik Peranan
+        if (currentAdmin.isSystemAdmin) {
+            // Admin bebas melihat semua yang PENDING
+            return true;
+        } 
+        else if (userRole === 'TPPD') {
+            // TPPD: Unit mestilah sama, dan emel penerima mesti mengandungi emel TPPD
+            const unitMatch = m.unit === currentAdmin.managerUnit;
+            const emelList = String(m.emel_penerima || '').toLowerCase();
+            return unitMatch && emelList.includes(currentEmail);
+        } 
+        else {
+            // Ketua Sektor / Ketua Unit: Mesti di dalam sektor & unit seliaan
+            return m.sektor === currentAdmin.managerSektor && m.unit === currentAdmin.managerUnit;
+        }
+    });
+
 // ── SURGICAL EDIT END ──
 
     renderManagerTable(managerMemoData);
