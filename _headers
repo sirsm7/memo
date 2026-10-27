@@ -1,7 +1,0 @@
-/*
-Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-X-Content-Type-Options: nosniff
-X-Frame-Options: SAMEORIGIN
-Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: geolocation=(), microphone=(), camera=()
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://app.tech4ag.my wss://app.tech4ag.my; img-src 'self' data: blob: https://app.tech4ag.my; frame-ancestors 'self'; upgrade-insecure-requests;
