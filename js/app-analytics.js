@@ -2,21 +2,25 @@
  * ==============================================================================
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/app-analytics.js
- * Tujuan: Dashboard analisis, KPI, jadual rekod, filter dinamik dan eksport Excel.
- * Patch SWR: Integrasi CacheService (IndexedDB) untuk pemuatan rekod pantas & segar.
+ * Tujuan: Dashboard analisis, kad KPI, penapis bertingkat, eksport Excel, 
+ *         had paparan 20 item (in-memory chunking & pagination) serta integrasi SWR.
  * ==============================================================================
  */
+
+// STATE HALAMAN PAPARAN JADUAL SEMAKAN
+let analyticsCurrentPage = 1;
+const ANALYTICS_PAGE_SIZE = 20;
 
 function loadDashboardData() {
     const tBody = document.getElementById('tableBody');
     
-    if (allRecords.length === 0) {
+    if (allRecords.length === 0 && tBody) {
         tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500"><div class="loader mr-2 border-slate-300 border-top-slate-500"></div> Memuat turun rekod...</td></tr>`;
     }
 
     if (!window.CacheService) {
         console.error("CacheService tidak dijumpai. Sila pastikan cache-service.js dimuatkan.");
-        tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-red-500">Gagal memuatkan Cache Service.</td></tr>`;
+        if (tBody) tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-red-500">Gagal memuatkan Cache Service.</td></tr>`;
         return;
     }
 
@@ -26,44 +30,43 @@ function loadDashboardData() {
 
         allRecords = data;
         
-        // Memastikan dropdown filter mendapat senarai pilihan terbaharu dari data mentah
+        // Memastikan dropdown filter mendapat senarai pilihan terbaharu dari data mentah latar belakang
         populateAnalisisFilters(allRecords);
         
-        // Memanggil filterTable() akan mengaplikasikan tapisan sedia ada (jika ada),
-        // merender jadual (renderTable), dan mengira semula KPI (calculateKPIs)
+        // Memanggil filterTable() akan mengaplikasikan tapisan sedia ada,
+        // merender 20 item pertama, dan mengira semula KPI berasaskan keseluruhan rekod
         filterTable();
 
         if (isCached) {
-            console.log("[SWR] Data analitik dipaparkan pantas dari IndexedDB.");
+            console.log("[SWR] Data analitik dimuatkan pantas dari IndexedDB (" + data.length + " rekod).");
         } else {
-            console.log("[SWR] Data analitik disegerakkan dengan Supabase.");
+            console.log("[SWR] Data analitik disegerakkan dengan pelayan Supabase (" + data.length + " rekod).");
         }
     });
 }
 
 function calculateKPIs(data) {
-    document.getElementById('kpiTotal').textContent = data.length;
+    const elTotal = document.getElementById('kpiTotal');
+    if (elTotal) elTotal.textContent = data.length;
     
     const now = new Date();
     const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     
     const todayCount = data.filter(r => r.tarikh_terima && r.tarikh_terima === todayStr).length;
-    document.getElementById('kpiToday').textContent = todayCount;
+    const elToday = document.getElementById('kpiToday');
+    if (elToday) elToday.textContent = todayCount;
 
-    // KIRAAN KPI BAHARU (Jumlah Keseluruhan & Pecahan Hierarki Pengurusan)
+    // KIRAAN KPI (Jumlah Keseluruhan & Pecahan Hierarki Pengurusan)
     let totalPending = 0;
     let pendingTppd = 0;
     let pendingKS = 0;
     let pendingKU = 0;
 
     data.forEach(r => {
-        // Cek jika status adalah tergendala/menunggu
         if (window.isManagerRole && window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))) {
             totalPending++;
             
-            // Pengesanan berasaskan teks nama Unit secara terus dari pangkalan data
             const unitName = (r.unit || '').toUpperCase();
-            
             if (unitName === 'TPPD') {
                 pendingTppd++;
             } else if (unitName === 'KETUA SEKTOR') {
@@ -87,7 +90,9 @@ function calculateKPIs(data) {
 
     const sektorCounts = {};
     data.forEach(r => {
-        sektorCounts[r.sektor] = (sektorCounts[r.sektor] || 0) + 1;
+        if (r.sektor) {
+            sektorCounts[r.sektor] = (sektorCounts[r.sektor] || 0) + 1;
+        }
     });
     
     let topSektor = "-";
@@ -98,7 +103,8 @@ function calculateKPIs(data) {
             topSektor = s.replace(/^\d{2}\s/, ''); 
         }
     }
-    document.getElementById('kpiTopSektor').textContent = topSektor;
+    const elTopSektor = document.getElementById('kpiTopSektor');
+    if (elTopSektor) elTopSektor.textContent = topSektor;
 }
 
 function populateAnalisisFilters(data) {
@@ -141,11 +147,8 @@ function populateAnalisisFilters(data) {
 
     fSektor.innerHTML = genOptions(setSektor, "Semua Sektor", (v) => v.replace(/^\d{2}\s/, ''));
     fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
-    
-    // ── SURGICAL EDIT START: TEKS_DEFAULT_PENERIMAAN ──
     fBulan.innerHTML = genOptions(setBulan, "Semua Bulan Penerimaan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
     fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh Penerimaan", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
-    // ── SURGICAL EDIT END ──
 
     if (fStatus && currentStatus) fStatus.value = currentStatus;
     if (currentSektor) fSektor.value = currentSektor;
@@ -163,29 +166,43 @@ const formatDt = (dateStr) => {
 
 function renderTable(dataArray) {
     const tBody = document.getElementById('tableBody');
+    if (!tBody) return;
     tBody.innerHTML = '';
 
-    if (dataArray.length === 0) {
+    if (!dataArray || dataArray.length === 0) {
         tBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500">Tiada rekod dijumpai berdasarkan tapisan.</td></tr>`;
+        renderAnalyticsPagination(0);
         return;
     }
 
-    dataArray.forEach((row, index) => {
-        const bilAuto = index + 1;
+    const totalRecords = dataArray.length;
+    const totalPages = Math.ceil(totalRecords / ANALYTICS_PAGE_SIZE) || 1;
+
+    // Laraskan halaman jika melebihi had muka surat akibat tapisan
+    if (analyticsCurrentPage > totalPages) analyticsCurrentPage = totalPages;
+    if (analyticsCurrentPage < 1) analyticsCurrentPage = 1;
+
+    // Chunking 20 item: Hanya potong 20 rekod untuk paparan DOM
+    const startIndex = (analyticsCurrentPage - 1) * ANALYTICS_PAGE_SIZE;
+    const pageRecords = dataArray.slice(startIndex, startIndex + ANALYTICS_PAGE_SIZE);
+
+    const sessionStr = sessionStorage.getItem('memo_admin_session');
+    const adminData = sessionStr ? JSON.parse(sessionStr) : null;
+    const canEdit = adminData && (adminData.isSystemAdmin || adminData.isPerakam);
+
+    // Gunakan DocumentFragment bagi pengoptimuman pemuatan DOM
+    const fragment = document.createDocumentFragment();
+
+    pageRecords.forEach((row, index) => {
+        const bilAuto = startIndex + index + 1;
         const tarikhTerimaStr = formatDt(row.tarikh_terima);
         const tarikhSuratStr = formatDt(row.tarikh_surat);
         
-        // Penentuan Lencana Status Tindakan (PINDAAN BAHARU: Membaca prefix 'PENDING_')
         const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
 
         const statusBadge = isMenunggu
             ? `<span class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan</span>`
             : `<span class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-200 shadow-sm whitespace-nowrap"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Selesai Diagih</span>`;
-        
-        // Logik Butang Edit Khusus Perakam & Admin (Kemas kini bertepatan saiz ruang)
-        const sessionStr = sessionStorage.getItem('memo_admin_session');
-        const adminData = sessionStr ? JSON.parse(sessionStr) : null;
-        const canEdit = adminData && (adminData.isSystemAdmin || adminData.isPerakam);
         
         let editBtnHtml = '';
         if (canEdit) {
@@ -201,8 +218,6 @@ function renderTable(dataArray) {
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-indigo-50/30 transition-colors";
-        
-        // Pemampatan padding dan saiz font agar muat mendatar
         tr.innerHTML = `
             <td class="p-2 align-top text-center">
                 <span class="inline-block w-6 h-6 bg-slate-100 text-slate-600 font-bold rounded-full text-[11px] leading-6">${bilAuto}</span>
@@ -227,8 +242,8 @@ function renderTable(dataArray) {
                 <div class="text-[11px] font-bold text-indigo-700 break-words whitespace-normal uppercase">${row.tajuk_program || '-'}</div>
             </td>
             <td class="p-2 align-top">
-                <div class="text-[10px] font-bold text-slate-800 break-words whitespace-normal bg-indigo-50 px-1.5 py-0.5 rounded inline-block mb-1">${row.sektor.replace(/^\d{2}\s/, '')}</div>
-                <div class="text-[10px] text-slate-600 break-words whitespace-normal leading-relaxed italic border-l-2 border-indigo-200 pl-1.5 mt-1" title="${row.nama_penerima}">${row.nama_penerima || '-'}</div>
+                <div class="text-[10px] font-bold text-slate-800 break-words whitespace-normal bg-indigo-50 px-1.5 py-0.5 rounded inline-block mb-1">${(row.sektor || '').replace(/^\d{2}\s/, '')}</div>
+                <div class="text-[10px] text-slate-600 break-words whitespace-normal leading-relaxed italic border-l-2 border-indigo-200 pl-1.5 mt-1" title="${row.nama_penerima || ''}">${row.nama_penerima || '-'}</div>
             </td>
             <td class="p-2 align-top text-center">
                 ${statusBadge}
@@ -244,9 +259,77 @@ function renderTable(dataArray) {
                 </div>
             </td>
         `;
-        tBody.appendChild(tr);
+        fragment.appendChild(tr);
     });
+
+    tBody.appendChild(fragment);
+    renderAnalyticsPagination(totalRecords);
 }
+
+function renderAnalyticsPagination(totalRecords) {
+    let container = document.getElementById('analyticsPagination');
+
+    if (!container) {
+        const tableBody = document.getElementById('tableBody');
+        const scrollContainer = tableBody ? tableBody.closest('.overflow-x-auto') : null;
+        if (scrollContainer && scrollContainer.parentNode) {
+            container = document.createElement('div');
+            container.id = 'analyticsPagination';
+            container.className = 'p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs';
+            scrollContainer.parentNode.insertBefore(container, scrollContainer.nextSibling);
+        }
+    }
+
+    if (!container) return;
+
+    if (totalRecords === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    const totalPages = Math.ceil(totalRecords / ANALYTICS_PAGE_SIZE) || 1;
+    const startRecord = (analyticsCurrentPage - 1) * ANALYTICS_PAGE_SIZE + 1;
+    const endRecord = Math.min(analyticsCurrentPage * ANALYTICS_PAGE_SIZE, totalRecords);
+
+    const isPrevDisabled = analyticsCurrentPage <= 1;
+    const isNextDisabled = analyticsCurrentPage >= totalPages;
+
+    container.innerHTML = `
+        <div class="text-slate-500 font-medium text-center sm:text-left">
+            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> rekod (Halaman <span class="font-bold text-indigo-600">${analyticsCurrentPage}</span>/${totalPages})
+        </div>
+        <div class="flex items-center space-x-2">
+            <button type="button" onclick="changeAnalyticsPage(${analyticsCurrentPage - 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isPrevDisabled ? 'disabled' : ''}>
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Sebelumnya
+            </button>
+            <button type="button" onclick="changeAnalyticsPage(${analyticsCurrentPage + 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isNextDisabled ? 'disabled' : ''}>
+                Seterusnya
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    `;
+}
+
+window.changeAnalyticsPage = function(targetPage) {
+    const totalPages = Math.ceil(currentFilteredRecords.length / ANALYTICS_PAGE_SIZE) || 1;
+    if (targetPage < 1 || targetPage > totalPages) return;
+    analyticsCurrentPage = targetPage;
+    renderTable(currentFilteredRecords);
+
+    const tableBody = document.getElementById('tableBody');
+    if (tableBody) {
+        const scrollContainer = tableBody.closest('.overflow-x-auto');
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+    }
+};
 
 function filterTable() {
     const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
@@ -283,12 +366,15 @@ function filterTable() {
     });
 
     currentFilteredRecords = filtered;
+    
+    // Set semula ke halaman 1 setiap kali kriteria tapisan atau carian berubah
+    analyticsCurrentPage = 1;
     renderTable(filtered);
     
-    // Panggilan Reaktiviti KPI: Kad dikemaskini mengikut rekod yang ditapis
+    // Kad KPI dikira berasaskan semua rekod yang ditapis di latar belakang
     calculateKPIs(filtered);
     
-    // Panggilan Reaktiviti Filter: Rombakan logik untuk menyokong rantaian penuh
+    // Kemaskini pilihan dropdown bertingkat
     updateCascadingFilters();
 }
 
@@ -299,7 +385,6 @@ function updateCascadingFilters() {
 
     if (!fUnit || !fBulan || !fTarikh) return;
 
-    // Ambil status (value) terkini dari semua dropdown untuk disilang-semak
     const vStatus = document.getElementById('filterStatus')?.value || "";
     const vSektor = document.getElementById('filterSektor')?.value || "";
     const vUnit = fUnit.value;
@@ -310,7 +395,6 @@ function updateCascadingFilters() {
     const setBulan = new Set();
     const setTarikh = new Set();
 
-    // Lelaran (Iteration) menyeluruh: Menyaring pilihan yang patut wujud sahaja
     allRecords.forEach(r => {
         let isMenunggu = false;
         if (window.isManagerRole) {
@@ -329,17 +413,14 @@ function updateCascadingFilters() {
         const matchBulan = vBulan === "" || bVal === vBulan;
         const matchTarikh = vTarikh === "" || r.tarikh_terima === vTarikh;
 
-        // Penapis Unit terikat kepada Status, Sektor, Bulan, dan Tarikh
         if (matchStatus && matchSektor && matchBulan && matchTarikh) {
             if (r.unit) setUnit.add(r.unit);
         }
 
-        // Penapis Bulan terikat kepada Status, Sektor, dan Unit
         if (matchStatus && matchSektor && matchUnit) {
             if (bVal) setBulan.add(bVal);
         }
 
-        // Penapis Tarikh terikat kepada Status, Sektor, Unit, dan Bulan
         if (matchStatus && matchSektor && matchUnit && matchBulan) {
             if (r.tarikh_terima) setTarikh.add(r.tarikh_terima);
         }
@@ -353,15 +434,10 @@ function updateCascadingFilters() {
         return html;
     };
 
-    // Muat turun (Render) pilihan baharu ke dalam elemen <select>
     fUnit.innerHTML = genOptions(setUnit, "Semua Unit");
-    
-    // ── SURGICAL EDIT START: TEKS_DEFAULT_PENERIMAAN_CASCADE ──
     fBulan.innerHTML = genOptions(setBulan, "Semua Bulan Penerimaan", (v) => { const p = v.split('-'); return `${p[1]}/${p[0]}`; });
     fTarikh.innerHTML = genOptions(setTarikh, "Semua Tarikh Penerimaan", (v) => { const p = v.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : v; });
-    // ── SURGICAL EDIT END ──
 
-    // Pelihara semula nilai (value) yang telah dipilih jika ia masih sah (valid)
     if (Array.from(setUnit).includes(vUnit)) fUnit.value = vUnit;
     if (Array.from(setBulan).includes(vBulan)) fBulan.value = vBulan;
     if (Array.from(setTarikh).includes(vTarikh)) fTarikh.value = vTarikh;
@@ -375,10 +451,77 @@ function resetAnalisisFilters() {
     if(document.getElementById('filterBulan')) document.getElementById('filterBulan').value = "";
     if(document.getElementById('filterTarikh')) document.getElementById('filterTarikh').value = "";
     
-    // Set semula semua pilihan filter kepada asalnya
+    analyticsCurrentPage = 1;
     populateAnalisisFilters(allRecords);
     filterTable();
 }
+
+/**
+ * Pengendali Realtime Perubahan Memo (WebSocket Event Handler)
+ * Memperkemaskan data latar belakang dan menyegerak paparan tanpa kelipan (flicker).
+ */
+window.handleAnalyticsRealtimeUpdate = function(payload) {
+    if (!payload || !payload.eventType) return;
+
+    if (payload.eventType === 'INSERT' && payload.new) {
+        const exists = allRecords.some(r => r.id === payload.new.id);
+        if (!exists) {
+            allRecords.unshift(payload.new);
+        }
+    } else if (payload.eventType === 'UPDATE' && payload.new) {
+        const idx = allRecords.findIndex(r => r.id === payload.new.id);
+        if (idx !== -1) {
+            allRecords[idx] = payload.new;
+        } else {
+            allRecords.unshift(payload.new);
+        }
+    } else if (payload.eventType === 'DELETE') {
+        const targetId = payload.old ? payload.old.id : payload.id;
+        if (targetId) {
+            allRecords = allRecords.filter(r => r.id !== targetId);
+        }
+    }
+
+    populateAnalisisFilters(allRecords);
+    
+    // Kekalkan penapis sedia ada tetapi render semula halaman semasa
+    const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
+    const vStatus = document.getElementById('filterStatus')?.value || "";
+    const vSektor = document.getElementById('filterSektor')?.value || "";
+    const vUnit = document.getElementById('filterUnit')?.value || "";
+    const vBulan = document.getElementById('filterBulan')?.value || "";
+    const vTarikh = document.getElementById('filterTarikh')?.value || "";
+
+    currentFilteredRecords = allRecords.filter(r => {
+        const textMatch = 
+            (r.no_rujukan && r.no_rujukan.toLowerCase().includes(query)) ||
+            (r.no_tambahan && r.no_tambahan.toLowerCase().includes(query)) ||
+            (r.dari && r.dari.toLowerCase().includes(query)) ||
+            (r.tajuk_program && r.tajuk_program.toLowerCase().includes(query)) || 
+            (r.nama_penerima && r.nama_penerima.toLowerCase().includes(query)) ||
+            (r.sektor && r.sektor.toLowerCase().includes(query));
+
+        const sektorMatch = vSektor === "" || r.sektor === vSektor;
+        const unitMatch = vUnit === "" || r.unit === vUnit;
+        const tarikhMatch = vTarikh === "" || r.tarikh_terima === vTarikh;
+        
+        let bulanMatch = true;
+        if (vBulan !== "") bulanMatch = r.tarikh_terima && r.tarikh_terima.startsWith(vBulan);
+
+        let statusMatch = true;
+        if (vStatus !== "") {
+            const isMenunggu = window.isManagerRole ? (window.isManagerRole(r.unit) && (!r.calendar_event_id || r.calendar_event_id.startsWith('PENDING_'))) : false;
+            if (vStatus === "MENUNGGU") statusMatch = isMenunggu;
+            if (vStatus === "SELESAI") statusMatch = !isMenunggu;
+        }
+
+        return textMatch && sektorMatch && unitMatch && bulanMatch && tarikhMatch && statusMatch;
+    });
+
+    renderTable(currentFilteredRecords);
+    calculateKPIs(currentFilteredRecords);
+    updateCascadingFilters();
+};
 
 window.exportToExcel = function() {
     if (!currentFilteredRecords || currentFilteredRecords.length === 0) {
@@ -386,6 +529,7 @@ window.exportToExcel = function() {
     }
 
     try {
+        // Eksport merangkumi SEMUA rekod yang ditapis di latar belakang, bukan terhad kepada 20 item paparan
         const exportData = currentFilteredRecords.map((row, index) => {
             const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
             const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';
@@ -407,7 +551,6 @@ window.exportToExcel = function() {
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
-        // Telah ditambah {wch: 25} untuk menampung kolum 'Status Tindakan'
         const wscols = [
             {wch: 5}, {wch: 18}, {wch: 35}, {wch: 25}, {wch: 15}, 
             {wch: 35}, {wch: 45}, {wch: 50}, {wch: 30}, {wch: 25}, {wch: 12}, {wch: 60}

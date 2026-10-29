@@ -313,7 +313,6 @@
                         </div>
                         <div class="flex-1 w-full min-w-0">
                             <p class="text-[11px] sm:text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">Sektor Teraktif</p>
-                            <!-- Membuang kelas truncate dan menggunakan whitespace-normal dengan leading-tight -->
                             <p id="kpiTopSektor" class="text-sm font-extrabold text-slate-800 break-words whitespace-normal leading-tight" title="-">-</p>
                         </div>
                     </div>
@@ -385,6 +384,8 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Bar Navigasi Pagination Semakan (Had 20 Item) -->
+                    <div id="analyticsPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
             </div>
             
@@ -498,6 +499,8 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Bar Navigasi Pagination Urus Memo (Had 20 Item) -->
+                    <div id="adminMemoPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
 
                 <!-- Seksyen: URUS PEGAWAI -->
@@ -539,6 +542,8 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Bar Navigasi Pagination Urus Pegawai (Had 20 Item) -->
+                    <div id="adminPegawaiPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
 
                 <!-- Seksyen: AKSES SISTEM -->
@@ -616,6 +621,8 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Bar Navigasi Pagination Panel Delegasi (Had 20 Item) -->
+                    <div id="tppdPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
             </div>
 
@@ -823,13 +830,10 @@
                     </div>
                 </div>
 
-                <!-- ── SURGICAL EDIT START: BUANG_NOTIS_HTML ── -->
                 <!-- BAHAGIAN B: EDARAN & PENERIMA -->
                 <div class="border-b border-slate-100 pb-2 mt-6">
                     <h4 class="text-sm font-bold text-indigo-700 uppercase tracking-wider">Bahagian B: Edaran & Penerima (Ubah Hala)</h4>
-                    <!-- Notis amaran pemadaman kalendar telah dilenyapkan selaras dengan UBAH_EDIT_TANPA_EMEL -->
                 </div>
-                <!-- ── SURGICAL EDIT END ── -->
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     

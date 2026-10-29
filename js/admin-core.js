@@ -3,7 +3,8 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/admin-core.js
  * Tujuan: State pentadbir, sesi RBAC, login/logout, data admin, rendering jadual,
- *         sorting/filtering, helper modal dan intercept URL delegasi.
+ *         sorting/filtering, helper modal, intercept URL delegasi,
+ *         had paparan 20 item (in-memory chunking & pagination), dan Realtime bridge.
  * Patch SWR: Memuatkan pangkalan data pegawai & admin menggunakan IndexedDB Cache.
  * Patch Global Scope: Membenarkan Pentadbir (System Admin) mengakses tab Delegasi.
  * ==============================================================================
@@ -15,6 +16,15 @@ let adminMemoData = [];
 let adminPegawaiData = [];
 let adminSistemData = [];
 let isProcessingBatch = false;
+
+// STATE HALAMAN PAPARAN PENTADBIR (PAGINATION 20 ITEM)
+let adminMemoCurrentPage = 1;
+const ADMIN_MEMO_PAGE_SIZE = 20;
+let currentFilteredAdminMemo = [];
+
+let adminPegawaiCurrentPage = 1;
+const ADMIN_PEGAWAI_PAGE_SIZE = 20;
+let currentFilteredAdminPegawai = [];
 
 // STATE PENGURUS KHUSUS (HIERARKI & PUKAL)
 let managerMemoData = [];
@@ -85,8 +95,14 @@ function setupAdminEventListeners() {
     document.getElementById('formTambahAdmin')?.addEventListener('submit', handleTambahAdminSubmit);
 
     // Carian Admin
-    document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => filterAdminTable('memo', e.target.value));
-    document.getElementById('adminSearchPegawai')?.addEventListener('input', (e) => filterAdminTable('pegawai', e.target.value));
+    document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => {
+        adminMemoCurrentPage = 1;
+        filterAdminTable('memo', e.target.value);
+    });
+    document.getElementById('adminSearchPegawai')?.addEventListener('input', (e) => {
+        adminPegawaiCurrentPage = 1;
+        filterAdminTable('pegawai', e.target.value);
+    });
 
     // EVENT LISTENER KHUSUS PENGURUSAN (Delegasi Dinamik Sektor -> Unit)
     document.getElementById('tppdSektorSelect')?.addEventListener('change', window.populateManagerUnit);
@@ -140,7 +156,6 @@ function checkUrlIntercept() {
 
     if (action === 'delegasi') {
         if (!currentAdmin) {
-            // Jika belum log masuk, paparkan modal log masuk berserta mesej panduan
             toggleModal('modalLoginAdmin', true);
             Swal.fire({
                 title: 'Log Masuk Diperlukan',
@@ -151,7 +166,6 @@ function checkUrlIntercept() {
                 customClass: { popup: 'rounded-2xl', confirmButton: 'text-sm font-bold' }
             });
         }
-        // Bersihkan parameter URL bagi mengelakkan gelung pintasan berterusan jika di-refresh
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 }
@@ -177,7 +191,6 @@ async function handleLogin(e) {
 
         if (error || !data) throw new Error("Emel atau Kata Laluan salah.");
 
-        // RBAC: Pengesanan Silang Hierarki Pengurusan & Peranan Sistem
         let isSystemAdmin = data.role === 'SUPER ADMIN' || data.role === 'ADMIN';
         let isManager = data.role === 'TPPD' || data.role === 'KETUA SEKTOR' || data.role === 'KETUA UNIT';
         let isPerakam = data.role === 'PERAKAM';
@@ -253,7 +266,6 @@ function showAdminUI(isLoggedIn) {
             if (tabAdmin) tabAdmin.classList.add('hidden');
             window.switchTab('tppd');
         } else if (currentAdmin.isSystemAdmin) {
-            // Pindaan Global Scope: Admin kini mempunyai butang dan paparan untuk mengakses tab Delegasi (tppd)
             if (menuCardDaftar) menuCardDaftar.classList.remove('hidden');
             if (tabAdmin) tabAdmin.classList.remove('hidden');
             if (tabTppd) tabTppd.classList.remove('hidden');
@@ -270,7 +282,6 @@ function showAdminUI(isLoggedIn) {
 
 // ================= DATA FETCHING (PENGASINGAN LOGIK) =================
 async function loadAdminData() {
-    // Pengurusan sentiasa perlukan data pegawai untuk dropdown modal mereka
     loadAdminPegawai(); 
 
     if (currentAdmin.isManager) {
@@ -278,7 +289,6 @@ async function loadAdminData() {
     } else if (currentAdmin.isSystemAdmin) {
         loadAdminMemo();
         loadAdminSistem();
-        // Tambahan untuk memuatkan data Delegasi secara berpusat bagi Admin
         if (typeof loadManagerMemo === 'function') loadManagerMemo();
     }
 }
@@ -322,10 +332,28 @@ function loadAdminSistem() {
     });
 }
 
-// ================= RENDERING TABLES (ADMIN) =================
+// ================= RENDERING TABLES (ADMIN DENGAN HAD 20 ITEM) =================
 function renderAdminMemoTable(data) {
     const tbody = document.getElementById('adminTableMemoBody');
-    tbody.innerHTML = data.map(row => {
+    if (!tbody) return;
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+        renderAdminMemoPagination(0);
+        return;
+    }
+
+    const totalRecords = data.length;
+    const totalPages = Math.ceil(totalRecords / ADMIN_MEMO_PAGE_SIZE) || 1;
+
+    if (adminMemoCurrentPage > totalPages) adminMemoCurrentPage = totalPages;
+    if (adminMemoCurrentPage < 1) adminMemoCurrentPage = 1;
+
+    // Chunking 20 item untuk DOM
+    const startIndex = (adminMemoCurrentPage - 1) * ADMIN_MEMO_PAGE_SIZE;
+    const pageRecords = data.slice(startIndex, startIndex + ADMIN_MEMO_PAGE_SIZE);
+
+    tbody.innerHTML = pageRecords.map(row => {
         const hasCalendar = !!row.calendar_event_id;
         
         return `
@@ -355,12 +383,97 @@ function renderAdminMemoTable(data) {
                 <button onclick="deleteMemo(${row.id})" class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded mt-1 md:mt-0">Padam</button>
             </td>
         </tr>
-    `}).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+    `}).join('');
+
+    renderAdminMemoPagination(totalRecords);
 }
+
+function renderAdminMemoPagination(totalRecords) {
+    let container = document.getElementById('adminMemoPagination');
+
+    if (!container) {
+        const tbody = document.getElementById('adminTableMemoBody');
+        const scrollContainer = tbody ? tbody.closest('.overflow-x-auto') : null;
+        if (scrollContainer && scrollContainer.parentNode) {
+            container = document.createElement('div');
+            container.id = 'adminMemoPagination';
+            container.className = 'p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs';
+            scrollContainer.parentNode.insertBefore(container, scrollContainer.nextSibling);
+        }
+    }
+
+    if (!container) return;
+
+    if (totalRecords === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    const totalPages = Math.ceil(totalRecords / ADMIN_MEMO_PAGE_SIZE) || 1;
+    const startRecord = (adminMemoCurrentPage - 1) * ADMIN_MEMO_PAGE_SIZE + 1;
+    const endRecord = Math.min(adminMemoCurrentPage * ADMIN_MEMO_PAGE_SIZE, totalRecords);
+
+    const isPrevDisabled = adminMemoCurrentPage <= 1;
+    const isNextDisabled = adminMemoCurrentPage >= totalPages;
+
+    container.innerHTML = `
+        <div class="text-slate-500 font-medium text-center sm:text-left">
+            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> memo (Halaman <span class="font-bold text-indigo-600">${adminMemoCurrentPage}</span>/${totalPages})
+        </div>
+        <div class="flex items-center space-x-2">
+            <button type="button" onclick="changeAdminMemoPage(${adminMemoCurrentPage - 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isPrevDisabled ? 'disabled' : ''}>
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Sebelumnya
+            </button>
+            <button type="button" onclick="changeAdminMemoPage(${adminMemoCurrentPage + 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isNextDisabled ? 'disabled' : ''}>
+                Seterusnya
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    `;
+}
+
+window.changeAdminMemoPage = function(targetPage) {
+    const totalPages = Math.ceil(currentFilteredAdminMemo.length / ADMIN_MEMO_PAGE_SIZE) || 1;
+    if (targetPage < 1 || targetPage > totalPages) return;
+    adminMemoCurrentPage = targetPage;
+    renderAdminMemoTable(currentFilteredAdminMemo);
+
+    const tbody = document.getElementById('adminTableMemoBody');
+    if (tbody) {
+        const scrollContainer = tbody.closest('.overflow-x-auto');
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+    }
+};
 
 function renderAdminPegawaiTable(data) {
     const tbody = document.getElementById('adminTablePegawaiBody');
-    tbody.innerHTML = data.map(row => `
+    if (!tbody) return;
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+        renderAdminPegawaiPagination(0);
+        return;
+    }
+
+    const totalRecords = data.length;
+    const totalPages = Math.ceil(totalRecords / ADMIN_PEGAWAI_PAGE_SIZE) || 1;
+
+    if (adminPegawaiCurrentPage > totalPages) adminPegawaiCurrentPage = totalPages;
+    if (adminPegawaiCurrentPage < 1) adminPegawaiCurrentPage = 1;
+
+    // Chunking 20 item untuk DOM
+    const startIndex = (adminPegawaiCurrentPage - 1) * ADMIN_PEGAWAI_PAGE_SIZE;
+    const pageRecords = data.slice(startIndex, startIndex + ADMIN_PEGAWAI_PAGE_SIZE);
+
+    tbody.innerHTML = pageRecords.map(row => `
         <tr class="hover:bg-slate-50 transition-colors">
             <td class="p-2 border-b font-bold text-slate-700 uppercase text-[11px] md:text-xs">${row.nama}</td>
             <td class="p-2 border-b text-[10px] md:text-[11px]">
@@ -373,8 +486,75 @@ function renderAdminPegawaiTable(data) {
                 <button onclick="deletePegawai(${row.id})" class="text-red-500 hover:text-red-700 font-bold text-xs">Padam</button>
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+    `).join('');
+
+    renderAdminPegawaiPagination(totalRecords);
 }
+
+function renderAdminPegawaiPagination(totalRecords) {
+    let container = document.getElementById('adminPegawaiPagination');
+
+    if (!container) {
+        const tbody = document.getElementById('adminTablePegawaiBody');
+        const scrollContainer = tbody ? tbody.closest('.overflow-x-auto') : null;
+        if (scrollContainer && scrollContainer.parentNode) {
+            container = document.createElement('div');
+            container.id = 'adminPegawaiPagination';
+            container.className = 'p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs';
+            scrollContainer.parentNode.insertBefore(container, scrollContainer.nextSibling);
+        }
+    }
+
+    if (!container) return;
+
+    if (totalRecords === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    const totalPages = Math.ceil(totalRecords / ADMIN_PEGAWAI_PAGE_SIZE) || 1;
+    const startRecord = (adminPegawaiCurrentPage - 1) * ADMIN_PEGAWAI_PAGE_SIZE + 1;
+    const endRecord = Math.min(adminPegawaiCurrentPage * ADMIN_PEGAWAI_PAGE_SIZE, totalRecords);
+
+    const isPrevDisabled = adminPegawaiCurrentPage <= 1;
+    const isNextDisabled = adminPegawaiCurrentPage >= totalPages;
+
+    container.innerHTML = `
+        <div class="text-slate-500 font-medium text-center sm:text-left">
+            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> pegawai (Halaman <span class="font-bold text-indigo-600">${adminPegawaiCurrentPage}</span>/${totalPages})
+        </div>
+        <div class="flex items-center space-x-2">
+            <button type="button" onclick="changeAdminPegawaiPage(${adminPegawaiCurrentPage - 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isPrevDisabled ? 'disabled' : ''}>
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Sebelumnya
+            </button>
+            <button type="button" onclick="changeAdminPegawaiPage(${adminPegawaiCurrentPage + 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isNextDisabled ? 'disabled' : ''}>
+                Seterusnya
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    `;
+}
+
+window.changeAdminPegawaiPage = function(targetPage) {
+    const totalPages = Math.ceil(currentFilteredAdminPegawai.length / ADMIN_PEGAWAI_PAGE_SIZE) || 1;
+    if (targetPage < 1 || targetPage > totalPages) return;
+    adminPegawaiCurrentPage = targetPage;
+    renderAdminPegawaiTable(currentFilteredAdminPegawai);
+
+    const tbody = document.getElementById('adminTablePegawaiBody');
+    if (tbody) {
+        const scrollContainer = tbody.closest('.overflow-x-auto');
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+    }
+};
 
 function renderAdminSistemTable(data) {
     const tbody = document.getElementById('adminTableSistemBody');
@@ -448,6 +628,10 @@ window.handleSort = function(type, column) {
 
     const searchInputId = type === 'memo' ? 'adminSearchMemo' : 'adminSearchPegawai';
     const currentQuery = document.getElementById(searchInputId)?.value || '';
+
+    if (type === 'memo') adminMemoCurrentPage = 1;
+    if (type === 'pegawai') adminPegawaiCurrentPage = 1;
+
     filterAdminTable(type, currentQuery);
     updateSortIcons(type);
 };
@@ -472,7 +656,7 @@ function updateSortIcons(type) {
 
 // ================= FILTER JADUAL ADMIN =================
 function filterAdminTable(type, query) {
-    const q = query.toLowerCase();
+    const q = (query || '').toLowerCase();
     if (type === 'memo') {
         const filtered = adminMemoData.filter(m => 
             (m.tajuk_program && m.tajuk_program.toLowerCase().includes(q)) ||
@@ -482,12 +666,71 @@ function filterAdminTable(type, query) {
             (m.sektor && m.sektor.toLowerCase().includes(q)) ||
             (m.nama_penerima && m.nama_penerima.toLowerCase().includes(q))
         );
+        currentFilteredAdminMemo = filtered;
         renderAdminMemoTable(filtered);
     } else if (type === 'pegawai') {
-        const filtered = adminPegawaiData.filter(p => p.nama.toLowerCase().includes(q) || p.sektor.toLowerCase().includes(q));
+        const filtered = adminPegawaiData.filter(p => 
+            (p.nama && p.nama.toLowerCase().includes(q)) || 
+            (p.sektor && p.sektor.toLowerCase().includes(q)) ||
+            (p.unit && p.unit.toLowerCase().includes(q)) ||
+            (p.emel_rasmi && p.emel_rasmi.toLowerCase().includes(q))
+        );
+        currentFilteredAdminPegawai = filtered;
         renderAdminPegawaiTable(filtered);
     }
 }
+
+/**
+ * Pengendali Realtime Perubahan Pangkalan Data Admin
+ */
+window.handleAdminRealtimeUpdate = function(tableName, payload) {
+    if (!payload || !payload.eventType) return;
+
+    if (tableName === 'memo_rekod') {
+        if (payload.eventType === 'INSERT' && payload.new) {
+            if (!adminMemoData.some(m => m.id === payload.new.id)) {
+                adminMemoData.unshift(payload.new);
+            }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const idx = adminMemoData.findIndex(m => m.id === payload.new.id);
+            if (idx !== -1) adminMemoData[idx] = payload.new;
+            else adminMemoData.unshift(payload.new);
+        } else if (payload.eventType === 'DELETE') {
+            const targetId = payload.old ? payload.old.id : payload.id;
+            if (targetId) adminMemoData = adminMemoData.filter(m => m.id !== targetId);
+        }
+
+        filterAdminTable('memo', document.getElementById('adminSearchMemo')?.value || '');
+    } else if (tableName === 'memo_pegawai') {
+        if (payload.eventType === 'INSERT' && payload.new) {
+            if (!adminPegawaiData.some(p => p.id === payload.new.id)) {
+                adminPegawaiData.push(payload.new);
+            }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const idx = adminPegawaiData.findIndex(p => p.id === payload.new.id);
+            if (idx !== -1) adminPegawaiData[idx] = payload.new;
+            else adminPegawaiData.push(payload.new);
+        } else if (payload.eventType === 'DELETE') {
+            const targetId = payload.old ? payload.old.id : payload.id;
+            if (targetId) adminPegawaiData = adminPegawaiData.filter(p => p.id !== targetId);
+        }
+
+        filterAdminTable('pegawai', document.getElementById('adminSearchPegawai')?.value || '');
+    } else if (tableName === 'memo_admin') {
+        if (payload.eventType === 'INSERT' && payload.new) {
+            if (!adminSistemData.some(a => a.id === payload.new.id)) {
+                adminSistemData.push(payload.new);
+            }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const idx = adminSistemData.findIndex(a => a.id === payload.new.id);
+            if (idx !== -1) adminSistemData[idx] = payload.new;
+        } else if (payload.eventType === 'DELETE') {
+            const targetId = payload.old ? payload.old.id : payload.id;
+            if (targetId) adminSistemData = adminSistemData.filter(a => a.id !== targetId);
+        }
+        renderAdminSistemTable(adminSistemData);
+    }
+};
 
 function toggleModal(id, show) {
     const m = document.getElementById(id);

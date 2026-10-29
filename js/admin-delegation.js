@@ -3,12 +3,17 @@
  * SISTEM PENGURUSAN MEMO@AG
  * Modul: js/admin-delegation.js
  * Tujuan: Aliran TPPD/Ketua Sektor/Ketua Unit, delegasi memo, pemilihan pukal,
- * carian pegawai, penugasan PIC dan notifikasi emel berkaitan delegasi.
+ *         carian pegawai, penugasan PIC, had paparan 20 item (chunking & pagination),
+ *         notifikasi emel delegasi dan realtime bridge.
  * Patch SWR: Integrasi CacheService invalidation selepas delegasi pukal/tunggal.
  * Patch Global Scope: Pintasan query membenarkan Pentadbir (System Admin) mengurus delegasi.
  * Patch Pembaikan: Tapisan logik mutlak untuk menghalang "ghost records" dari dipaparkan.
  * ==============================================================================
  */
+
+// STATE HALAMAN PAPARAN DELEGASI (PAGINATION 20 ITEM)
+let managerMemoCurrentPage = 1;
+const MANAGER_MEMO_PAGE_SIZE = 20;
 
 async function loadManagerMemo() {
     // Pindaan Global Scope: Benarkan System Admin untuk memuatkan data ini
@@ -20,7 +25,9 @@ async function loadManagerMemo() {
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) checkAllBox.checked = false;
 
-// ── SURGICAL EDIT START: SUNTIKAN_SEMULA_TAPISAN_UNIT_TPPD_DENGAN_ARRAY_FILTER ──
+    // Set semula ke halaman 1 semasa pemuatan baharu
+    managerMemoCurrentPage = 1;
+
     // 1. Inisialisasi binaan pertanyaan asas HANYA DENGAN TERTIB KRONOLOGI
     let queryBuilder = window._supabase
         .from('memo_rekod')
@@ -77,19 +84,32 @@ async function loadManagerMemo() {
         }
     });
 
-// ── SURGICAL EDIT END ──
-
     renderManagerTable(managerMemoData);
 }
 
 function renderManagerTable(data) {
     const tbody = document.getElementById('tppdTableBody');
-    tbody.innerHTML = data.map(row => {
+    if (!tbody) return;
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu dipaparkan.</td></tr>';
+        renderManagerMemoPagination(0);
+        return;
+    }
+
+    const totalRecords = data.length;
+    const totalPages = Math.ceil(totalRecords / MANAGER_MEMO_PAGE_SIZE) || 1;
+
+    if (managerMemoCurrentPage > totalPages) managerMemoCurrentPage = totalPages;
+    if (managerMemoCurrentPage < 1) managerMemoCurrentPage = 1;
+
+    // Chunking 20 item untuk DOM: Hanya 20 rekod pertama halaman semasa dirender
+    const startIndex = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE;
+    const pageRecords = data.slice(startIndex, startIndex + MANAGER_MEMO_PAGE_SIZE);
+
+    tbody.innerHTML = pageRecords.map(row => {
         const isChecked = managerSelectedMemos.has(row.id) ? 'checked' : '';
-        
-        // ── SURGICAL EDIT START: DELEGASI_ASAL ──
         const penerimaAsal = row.nama_penerima ? row.nama_penerima.split(',')[0].trim() : '-';
-        // ── SURGICAL EDIT END ──
 
         return `
         <tr class="hover:bg-indigo-50/30 transition-colors">
@@ -99,9 +119,7 @@ function renderManagerTable(data) {
             <td class="p-4 border-b align-top">
                 <div class="font-bold text-slate-700 uppercase text-xs">${row.no_rujukan || 'TIADA'}</div>
                 <div class="text-[11px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
-                <!-- ── SURGICAL EDIT START: DELEGASI_ASAL ── -->
                 <div class="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded inline-block mt-1.5" title="Penerima Asal">Asal: ${penerimaAsal}</div>
-                <!-- ── SURGICAL EDIT END ── -->
             </td>
             <td class="p-4 border-b text-[11px] font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
             <td class="p-4 border-b align-top">
@@ -118,24 +136,112 @@ function renderManagerTable(data) {
                 </button>
             </td>
         </tr>
-    `}).join('') || '<tr><td colspan="6" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu dipaparkan.</td></tr>';
+    `}).join('');
+
+    // Kemaskini status kotak semak 'Pilih Semua' berasaskan item halaman semasa
+    const checkAllBox = document.getElementById('tppdCheckAll');
+    if (checkAllBox) {
+        const allPageSelected = pageRecords.length > 0 && pageRecords.every(r => managerSelectedMemos.has(r.id));
+        checkAllBox.checked = allPageSelected;
+    }
+
+    renderManagerMemoPagination(totalRecords);
 }
+
+function renderManagerMemoPagination(totalRecords) {
+    let container = document.getElementById('tppdPagination');
+
+    if (!container) {
+        const tbody = document.getElementById('tppdTableBody');
+        const scrollContainer = tbody ? tbody.closest('.overflow-x-auto') : null;
+        if (scrollContainer && scrollContainer.parentNode) {
+            container = document.createElement('div');
+            container.id = 'tppdPagination';
+            container.className = 'p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs';
+            scrollContainer.parentNode.insertBefore(container, scrollContainer.nextSibling);
+        }
+    }
+
+    if (!container) return;
+
+    if (totalRecords === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    const totalPages = Math.ceil(totalRecords / MANAGER_MEMO_PAGE_SIZE) || 1;
+    const startRecord = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE + 1;
+    const endRecord = Math.min(managerMemoCurrentPage * MANAGER_MEMO_PAGE_SIZE, totalRecords);
+
+    const isPrevDisabled = managerMemoCurrentPage <= 1;
+    const isNextDisabled = managerMemoCurrentPage >= totalPages;
+
+    container.innerHTML = `
+        <div class="text-slate-500 font-medium text-center sm:text-left">
+            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> rekod menunggu (Halaman <span class="font-bold text-indigo-600">${managerMemoCurrentPage}</span>/${totalPages})
+        </div>
+        <div class="flex items-center space-x-2">
+            <button type="button" onclick="changeManagerMemoPage(${managerMemoCurrentPage - 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isPrevDisabled ? 'disabled' : ''}>
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Sebelumnya
+            </button>
+            <button type="button" onclick="changeManagerMemoPage(${managerMemoCurrentPage + 1})" 
+                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
+                ${isNextDisabled ? 'disabled' : ''}>
+                Seterusnya
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    `;
+}
+
+window.changeManagerMemoPage = function(targetPage) {
+    const totalPages = Math.ceil(managerMemoData.length / MANAGER_MEMO_PAGE_SIZE) || 1;
+    if (targetPage < 1 || targetPage > totalPages) return;
+    managerMemoCurrentPage = targetPage;
+    renderManagerTable(managerMemoData);
+
+    const tbody = document.getElementById('tppdTableBody');
+    if (tbody) {
+        const scrollContainer = tbody.closest('.overflow-x-auto');
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+    }
+};
 
 // ---------------- LOGIK PEMILIHAN PUKAL (BULK SELECTION) ----------------
 window.toggleManagerMemoSelection = function(id, isChecked) {
     if (isChecked) managerSelectedMemos.add(id);
     else managerSelectedMemos.delete(id);
     updateTppdBulkButton();
+
+    // Kemaskini status checkbox 'Pilih Semua'
+    const checkAllBox = document.getElementById('tppdCheckAll');
+    if (checkAllBox) {
+        const startIndex = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE;
+        const pageRecords = managerMemoData.slice(startIndex, startIndex + MANAGER_MEMO_PAGE_SIZE);
+        checkAllBox.checked = pageRecords.length > 0 && pageRecords.every(r => managerSelectedMemos.has(r.id));
+    }
 };
 
 window.toggleAllManagerMemos = function(isChecked) {
+    const startIndex = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE;
+    const pageRecords = managerMemoData.slice(startIndex, startIndex + MANAGER_MEMO_PAGE_SIZE);
+
+    pageRecords.forEach(r => {
+        if (isChecked) managerSelectedMemos.add(r.id);
+        else managerSelectedMemos.delete(r.id);
+    });
+
     const checkboxes = document.querySelectorAll('.tppd-memo-checkbox');
     checkboxes.forEach(cb => {
         cb.checked = isChecked;
-        const id = parseInt(cb.value);
-        if (isChecked) managerSelectedMemos.add(id);
-        else managerSelectedMemos.delete(id);
     });
+
     updateTppdBulkButton();
 };
 
@@ -261,7 +367,6 @@ window.populateManagerUnit = function() {
     uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
 
     if (sk) {
-        // Unit akan ditapis mengikut sektor yang dipilih
         const unitSektor = adminPegawaiData.filter(p => p.sektor === sk).map(p => p.unit);
         const unikUnit = [...new Set(unitSektor)].sort();
 
@@ -290,7 +395,6 @@ window.handleCarianTppd = function(e) {
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
     const isGlobalAdmin = currentAdmin && currentAdmin.isSystemAdmin;
 
-    // Carian bergantung pada peranan profil (TPPD & Admin bebas, Pengurus lain dihadkan)
     const results = adminPegawaiData.filter(p => {
         const textMatch = p.nama.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query) || p.sektor.toLowerCase().includes(query);
         if (isRoleTPPD || isGlobalAdmin) return textMatch;
@@ -325,22 +429,12 @@ window.selectPegawaiCarianTppd = function(emel, nama, sektor, unit) {
     const elSektor = document.getElementById('tppdSektorSelect');
     const elUnit = document.getElementById('tppdUnitSelect');
 
-    // Auto-pilih Sektor
     elSektor.value = sektor;
-
-    // Auto-populasi Unit
     window.populateManagerUnit();
-
-    // Auto-pilih Unit
     elUnit.value = unit;
 
-    // Daftar Pilihan
     managerSelected.set(emel, nama);
-
-    // Update Senarai Checkbox
     populateManagerNama();
-
-    // Update Tags
     renderManagerTags();
 
     input.value = '';
@@ -364,7 +458,6 @@ function populateManagerNama() {
             </div>
         `;
 
-        // Tapisan Senarai Checkbox dengan Logik Override Sektor dan Unit
         const pegs = adminPegawaiData.filter(p => p.sektor === sk && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
 
         pegs.forEach((p, i) => {
@@ -450,7 +543,6 @@ async function handleManagerAssignSubmit(e) {
     let baseNames = Array.from(managerSelected.values());
     let baseEmails = Array.from(managerSelected.keys());
 
-    // Menutup Modal dan Menghidupkan Progress UI
     toggleModal('modalTppdAssign', false);
     isProcessingTppdBatch = true;
 
@@ -461,8 +553,6 @@ async function handleManagerAssignSubmit(e) {
 
     const adminEmail = currentAdmin.email.toLowerCase();
 
-    // PEMBAIKAN: Cari nama sebenar pengurus/delegasi dari pangkalan data pegawai.
-    // Sekiranya Admin (System Admin) yang melaksanakan tugas ini, nama delegasi akan dimanipulasi dengan selamat.
     const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
     let actualDelegasiNama = 'Pihak Pengurusan';
     
@@ -487,10 +577,6 @@ async function handleManagerAssignSubmit(e) {
             updateTppdBatchProgressUI(i, totalJobs, `Menetapkan ID #${currentId} (${i+1}/${totalJobs})...`);
 
             try {
-                // ── SURGICAL EDIT START: PEMUTUSAN_RANGKAIAN_DELEGASI_MUTLAK ──
-                // Pembersihan prefix PENDING_ untuk menandakan status "Selesai Diagih" secara mutlak.
-                // Logik Penyelamat (Failsafe): Jika rekod tiada ID kalendar (null) sebelum ini,
-                // ia akan disuntik dengan 'RESOLVED_NO_CAL' supaya memintas (bypass) query '.is.null' di Tab Delegasi.
                 let finalEventId = m.calendar_event_id;
 
                 if (!finalEventId) {
@@ -499,7 +585,6 @@ async function handleManagerAssignSubmit(e) {
                     finalEventId = finalEventId.replace('PENDING_', '');
                 }
 
-                // 1. Kemaskini Rekod Supabase Terlebih Dahulu (Penimpaan Rekod Mutlak)
                 const { error: updateError } = await window._supabase.from('memo_rekod').update({
                     sektor: targetSektor,
                     unit: targetUnit,
@@ -507,23 +592,17 @@ async function handleManagerAssignSubmit(e) {
                     emel_penerima: baseEmails.join(', '),
                     calendar_event_id: finalEventId
                 }).eq('id', currentId);
-                // ── SURGICAL EDIT END ──
 
                 if (updateError) throw updateError;
 
-                // 2. Semakan Syarat 2c(i) & 2c(ii)
                 const selfDelegationEmail = baseEmails.find(e => e.toLowerCase() === adminEmail);
                 const isSelfAssigned = !!selfDelegationEmail;
                 const isSelfAssignOnly = baseEmails.length === 1 && isSelfAssigned;
 
-                // Tapis keluar emel pengurus daripada senarai agar TPPD tidak diganggu lambakan e-mel PIC
                 const notifyEmails = baseEmails.filter(e => e.toLowerCase() !== adminEmail);
-
-                // PEMBAIKAN: Ekstrak `nama` sebenar untuk dibekalkan kepada payload
                 const notifyNames = notifyEmails.map(e => managerSelected.get(e) || e);
 
                 if (notifyEmails.length > 0) {
-                    // Hantar Emel Notifikasi Sahaja (Tanpa Kalendar Baharu)
                     await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
@@ -533,8 +612,8 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             newEmailsOnly: notifyEmails,
-                            delegasiNama: actualDelegasiNama, // SUNTIKAN: Nama delegasi
-                            picNames: notifyNames,            // SUNTIKAN: Array nama penerima
+                            delegasiNama: actualDelegasiNama,
+                            picNames: notifyNames,
                             noRujukan: m.no_rujukan || 'TIADA',
                             tajukProgram: m.tajuk_program,
                             fileUrl: m.file_url || 'Tiada Salinan'
@@ -543,7 +622,6 @@ async function handleManagerAssignSubmit(e) {
                 }
 
                 if (isSelfAssigned) {
-                    // SYARAT TAMBAHAN: Hantar confirmation ringkas kepada delegasi jika beliau memilih dirinya sendiri.
                     await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
@@ -553,8 +631,8 @@ async function handleManagerAssignSubmit(e) {
                             sektor: targetSektor,
                             unit: targetUnit,
                             delegasiEmail: selfDelegationEmail,
-                            delegasiNama: actualDelegasiNama, // SUNTIKAN: Nama delegasi
-                            picNames: notifyNames,            // SUNTIKAN: Array nama rakan tugas
+                            delegasiNama: actualDelegasiNama,
+                            picNames: notifyNames,
                             picEmails: notifyEmails,
                             isSelfAssignOnly: isSelfAssignOnly,
                             noRujukan: m.no_rujukan || 'TIADA',
@@ -571,14 +649,11 @@ async function handleManagerAssignSubmit(e) {
             }
         }
 
-        // SWR INVALIDATION: Bersihkan cache memo_rekod tempatan kerana data delegasi telah berubah
         if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
 
-        // Selesai Semua Lelaran (Loop)
         updateTppdBatchProgressUI(totalJobs, totalJobs, "Penugasan Selesai.");
-        loadManagerMemo(); // Memuatkan semula senarai (ini direct query, jadi akan sentiasa fresh)
+        loadManagerMemo();
 
-        // Sekiranya paparan dashboard pernah dimuatkan, bersihkan tatasusunan supaya SWR fetch yang baru dicetuskan
         allRecords = []; 
 
         let finalMsg = '';
