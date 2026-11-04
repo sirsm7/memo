@@ -1,14 +1,3 @@
-/**
- * ==============================================================================
- * SISTEM PENGURUSAN MEMO@AG
- * Modul: js/admin-crud.js
- * Tujuan: CRUD pegawai, edit memo, ubah hala PIC/penerima, carian pantas edit memo,
- * daftar akses sistem dan gugur akses admin/perakam.
- * Patch SWR: Integrasi CacheService invalidation selepas setiap operasi DB.
- * ==============================================================================
- */
-
-// ================= CRUD LOGIC: PEGAWAI =================
 window.openPegawaiModal = function(pegawai = null) {
     const form = document.getElementById('formPegawai');
     const sSelect = document.getElementById('pegawaiSektorSelect');
@@ -85,7 +74,6 @@ async function handlePegawaiSubmit(e) {
             window.showMessage("Pegawai baharu berjaya didaftarkan.", "success");
         }
         
-        // SWR INVALIDATION
         if (window.CacheService) await window.CacheService.clearStore('memo_pegawai');
         
         toggleModal('modalPegawai', false);
@@ -97,7 +85,6 @@ async function handlePegawaiSubmit(e) {
     }
 }
 
-// Menggunakan SweetAlert2 Promise untuk Pengesahan
 window.deletePegawai = function(id) {
     Swal.fire({
         title: 'Pengesahan Pemadaman',
@@ -114,7 +101,6 @@ window.deletePegawai = function(id) {
             try {
                 await window._supabase.from('memo_pegawai').delete().eq('id', id);
                 
-                // SWR INVALIDATION
                 if (window.CacheService) await window.CacheService.clearStore('memo_pegawai');
                 
                 if (typeof loadAdminPegawai === 'function') loadAdminPegawai();
@@ -127,9 +113,6 @@ window.deletePegawai = function(id) {
     });
 }
 
-// ================= CRUD LOGIC: MEMO (Edit Maklumat & Ubah Hala PIC) =================
-
-// ---------------- CARIAN PANTAS ADMIN EDIT MEMO ----------------
 window.handleCarianAdminEdit = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianEdit');
@@ -140,7 +123,6 @@ window.handleCarianAdminEdit = function(e) {
         return;
     }
 
-    // Admin bebas mencari seluruh sektor
     const results = adminPegawaiData.filter(p => 
         p.nama.toLowerCase().includes(query) || 
         p.sektor.toLowerCase().includes(query) || 
@@ -175,20 +157,12 @@ window.selectPegawaiCarianEdit = function(emel, nama, sektor, unit) {
     const elSektor = document.getElementById('adminEditSektor');
     const elUnit = document.getElementById('adminEditUnit');
 
-    // Auto-pilih Sektor
     elSektor.value = sektor;
-    
-    // Auto-populasi Unit
     populateAdminEditUnit();
     elUnit.value = unit;
     
-    // Daftar Pilihan
     adminEditSelected.set(emel, nama);
-    
-    // Update Senarai Checkbox
     populateAdminEditNama(); 
-    
-    // Update Tags
     renderAdminEditTags();
 
     input.value = '';
@@ -301,7 +275,6 @@ window.editMemo = function(id) {
     }
     if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
     
-    // Teks Asas
     document.getElementById('memoId').value = m.id;
     document.getElementById('memoNoRujukan').value = m.no_rujukan || '';
     document.getElementById('memoNoTambahan').value = m.no_tambahan || '';
@@ -311,11 +284,9 @@ window.editMemo = function(id) {
     document.getElementById('memoTarikhTerima').value = m.tarikh_terima || '';
     document.getElementById('memoMasaRekod').value = m.masa_rekod || '';
 
-    // Bersihkan Carian Pantas
     document.getElementById('carianPegawaiEdit').value = '';
     document.getElementById('dropdownCarianEdit').classList.add('hidden');
 
-    // Logik Inisialisasi PIC (Pre-select data semasa)
     adminEditSelected.clear();
     if (m.emel_penerima && m.nama_penerima) {
         const emels = m.emel_penerima.split(',').map(e => e.trim());
@@ -325,7 +296,6 @@ window.editMemo = function(id) {
         });
     }
 
-    // Penduduk Sektor & Unit secara dinamik
     populateAdminEditSektor();
     const sSelect = document.getElementById('adminEditSektor');
     sSelect.value = m.sektor || '';
@@ -340,7 +310,6 @@ window.editMemo = function(id) {
     toggleModal('modalMemo', true);
 }
 
-// ── SURGICAL EDIT START: PINTAS_EMEL_BAHARU_KHUSUS (Syarat 3a) ──
 async function handleMemoSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('memoId').value;
@@ -365,24 +334,21 @@ async function handleMemoSubmit(e) {
         const targetSektor = document.getElementById('adminEditSektor').value;
         const targetUnit = document.getElementById('adminEditUnit').value;
 
-        // 1. Algoritma Perbandingan (Diff Checker) yang Tepat untuk Syarat 3a
         const oldEmailsStr = m.emel_penerima || "";
         const oldEmailsArr = oldEmailsStr.split(',').map(e => e.trim().toLowerCase()).filter(e => e);
         
-        // Cari HANYA emel dan nama yang baharu ditambah 
         const newlyAddedEmails = [];
-        const newlyAddedNames = []; // SUNTIKAN BAHARU
+        const newlyAddedNames = []; 
         
         emails.forEach(e => {
             if (!oldEmailsArr.includes(e.trim().toLowerCase())) {
                 newlyAddedEmails.push(e);
-                newlyAddedNames.push(adminEditSelected.get(e) || e); // SUNTIKAN BAHARU
+                newlyAddedNames.push(adminEditSelected.get(e) || e); 
             }
         });
 
         const isEmailAdded = newlyAddedEmails.length > 0;
 
-        // SUNTIKAN BAHARU: Cari nama sebenar pentadbir dari pangkalan data pegawai
         const adminEmail = currentAdmin.email.toLowerCase();
         const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
         const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || currentAdmin.role || 'Pentadbir Sistem');
@@ -399,22 +365,17 @@ async function handleMemoSubmit(e) {
             unit: targetUnit,
             nama_penerima: names.join(', '),
             emel_penerima: emails.join(', ')
-            // Nota Penting: calendar_event_id dipelihara secara mutlak
         };
 
-        // 2. Kemaskini Pangkalan Data Supabase 
         const { error } = await window._supabase.from('memo_rekod').update(payload).eq('id', id);
         if (error) throw error;
 
-        // SWR INVALIDATION
         if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
 
-        // 3. Logik Seruan Pelayan (Hanya dicetus jika terdapat pertambahan penerima)
         let messageText = "Maklumat surat dikemaskini. (Tiada notifikasi e-mel tambahan dihantar)";
         
         if (isEmailAdded) {
             try {
-                // Memanggil GAS untuk menghantar notifikasi HANYA kepada e-mel baharu
                 await fetch(window.GAS_URL, {
                     method: 'POST',
                     redirect: "follow",
@@ -424,8 +385,8 @@ async function handleMemoSubmit(e) {
                         sektor: targetSektor,
                         unit: targetUnit,
                         newEmailsOnly: newlyAddedEmails, 
-                        delegasiNama: actualDelegasiNama, // SUNTIKAN BAHARU
-                        picNames: newlyAddedNames,        // SUNTIKAN BAHARU
+                        delegasiNama: actualDelegasiNama, 
+                        picNames: newlyAddedNames,        
                         noRujukan: payload.no_rujukan || 'TIADA',
                         tajukProgram: payload.tajuk_program,
                         fileUrl: m.file_url || 'Tiada Salinan'
@@ -440,7 +401,6 @@ async function handleMemoSubmit(e) {
 
         toggleModal('modalMemo', false);
         
-        // Penyegaran Jadual Automatik (Admin & Analisis)
         if (currentAdmin && currentAdmin.isSystemAdmin) {
             if (typeof loadAdminMemo === 'function') loadAdminMemo();
         }
@@ -457,9 +417,7 @@ async function handleMemoSubmit(e) {
         btn.innerHTML = 'Simpan & Kemaskini';
     }
 }
-// ── SURGICAL EDIT END ──
 
-// ================= CRUD LOGIC: AKSES SISTEM =================
 async function handleTambahAdminSubmit(e) {
     e.preventDefault();
     const email = document.getElementById('tambahAdminEmail').value;
@@ -477,7 +435,6 @@ async function handleTambahAdminSubmit(e) {
             role: role
         }]);
         
-        // SWR INVALIDATION
         if (window.CacheService) await window.CacheService.clearStore('memo_admin');
         
         if (typeof loadAdminSistem === 'function') loadAdminSistem();
@@ -493,7 +450,6 @@ async function handleTambahAdminSubmit(e) {
     }
 }
 
-// Menggunakan SweetAlert2 Promise untuk Pengesahan
 window.deleteAdmin = function(id) {
     Swal.fire({
         title: 'Gugurkan Akses',
@@ -510,7 +466,6 @@ window.deleteAdmin = function(id) {
             try {
                 await window._supabase.from('memo_admin').delete().eq('id', id);
                 
-                // SWR INVALIDATION
                 if (window.CacheService) await window.CacheService.clearStore('memo_admin');
                 
                 if (typeof loadAdminSistem === 'function') loadAdminSistem();

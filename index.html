@@ -5,21 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memo@AG | PPD Alor Gajah</title>
     
-    <!-- Favicon Rasmi -->
     <link rel="icon" href="icoppdag.png" type="image/png">
     
-    <!-- Integrasi Fon Korporat (Inter) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- CSS Khusus (Telah diasingkan) -->
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Konfigurasi Tailwind untuk Fon Inter -->
     <script>
         tailwind.config = {
             theme: {
@@ -32,20 +26,14 @@
         }
     </script>
 
-    <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- SheetJS (Excel Export) CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <!-- SweetAlert2 CDN (Modul Notifikasi Paparan) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
     <div class="max-w-6xl mx-auto p-4 sm:p-8 my-4 sm:my-8 relative">
         
-        <!-- Butang Akses Admin & Info (Top Right) -->
         <div class="absolute top-6 right-6 sm:top-10 sm:right-10 z-10 flex space-x-2 sm:space-x-4">
             <button id="btnTentang" onclick="switchTab('about')" class="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200 flex items-center">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -61,7 +49,6 @@
 
         <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
             
-            <!-- Header Korporat -->
             <div class="px-6 py-10 text-center border-b border-slate-100 bg-slate-50/50 relative">
                 <img src="icoppdag.png" alt="Logo PPD Alor Gajah" class="h-28 mx-auto object-contain drop-shadow-sm mb-5">
                 <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Memo@AG</h2>
@@ -69,7 +56,6 @@
                 <p class="text-slate-500 text-sm mt-1 max-w-2xl mx-auto font-medium">Platform pengurusan memo dan surat rasmi rentas sektor.</p>
             </div>
 
-            <!-- SPA Tab Navigation (Hanya Untuk Pentadbir & Pengurusan) -->
             <div class="flex flex-wrap justify-center bg-white px-2 sm:px-6 border-b border-slate-100">
                 <button id="tabBtnAdminPanel" class="hidden tab-btn py-3 px-4 sm:px-6 text-sm font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 focus:outline-none">
                     <span class="flex items-center">
@@ -85,7 +71,6 @@
                 </button>
             </div>
 
-            <!-- TAB 0: LAMAN UTAMA (LANDING PAGE) -->
             <div id="tabUtama" class="block bg-slate-50 p-6 sm:p-10 min-h-[500px]">
                 <div class="max-w-5xl mx-auto">
                     <div class="text-center mb-10">
@@ -94,7 +79,6 @@
                     </div>
                     
                     <div class="flex flex-wrap justify-center gap-6">
-                        <!-- Menu 1 (Hanya paparan untuk PERAKAM & ADMIN) -->
                         <div id="menuCardDaftar" onclick="switchTab('daftar')" class="hidden flex-1 min-w-[280px] max-w-[340px] bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-indigo-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
                             <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -103,7 +87,6 @@
                             <p class="text-sm text-slate-500 mt-2 leading-relaxed">Muat naik salinan dokumen dan daftar rekod surat menyurat rentas sektor.</p>
                         </div>
 
-                        <!-- Menu 2 -->
                         <div onclick="switchTab('analisis')" class="flex-1 min-w-[280px] max-w-[340px] bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-emerald-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
                             <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
@@ -112,7 +95,6 @@
                             <p class="text-sm text-slate-500 mt-2 leading-relaxed">Akses pangkalan data untuk analisis, carian, dan jejak dokumen memo dalam sistem.</p>
                         </div>
 
-                        <!-- Menu 3 -->
                         <div onclick="switchTab('kalendar')" class="flex-1 min-w-[280px] max-w-[340px] bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-amber-400 hover:-translate-y-1 transition-all cursor-pointer group text-center flex flex-col items-center">
                             <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -124,11 +106,8 @@
                 </div>
             </div>
 
-            <!-- TAB 1: PENDAFTARAN MEMO -->
             <div id="tabDaftar" class="hidden">
                 <form id="mainForm" class="p-6 sm:p-10 bg-slate-50">
-                    
-                    <!-- Butang Navigasi Kembali -->
                     <div class="mb-6">
                         <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
                             <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -136,11 +115,9 @@
                         </button>
                     </div>
 
-                    <!-- MessageBox Dikekalkan Atas Faktor Keserasian HTML (Disembunyikan menggunakan CSS style inline) -->
                     <div id="messageBox" style="display: none !important;" class="hidden mb-8 p-4 rounded-lg font-medium text-sm border"></div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                        <!-- FASA 0: MUAT NAIK FAIL -->
                         <div class="col-span-1 md:col-span-2 p-6 bg-indigo-50/50 rounded-xl border-2 border-dashed border-indigo-200 mb-2 transition-all hover:border-indigo-400">
                             <label for="salinanSurat" class="block text-sm font-bold text-indigo-700 uppercase tracking-wider mb-2">Langkah 1: Muat Naik Salinan Dokumen <span class="text-red-500">*</span></label>
                             
@@ -158,7 +135,6 @@
                             </div>
                         </div>
 
-                        <!-- FASA 1 - 4: BORANG MAKLUMAT -->
                         <div id="borangUtama" class="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 hidden opacity-0 transition-opacity duration-500">
                             
                             <div class="col-span-1 md:col-span-2 border-b border-slate-100 pb-2 mt-4">
@@ -166,7 +142,6 @@
                                 <p class="text-xs text-slate-500 mt-1">Sektor yang dipilih di bawah akan dijadikan rujukan utama surat menyurat. Anda boleh mencari terus pegawai menggunakan Carian Pantas.</p>
                             </div>
 
-                            <!-- CARIAN PANTAS PENDAFTARAN -->
                             <div class="col-span-1 md:col-span-2 relative z-30 mb-2">
                                 <label for="carianPegawaiUtama" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Carian Pantas Pegawai <span class="text-indigo-500">(Auto-lengkap Sektor & Unit)</span></label>
                                 <div class="relative">
@@ -205,7 +180,6 @@
                                 <textarea id="email" name="email" required readonly rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-100 cursor-not-allowed text-slate-500 custom-scrollbar focus:outline-none transition-colors"></textarea>
                             </div>
 
-                            <!-- MEDAN BAHARU: MAKLUMAT SURAT -->
                             <div class="col-span-1 md:col-span-2 border-t border-slate-100 pt-6 mt-2">
                                 <h3 class="text-md font-bold text-slate-700 mb-4">Langkah 3: Butiran Surat & Rekod Masa</h3>
                             </div>
@@ -256,10 +230,7 @@
                 </form>
             </div>
 
-            <!-- TAB 2: ANALISIS & SEMAKAN -->
             <div id="tabAnalisis" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
-                
-                <!-- Butang Navigasi Kembali -->
                 <div class="mb-6">
                     <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
                         <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -267,9 +238,7 @@
                     </button>
                 </div>
 
-                <!-- KPI Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <!-- Card 1: Jumlah Surat -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
                         <div class="p-3 rounded-full bg-indigo-100 text-indigo-600 mr-4 flex-shrink-0">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -279,7 +248,6 @@
                             <p id="kpiTotal" class="text-3xl font-extrabold text-slate-800">0</p>
                         </div>
                     </div>
-                    <!-- Card 2: Tindakan Hari Ini -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center">
                         <div class="p-3 rounded-full bg-emerald-100 text-emerald-600 mr-4 flex-shrink-0">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -289,7 +257,6 @@
                             <p id="kpiToday" class="text-3xl font-extrabold text-slate-800">0</p>
                         </div>
                     </div>
-                    <!-- Card 3: Menunggu Tindakan (Pengurusan) -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-start sm:items-center overflow-hidden">
                         <div class="p-3 rounded-full bg-amber-100 text-amber-600 mr-4 flex-shrink-0 mt-1 sm:mt-0">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -306,7 +273,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Card 4: Sektor Teraktif -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-start sm:items-center">
                         <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4 flex-shrink-0 mt-1 sm:mt-0">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
@@ -318,7 +284,6 @@
                     </div>
                 </div>
 
-                <!-- Carian dan Jadual -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-4">
                         <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -329,7 +294,6 @@
                             </div>
                         </div>
 
-                        <!-- MODUL TAPISAN BAHARU & EKSPORT -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 mt-2">
                             <select id="filterStatus" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-600 bg-white">
                                 <option value="">Semua Status</option>
@@ -384,15 +348,11 @@
                             </tbody>
                         </table>
                     </div>
-                    <!-- Bar Navigasi Pagination Semakan (Had 20 Item) -->
                     <div id="analyticsPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
             </div>
             
-            <!-- TAB 3: KALENDAR PROGRAM -->
             <div id="tabKalendar" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
-                
-                <!-- Butang Navigasi Kembali -->
                 <div class="mb-6">
                     <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
                         <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -421,21 +381,18 @@
                 </div>
             </div>
 
-            <!-- TAB 4: PANEL PENTADBIR -->
             <div id="tabAdmin" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
                 <div class="mb-6">
                     <h2 class="text-2xl font-bold text-slate-800">Papan Pemuka Pentadbir</h2>
                     <p class="text-sm text-slate-500">Uruskan rekod memo, pangkalan data pegawai, dan akses sistem.</p>
                 </div>
 
-                <!-- Sub-navigasi Admin -->
                 <div class="flex space-x-2 mb-6 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
                     <button id="subTabBtnMemo" class="admin-sub-tab px-4 py-2 text-sm font-bold bg-indigo-100 text-indigo-700 rounded-lg">Urus Memo & Kalendar</button>
                     <button id="subTabBtnPegawai" class="admin-sub-tab px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Urus Pegawai</button>
                     <button id="subTabBtnSistem" class="admin-sub-tab px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Akses Sistem</button>
                 </div>
 
-                <!-- Seksyen: URUS MEMO -->
                 <div id="adminSectionMemo" class="admin-section block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 flex flex-wrap justify-between items-center bg-slate-50 gap-3">
                         <h3 class="font-bold text-slate-700">Pangkalan Data Surat</h3>
@@ -452,7 +409,6 @@
                         </div>
                     </div>
                     
-                    <!-- Progress Bar Modul Pukal -->
                     <div id="adminBatchProgressContainer" class="hidden bg-indigo-50 p-3 border-b border-indigo-100 flex items-center justify-between">
                         <div class="flex items-center space-x-3 w-full">
                             <div class="loader border-indigo-300 border-top-indigo-600 w-4 h-4"></div>
@@ -499,11 +455,9 @@
                             </tbody>
                         </table>
                     </div>
-                    <!-- Bar Navigasi Pagination Urus Memo (Had 20 Item) -->
                     <div id="adminMemoPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
 
-                <!-- Seksyen: URUS PEGAWAI -->
                 <div id="adminSectionPegawai" class="admin-section hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <h3 class="font-bold text-slate-700">Pangkalan Data Pegawai</h3>
@@ -542,11 +496,9 @@
                             </tbody>
                         </table>
                     </div>
-                    <!-- Bar Navigasi Pagination Urus Pegawai (Had 20 Item) -->
                     <div id="adminPegawaiPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
 
-                <!-- Seksyen: AKSES SISTEM -->
                 <div id="adminSectionSistem" class="admin-section hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <h3 class="font-bold text-slate-700">Pengurusan Akses Pentadbir</h3>
@@ -570,21 +522,18 @@
                 </div>
             </div>
 
-            <!-- TAB 4.5: PANEL TINDAKAN PENGURUSAN (DEFERRED ASSIGNMENT) -->
             <div id="tabTppd" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
                 <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-800">Panel Delegasi (Tindakan Pengurusan)</h2>
                         <p class="text-sm text-slate-500 mt-1">Senarai memo dan dokumen rasmi yang perlu ditugaskan kepada unit dan pegawai di bawah seliaan pengurusan anda.</p>
                     </div>
-                    <!-- Butang Tindakan Pukal -->
                     <button id="btnPukalTppdAssign" onclick="openManagerAssignModal(null, true)" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-transform shadow-md hover:-translate-y-0.5 flex items-center whitespace-nowrap">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                         Tetapkan PIC Pukal (<span id="countPukalTppd">0</span>)
                     </button>
                 </div>
 
-                <!-- Progress Bar Modul Pukal TPPD -->
                 <div id="tppdBatchProgressContainer" class="hidden bg-indigo-50 p-4 border border-indigo-200 rounded-xl mb-6 shadow-sm">
                     <div class="flex items-center space-x-4 w-full">
                         <div class="loader border-indigo-300 border-top-indigo-600 w-5 h-5"></div>
@@ -605,7 +554,6 @@
                         <table class="w-full text-left border-collapse min-w-[850px]">
                             <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm text-slate-600 text-[11px] uppercase tracking-wider font-bold">
                                 <tr>
-                                    <!-- Checkbox Pukal -->
                                     <th class="p-4 border-b border-slate-200 text-center w-12">
                                         <input type="checkbox" id="tppdCheckAll" onchange="toggleAllManagerMemos(this.checked)" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer transition-colors border-slate-300">
                                     </th>
@@ -621,15 +569,11 @@
                             </tbody>
                         </table>
                     </div>
-                    <!-- Bar Navigasi Pagination Panel Delegasi (Had 20 Item) -->
                     <div id="tppdPagination" class="hidden p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"></div>
                 </div>
             </div>
 
-            <!-- TAB 5: TENTANG SISTEM -->
             <div id="tabAbout" class="hidden bg-slate-50 p-6 sm:p-10 min-h-[500px]">
-                
-                <!-- Butang Navigasi Kembali -->
                 <div class="mb-6">
                     <button type="button" onclick="switchTab('utama')" class="group flex items-center text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors bg-white border border-slate-200 hover:border-indigo-300 rounded-full px-4 py-2 shadow-sm w-fit">
                         <svg class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -638,13 +582,11 @@
                 </div>
 
                 <div class="max-w-4xl mx-auto space-y-8">
-                    <!-- Header -->
                     <div class="text-center mb-10">
                         <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Mengenai Sistem Memo@AG</h2>
                         <p class="text-slate-500 mt-3 max-w-2xl mx-auto text-sm sm:text-base">Platform berpusat pengurusan memo, penyelarasan surat rasmi, dan pengesahan maklum balas merentas sektor di Pejabat Pendidikan Daerah (PPD) Alor Gajah.</p>
                     </div>
 
-                    <!-- Objektif & Latar Belakang -->
                     <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                         <h3 class="text-xl font-bold text-indigo-700 mb-4 flex items-center">
                             <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
@@ -655,9 +597,7 @@
                         </p>
                     </div>
 
-                    <!-- Panduan Ringkas Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Card 1 -->
                         <div class="bg-white p-6 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors shadow-sm">
                             <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
                                 <span class="font-bold">1</span>
@@ -665,7 +605,6 @@
                             <h4 class="font-bold text-slate-800 mb-2">Pendaftaran Surat</h4>
                             <p class="text-xs text-slate-500 leading-relaxed">Muat naik salinan dokumen untuk merekodkan masa permulaan. Lengkapkan maklumat penerima rentas sektor dan no rujukan. Sistem akan mengedarkan notifikasi emel secara automatik.</p>
                         </div>
-                        <!-- Card 2 -->
                         <div class="bg-white p-6 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-sm">
                             <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center mb-4">
                                 <span class="font-bold">2</span>
@@ -673,7 +612,6 @@
                             <h4 class="font-bold text-slate-800 mb-2">Semakan & Analisis</h4>
                             <p class="text-xs text-slate-500 leading-relaxed">Pangkalan data terbuka membolehkan anda mencari rekod surat berdasarkan kata kunci, serta menapis carian mengikut sektor dan tarikh. Salinan asal sedia untuk dimuat turun.</p>
                         </div>
-                        <!-- Card 3 -->
                         <div class="bg-white p-6 rounded-xl border border-slate-200 hover:border-amber-300 transition-colors shadow-sm">
                             <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mb-4">
                                 <span class="font-bold">3</span>
@@ -683,7 +621,6 @@
                         </div>
                     </div>
 
-                    <!-- Sokongan & Pembangun -->
                     <div class="bg-gradient-to-r from-slate-800 to-slate-900 p-8 rounded-2xl shadow-md text-center">
                         <h3 class="text-lg font-bold text-white mb-2">Sokongan & Bantuan Teknikal</h3>
                         <p class="text-slate-300 text-sm mb-6">Untuk sebarang pertanyaan, ralat sistem, atau bantuan lanjut, sila hubungi pentadbir sistem di bahagian USTP PPD Alor Gajah.</p>
@@ -697,15 +634,11 @@
 
         </div>
         
-        <!-- Footer Korporat -->
         <div class="text-center mt-6 mb-8">
             <p class="text-xs font-medium text-slate-400">Hakcipta terpelihara USTP &copy; Pejabat Pendidikan Daerah Alor Gajah <span id="currentYear"></span>.</p>
         </div>
     </div>
 
-    <!-- ================= MODAL COMPONENTS ================= -->
-
-    <!-- Modal Log Masuk Admin -->
     <div id="modalLoginAdmin" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="bg-indigo-600 p-6 text-center">
@@ -730,7 +663,6 @@
         </div>
     </div>
 
-    <!-- Modal Edit/Tambah Pegawai -->
     <div id="modalPegawai" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
@@ -741,14 +673,10 @@
             </div>
             <form id="formPegawai" class="p-6 space-y-4">
                 <input type="hidden" id="pegawaiId">
-                
-                <!-- NAMA PENUH -->
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Nama Penuh <span class="text-red-500">*</span></label>
                     <input type="text" id="pegawaiNama" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold" placeholder="CTH: AHMAD BIN ABU">
                 </div>
-                
-                <!-- SEKTOR -->
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Sektor <span class="text-red-500">*</span></label>
                     <select id="pegawaiSektorSelect" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-2">
@@ -757,8 +685,6 @@
                     </select>
                     <input type="text" id="pegawaiSektorManual" class="hidden w-full px-3 py-2 border border-slate-400 rounded text-sm uppercase-input bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="MASUKKAN SEKTOR BARU (CTH: 01 SEKTOR PENGURUSAN)">
                 </div>
-
-                <!-- UNIT -->
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Unit <span class="text-red-500">*</span></label>
                     <select id="pegawaiUnitSelect" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-2">
@@ -767,13 +693,10 @@
                     </select>
                     <input type="text" id="pegawaiUnitManual" class="hidden w-full px-3 py-2 border border-slate-400 rounded text-sm uppercase-input bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="MASUKKAN UNIT BARU">
                 </div>
-
-                <!-- EMEL -->
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Emel Rasmi <span class="text-red-500">*</span></label>
                     <input type="email" id="pegawaiEmel" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="cth@moe.gov.my">
                 </div>
-
                 <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
                     <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200 transition-colors">Batal</button>
                     <button type="submit" id="btnSimpanPegawai" class="px-6 py-2 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-700 flex items-center shadow-md transition-all">Simpan Data</button>
@@ -782,7 +705,6 @@
         </div>
     </div>
 
-    <!-- Modal Edit Memo -->
     <div id="modalMemo" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
@@ -794,7 +716,6 @@
             <form id="formMemo" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                 <input type="hidden" id="memoId">
                 
-                <!-- BAHAGIAN A: MAKLUMAT SURAT -->
                 <div class="border-b border-slate-100 pb-2">
                     <h4 class="text-sm font-bold text-indigo-700 uppercase tracking-wider">Bahagian A: Maklumat Surat</h4>
                 </div>
@@ -830,14 +751,11 @@
                     </div>
                 </div>
 
-                <!-- BAHAGIAN B: EDARAN & PENERIMA -->
                 <div class="border-b border-slate-100 pb-2 mt-6">
                     <h4 class="text-sm font-bold text-indigo-700 uppercase tracking-wider">Bahagian B: Edaran & Penerima (Ubah Hala)</h4>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
-                    <!-- CARIAN PANTAS EDIT MEMO -->
                     <div class="col-span-1 md:col-span-2 relative z-20 mb-2">
                         <label for="carianPegawaiEdit" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Carian Pantas Pegawai</label>
                         <div class="relative">
@@ -878,7 +796,6 @@
         </div>
     </div>
 
-    <!-- Modal Tetapkan Penerima Pengurusan (Deferred Assignment) -->
     <div id="modalTppdAssign" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
@@ -896,12 +813,9 @@
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         Maklumat Penugasan Rekod
                     </p>
-                    <div id="tppdDisplayInfo" class="space-y-1">
-                        <!-- Disuntik secara dinamik oleh JS -->
-                    </div>
+                    <div id="tppdDisplayInfo" class="space-y-1"></div>
                 </div>
 
-                <!-- CARIAN PANTAS TPPD DELEGASI -->
                 <div class="relative mb-4 z-20">
                     <label for="carianPegawaiTppd" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Carian Pantas Pegawai (Dalam Sektor)</label>
                     <div class="relative">
@@ -934,7 +848,6 @@
                     <div id="tppdNamaContainer" class="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 h-52 overflow-y-auto custom-scrollbar shadow-inner relative">
                         <div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>
                     </div>
-                    <!-- Medan terselindung ini untuk memastikan borang tidak dihantar tanpa penerima -->
                     <input type="text" id="tppdHiddenEmailCheck" required class="opacity-0 h-0 w-0 absolute" tabindex="-1">
                 </div>
 
@@ -946,7 +859,6 @@
         </div>
     </div>
 
-    <!-- Modal Tambah Admin / Perakam Baru -->
     <div id="modalTambahAdmin" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
@@ -980,7 +892,6 @@
         </div>
     </div>
 
-    <!-- Pautan Fail JS Luaran (Modular Refactor) -->
     <script src="js/config.js"></script>
     <script src="js/cache-service.js"></script>
     <script src="js/app-public.js"></script>

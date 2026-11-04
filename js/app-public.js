@@ -1,45 +1,17 @@
-/**
- * ==============================================================================
- * SISTEM PENGURUSAN MEMO@AG
- * Architect: 0.1% Senior Software Architect
- * Modul: js/app-public.js (Enjin Utama Pengguna Awam - RSVP Kalendar & Realtime)
- * Logik Intercept: Database-Driven Hierarchical Deferred Assignment (memo_admin)
- * Patch: Pindaan Bypass Delegasi (Mix PIC & Pengurusan) & CORS Preflight
- * Patch RBAC: Client-Side Navigation Guard (Menghalang akses tab tanpa kebenaran)
- * Patch UI: Integrasi SweetAlert2 & Pemampatan Saiz Jadual Analisis
- * Patch Terkini: Enjin Carian Pantas Pegawai (Smart Autocomplete Interceptor)
- * Patch Pembedahan: Modul Pengesanan Status Tindakan Tepat (Semakan calendar_event_id)
- * Patch Terbaharu: Laksanakan Filter Dinamik (Cascading) & Reaktiviti KPI
- * Patch SWR: Integrasi CacheService (IndexedDB) untuk pemuatan data pantas
- * Patch Global Scope: Membenarkan Pentadbir (System Admin) melepasi Guard Tab Delegasi.
- * Patch Realtime: Integrasi Supabase Realtime Listener (WebSocket) untuk kemaskini automatik.
- * ==============================================================================
- */
-
-// PENGURUSAN STATE GLOBAL
 var groupedData = {};
-var globalPegawaiFlat = []; // Data rata (flat) untuk carian pantas
+var globalPegawaiFlat = [];
 var uploadedFileUrl = "";
 var allRecords = []; 
 var currentFilteredRecords = []; 
-var globalSelected = new Map(); // Menjejak email -> nama rentas sektor
+var globalSelected = new Map();
 
-// ================= INISIALISASI SISTEM =================
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Set Tahun Semasa
     const yearElem = document.getElementById('currentYear');
     if (yearElem) yearElem.textContent = new Date().getFullYear();
 
-    // 2. Muatkan Data Pegawai Menggunakan SWR Cache Strategy
     loadPublicPegawaiData();
-
-    // 3. Daftarkan Event Listeners
     setupEventListeners();
-
-    // 4. Inisialisasi Sambungan Supabase Realtime (WebSocket)
     setupSupabaseRealtime();
-
-    // 5. Paparan Lalai
     switchTab('utama');
 });
 
@@ -63,10 +35,6 @@ function loadPublicPegawaiData() {
     });
 }
 
-/**
- * Inisialisasi Saluran Masa Nyata (Supabase Realtime WebSocket)
- * Menangkap sebarang mutasi (INSERT, UPDATE, DELETE) merentas klien secara automatik.
- */
 function setupSupabaseRealtime() {
     if (!window._supabase) {
         console.warn("[Realtime] Objek _supabase tidak ditemui. Langganan realtime dilepaskan.");
@@ -81,22 +49,18 @@ function setupSupabaseRealtime() {
             async (payload) => {
                 console.log('[Realtime] Perubahan memo_rekod dikesan:', payload.eventType, payload);
 
-                // 1. Segerakkan IndexedDB Cache secara granular
                 if (window.CacheService) {
                     await window.CacheService.handleRealtimePayload('memo_rekod', payload);
                 }
 
-                // 2. Segerakkan Paparan Dashboard Analitik (Latar belakang & had 20 item)
                 if (typeof window.handleAnalyticsRealtimeUpdate === 'function') {
                     window.handleAnalyticsRealtimeUpdate(payload);
                 }
 
-                // 3. Segerakkan Paparan Admin Memo
                 if (typeof window.handleAdminRealtimeUpdate === 'function') {
                     window.handleAdminRealtimeUpdate('memo_rekod', payload);
                 }
 
-                // 4. Segerakkan Panel Delegasi Pengurusan sekiranya sesi pengurus aktif
                 if (typeof loadManagerMemo === 'function' && typeof currentAdmin !== 'undefined' && currentAdmin && (currentAdmin.isManager || currentAdmin.isSystemAdmin)) {
                     loadManagerMemo();
                 }
@@ -108,12 +72,10 @@ function setupSupabaseRealtime() {
             async (payload) => {
                 console.log('[Realtime] Perubahan memo_pegawai dikesan:', payload.eventType, payload);
 
-                // 1. Segerakkan IndexedDB Cache
                 if (window.CacheService) {
                     await window.CacheService.handleRealtimePayload('memo_pegawai', payload);
                 }
 
-                // 2. Kemaskini senarai memori global
                 if (payload.eventType === 'INSERT' && payload.new) {
                     if (!globalPegawaiFlat.some(p => p.id === payload.new.id)) {
                         globalPegawaiFlat.push(payload.new);
@@ -130,7 +92,6 @@ function setupSupabaseRealtime() {
                 processPegawai(globalPegawaiFlat);
                 populateSektor();
 
-                // 3. Segerakkan Jadual Admin Pegawai
                 if (typeof window.handleAdminRealtimeUpdate === 'function') {
                     window.handleAdminRealtimeUpdate('memo_pegawai', payload);
                 }
@@ -165,7 +126,6 @@ function setupEventListeners() {
     document.getElementById('sektor')?.addEventListener('change', populateUnit);
     document.getElementById('unit')?.addEventListener('change', populateNama);
     
-    // Pendaftar Event Carian Pantas (Smart Interceptor)
     document.getElementById('carianPegawaiUtama')?.addEventListener('input', window.handleCarianDaftar);
     
     document.getElementById('salinanSurat')?.addEventListener('change', function() { handleEarlyUpload(this); });
@@ -181,7 +141,6 @@ function setupEventListeners() {
     document.getElementById('filterTarikh')?.addEventListener('change', filterTable);
     document.getElementById('btnResetFilter')?.addEventListener('click', resetAnalisisFilters);
 
-    // Menutup dropdown carian pantas jika pengguna klik di luar kawasan elemen
     document.addEventListener('click', (e) => {
         const inputUtama = document.getElementById('carianPegawaiUtama');
         const dropUtama = document.getElementById('dropdownCarianUtama');
@@ -191,21 +150,13 @@ function setupEventListeners() {
     });
 }
 
-// ================= UTILITI GLOBAL: HIERARKI PENGURUSAN =================
-/**
- * Logik pengesanan peranan pengurusan.
- * Disokong oleh semakan pangkalan data di handleFormSubmit,
- * serta digunakan untuk UI (Client-Side Feedback & Analisis KPI).
- */
 window.isManagerRole = function(unitName) {
     if (!unitName) return false;
     const u = unitName.toUpperCase();
     return u === 'TPPD' || u === 'KETUA SEKTOR' || u.startsWith('KETUA UNIT');
 };
 
-// ================= PENGURUSAN TAB NAVIGASI & KESELAMATAN (GUARD) =================
 window.switchTab = function(tabName) {
-    // --- PENGAWAL KESELAMATAN KLIEN (CLIENT-SIDE GUARD) ---
     if (['daftar', 'admin', 'tppd'].includes(tabName)) {
         const sessionStr = sessionStorage.getItem('memo_admin_session');
         const adminData = sessionStr ? JSON.parse(sessionStr) : null;
@@ -231,7 +182,6 @@ window.switchTab = function(tabName) {
             }
         }
     }
-    // --- TAMAT PENGAWAL KESELAMATAN ---
 
     const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about', 'tppd'];
     
@@ -278,7 +228,6 @@ window.switchTab = function(tabName) {
     }
 };
 
-// ================= DATA PEGAWAI & DROP-DOWN =================
 function processPegawai(data) {
     groupedData = {};
     globalPegawaiFlat = data;
@@ -362,7 +311,6 @@ window.populateNama = function() {
     }
 };
 
-// ================= ENJIN CARIAN PANTAS PEGAWAI (SMART INTERCEPTOR) =================
 window.handleCarianDaftar = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianUtama');
@@ -419,7 +367,6 @@ window.selectPegawaiCarian = function(emel, nama, sektor, unit) {
     dropdown.classList.add('hidden');
 };
 
-// ================= SISTEM TAG PENERIMA =================
 window.togglePenerima = function(nama, emel, isChecked) {
     if (isChecked) {
         globalSelected.set(emel, nama);
@@ -476,7 +423,6 @@ function renderTags() {
     emailInput.value = emails.join(', ');
 }
 
-// ================= MUAT NAIK FAIL (EARLY UPLOAD) & SET MASA =================
 const toBase64 = file => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -587,7 +533,6 @@ function resetFileUpload() {
     setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
 }
 
-// ================= HANTAR BORANG (SUBMIT) DENGAN PENGESANAN HIERARKI DATABASE =================
 async function handleFormSubmit(e) {
     e.preventDefault();
     if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
@@ -600,7 +545,6 @@ async function handleFormSubmit(e) {
         const emels = Array.from(globalSelected.keys());
         const currentUnit = document.getElementById('unit').value;
 
-        // 1. Logik Intercept: Semakan Silang terhadap jadual memo_admin (Pindaan Hierarki)
         let adminList = [];
         try {
             adminList = await window.CacheService.getAll('memo_admin', 'id', true);
@@ -657,7 +601,6 @@ async function handleFormSubmit(e) {
 
         setLoading(true, "Menyimpan Data...");
 
-        // 2. Simpan ke Supabase (Pangkalan Data Rekod)
         const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
             sektor: document.getElementById('sektor').value,
             unit: currentUnit,
@@ -675,12 +618,10 @@ async function handleFormSubmit(e) {
 
         if (subError) throw subError;
 
-        // SWR INVALIDATION: Bersihkan cache memo_rekod tempatan kerana data telah berubah
         if (window.CacheService) {
             await window.CacheService.clearStore('memo_rekod');
         }
 
-        // 3. Notifikasi GAS (Tentukan Action Berdasarkan Status Hierarki)
         setLoading(true, isManagerDeferred ? "Menghantar Notifikasi Pengurusan..." : "Menghantar Notifikasi RSVP & Kalendar...");
 
         const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
@@ -711,13 +652,11 @@ async function handleFormSubmit(e) {
             console.warn("Amaran Pelayan GAS:", notify.message);
         }
 
-        // 4. Simpan Acara Kalendar Jika Ada
         if (notify.status === 'success' && notify.calendarEventId) {
             const finalEventId = isManagerDeferred ? 'PENDING_' + notify.calendarEventId : notify.calendarEventId;
             await _supabase.from('memo_rekod').update({ calendar_event_id: finalEventId }).eq('id', rec[0].id);
         }
 
-        // 5. Maklum Balas UI
         if (isManagerDeferred) {
             showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong><br><br>Rekod surat disimpan. Notifikasi emel telah dihantar kepada barisan Pengurusan (TPPD/KS/KU) untuk tujuan delegasi.", "success");
         } else {
@@ -736,7 +675,6 @@ async function handleFormSubmit(e) {
     }
 }
 
-// ================= UTILITI SISTEM (UBAH SUAI SWEETALERT2) =================
 function setLoading(status, txt) {
     const btn = document.getElementById('submitBtn');
     const bt = document.getElementById('btnText');

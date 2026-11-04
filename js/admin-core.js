@@ -1,23 +1,9 @@
-/**
- * ==============================================================================
- * SISTEM PENGURUSAN MEMO@AG
- * Modul: js/admin-core.js
- * Tujuan: State pentadbir, sesi RBAC, login/logout, data admin, rendering jadual,
- *         sorting/filtering, helper modal, intercept URL delegasi,
- *         had paparan 20 item (in-memory chunking & pagination), dan Realtime bridge.
- * Patch SWR: Memuatkan pangkalan data pegawai & admin menggunakan IndexedDB Cache.
- * Patch Global Scope: Membenarkan Pentadbir (System Admin) mengakses tab Delegasi.
- * ==============================================================================
- */
-
-// STATE PENTADBIR & PENGURUS
 let currentAdmin = null;
 let adminMemoData = [];
 let adminPegawaiData = [];
 let adminSistemData = [];
 let isProcessingBatch = false;
 
-// STATE HALAMAN PAPARAN PENTADBIR (PAGINATION 20 ITEM)
 let adminMemoCurrentPage = 1;
 const ADMIN_MEMO_PAGE_SIZE = 20;
 let currentFilteredAdminMemo = [];
@@ -26,45 +12,37 @@ let adminPegawaiCurrentPage = 1;
 const ADMIN_PEGAWAI_PAGE_SIZE = 20;
 let currentFilteredAdminPegawai = [];
 
-// STATE PENGURUS KHUSUS (HIERARKI & PUKAL)
 let managerMemoData = [];
-let managerSelected = new Map(); // Menjejak email -> nama rentas pegawai untuk modal delegasi TPPD
-let managerSelectedMemos = new Set(); // Menjejak ID memo yang dipilih untuk penugasan pukal
-let isProcessingTppdBatch = false; // Flag pemprosesan pukal TPPD
+let managerSelected = new Map();
+let managerSelectedMemos = new Set();
+let isProcessingTppdBatch = false;
 
-// STATE PENTADBIR KHUSUS (UBAH HALA MEMO)
-let adminEditSelected = new Map(); // Menjejak penerima semasa mod kemaskini (Edit Memo)
+let adminEditSelected = new Map();
 
-// STATE SUSUNAN (SORTING)
 let adminSortState = {
     memo: { column: 'created_at', direction: 'desc' },
     pegawai: { column: 'nama', direction: 'asc' }
 };
 
-// ================= INISIALISASI ADMIN =================
 document.addEventListener('DOMContentLoaded', () => {
     checkAdminSession();
     setupAdminEventListeners();
-    checkUrlIntercept(); // Pintasan URL dari emel delegasi
+    checkUrlIntercept();
 });
 
 function setupAdminEventListeners() {
-    // Tombol Login/Logout
     document.getElementById('btnBukaLoginAdmin')?.addEventListener('click', () => toggleModal('modalLoginAdmin', true));
     document.getElementById('btnBatalLogin')?.addEventListener('click', () => toggleModal('modalLoginAdmin', false));
     document.getElementById('btnLogKeluarAdmin')?.addEventListener('click', handleLogout);
     document.getElementById('formLoginAdmin')?.addEventListener('submit', handleLogin);
 
-    // Navigasi Sub-Tab Admin
     document.getElementById('subTabBtnMemo')?.addEventListener('click', () => switchAdminSection('memo'));
     document.getElementById('subTabBtnPegawai')?.addEventListener('click', () => switchAdminSection('pegawai'));
     document.getElementById('subTabBtnSistem')?.addEventListener('click', () => switchAdminSection('sistem'));
 
-    // CRUD Pegawai
     document.getElementById('btnTambahPegawai')?.addEventListener('click', () => openPegawaiModal());
     document.getElementById('formPegawai')?.addEventListener('submit', handlePegawaiSubmit);
     
-    // Logik Toggle Input Manual vs Select (Pegawai)
     document.getElementById('pegawaiSektorSelect')?.addEventListener('change', function() {
         const manualInput = document.getElementById('pegawaiSektorManual');
         manualInput.classList.toggle('hidden', this.value !== 'MANUAL');
@@ -77,24 +55,19 @@ function setupAdminEventListeners() {
         if (this.value === 'MANUAL') manualInput.focus();
     });
 
-    // CRUD Memo (Dengan Logik Ubah Hala Penerima)
     document.getElementById('formMemo')?.addEventListener('submit', handleMemoSubmit);
     document.getElementById('adminEditSektor')?.addEventListener('change', populateAdminEditUnit);
     document.getElementById('adminEditUnit')?.addEventListener('change', populateAdminEditNama);
     
-    // Carian Pantas (Smart Interceptor) Edit Memo & Delegasi TPPD
     document.getElementById('carianPegawaiEdit')?.addEventListener('input', window.handleCarianAdminEdit);
     document.getElementById('carianPegawaiTppd')?.addEventListener('input', window.handleCarianTppd);
 
-    // Tindakan Pukal (Batch Processing) Kalendar
     document.getElementById('btnPukalSegerak')?.addEventListener('click', startBatchSync);
     document.getElementById('btnPukalPadam')?.addEventListener('click', startBatchDelete);
 
-    // CRUD Sistem (Admin/Perakam Baru)
     document.getElementById('btnTambahAdmin')?.addEventListener('click', () => toggleModal('modalTambahAdmin', true));
     document.getElementById('formTambahAdmin')?.addEventListener('submit', handleTambahAdminSubmit);
 
-    // Carian Admin
     document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => {
         adminMemoCurrentPage = 1;
         filterAdminTable('memo', e.target.value);
@@ -104,15 +77,13 @@ function setupAdminEventListeners() {
         filterAdminTable('pegawai', e.target.value);
     });
 
-    // EVENT LISTENER KHUSUS PENGURUSAN (Delegasi Dinamik Sektor -> Unit)
     document.getElementById('tppdSektorSelect')?.addEventListener('change', window.populateManagerUnit);
     document.getElementById('tppdUnitSelect')?.addEventListener('change', populateManagerNama);
     document.getElementById('formTppdAssign')?.addEventListener('submit', handleManagerAssignSubmit);
 
-    // Tutup sebarang modal & Dropdown Carian
     document.querySelectorAll('.btnTutupModal').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (isProcessingBatch) return; // Halang tutup jika sedang proses pukal
+            if (isProcessingBatch) return;
             toggleModal('modalLoginAdmin', false);
             toggleModal('modalPegawai', false);
             toggleModal('modalMemo', false);
@@ -121,7 +92,6 @@ function setupAdminEventListeners() {
         });
     });
 
-    // Menutup dropdown carian pantas jika klik di luar
     document.addEventListener('click', (e) => {
         const inputEdit = document.getElementById('carianPegawaiEdit');
         const dropEdit = document.getElementById('dropdownCarianEdit');
@@ -137,7 +107,6 @@ function setupAdminEventListeners() {
     });
 }
 
-// ================= PENGURUSAN SESI & RBAC (Role-Based Access Control) =================
 function checkAdminSession() {
     const session = sessionStorage.getItem('memo_admin_session');
     if (session) {
@@ -147,9 +116,6 @@ function checkAdminSession() {
     }
 }
 
-/**
- * Pintasan URL (Magic Link) dari emel pengurusan (Delegasi)
- */
 function checkUrlIntercept() {
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get('action');
@@ -280,7 +246,6 @@ function showAdminUI(isLoggedIn) {
     }
 }
 
-// ================= DATA FETCHING (PENGASINGAN LOGIK) =================
 async function loadAdminData() {
     loadAdminPegawai(); 
 
@@ -332,7 +297,6 @@ function loadAdminSistem() {
     });
 }
 
-// ================= RENDERING TABLES (ADMIN DENGAN HAD 20 ITEM) =================
 function renderAdminMemoTable(data) {
     const tbody = document.getElementById('adminTableMemoBody');
     if (!tbody) return;
@@ -349,7 +313,6 @@ function renderAdminMemoTable(data) {
     if (adminMemoCurrentPage > totalPages) adminMemoCurrentPage = totalPages;
     if (adminMemoCurrentPage < 1) adminMemoCurrentPage = 1;
 
-    // Chunking 20 item untuk DOM
     const startIndex = (adminMemoCurrentPage - 1) * ADMIN_MEMO_PAGE_SIZE;
     const pageRecords = data.slice(startIndex, startIndex + ADMIN_MEMO_PAGE_SIZE);
 
@@ -469,7 +432,6 @@ function renderAdminPegawaiTable(data) {
     if (adminPegawaiCurrentPage > totalPages) adminPegawaiCurrentPage = totalPages;
     if (adminPegawaiCurrentPage < 1) adminPegawaiCurrentPage = 1;
 
-    // Chunking 20 item untuk DOM
     const startIndex = (adminPegawaiCurrentPage - 1) * ADMIN_PEGAWAI_PAGE_SIZE;
     const pageRecords = data.slice(startIndex, startIndex + ADMIN_PEGAWAI_PAGE_SIZE);
 
@@ -575,7 +537,6 @@ function renderAdminSistemTable(data) {
     }).join('') || '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
 }
 
-// ================= NAVIGASI SUB-SEKSYEN ADMIN =================
 function switchAdminSection(section) {
     document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
     document.querySelectorAll('.admin-sub-tab').forEach(t => {
@@ -595,7 +556,6 @@ function switchAdminSection(section) {
     }
 }
 
-// ================= FUNGSI SUSUNAN (SORTING) =================
 window.handleSort = function(type, column) {
     const state = adminSortState[type];
     
@@ -654,7 +614,6 @@ function updateSortIcons(type) {
     }
 }
 
-// ================= FILTER JADUAL ADMIN =================
 function filterAdminTable(type, query) {
     const q = (query || '').toLowerCase();
     if (type === 'memo') {
@@ -680,9 +639,6 @@ function filterAdminTable(type, query) {
     }
 }
 
-/**
- * Pengendali Realtime Perubahan Pangkalan Data Admin
- */
 window.handleAdminRealtimeUpdate = function(tableName, payload) {
     if (!payload || !payload.eventType) return;
 

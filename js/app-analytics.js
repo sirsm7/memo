@@ -1,13 +1,3 @@
-/**
- * ==============================================================================
- * SISTEM PENGURUSAN MEMO@AG
- * Modul: js/app-analytics.js
- * Tujuan: Dashboard analisis, kad KPI, penapis bertingkat, eksport Excel, 
- *         had paparan 20 item (in-memory chunking & pagination) serta integrasi SWR.
- * ==============================================================================
- */
-
-// STATE HALAMAN PAPARAN JADUAL SEMAKAN
 let analyticsCurrentPage = 1;
 const ANALYTICS_PAGE_SIZE = 20;
 
@@ -24,17 +14,11 @@ function loadDashboardData() {
         return;
     }
 
-    // Menggunakan strategi Stale-While-Revalidate (SWR)
     window.CacheService.fetchSWR('memo_rekod', 'created_at', false, (data, isCached) => {
         if (!data) return;
 
         allRecords = data;
-        
-        // Memastikan dropdown filter mendapat senarai pilihan terbaharu dari data mentah latar belakang
         populateAnalisisFilters(allRecords);
-        
-        // Memanggil filterTable() akan mengaplikasikan tapisan sedia ada,
-        // merender 20 item pertama, dan mengira semula KPI berasaskan keseluruhan rekod
         filterTable();
 
         if (isCached) {
@@ -56,7 +40,6 @@ function calculateKPIs(data) {
     const elToday = document.getElementById('kpiToday');
     if (elToday) elToday.textContent = todayCount;
 
-    // KIRAAN KPI (Jumlah Keseluruhan & Pecahan Hierarki Pengurusan)
     let totalPending = 0;
     let pendingTppd = 0;
     let pendingKS = 0;
@@ -178,11 +161,9 @@ function renderTable(dataArray) {
     const totalRecords = dataArray.length;
     const totalPages = Math.ceil(totalRecords / ANALYTICS_PAGE_SIZE) || 1;
 
-    // Laraskan halaman jika melebihi had muka surat akibat tapisan
     if (analyticsCurrentPage > totalPages) analyticsCurrentPage = totalPages;
     if (analyticsCurrentPage < 1) analyticsCurrentPage = 1;
 
-    // Chunking 20 item: Hanya potong 20 rekod untuk paparan DOM
     const startIndex = (analyticsCurrentPage - 1) * ANALYTICS_PAGE_SIZE;
     const pageRecords = dataArray.slice(startIndex, startIndex + ANALYTICS_PAGE_SIZE);
 
@@ -190,7 +171,6 @@ function renderTable(dataArray) {
     const adminData = sessionStr ? JSON.parse(sessionStr) : null;
     const canEdit = adminData && (adminData.isSystemAdmin || adminData.isPerakam);
 
-    // Gunakan DocumentFragment bagi pengoptimuman pemuatan DOM
     const fragment = document.createDocumentFragment();
 
     pageRecords.forEach((row, index) => {
@@ -366,15 +346,9 @@ function filterTable() {
     });
 
     currentFilteredRecords = filtered;
-    
-    // Set semula ke halaman 1 setiap kali kriteria tapisan atau carian berubah
     analyticsCurrentPage = 1;
     renderTable(filtered);
-    
-    // Kad KPI dikira berasaskan semua rekod yang ditapis di latar belakang
     calculateKPIs(filtered);
-    
-    // Kemaskini pilihan dropdown bertingkat
     updateCascadingFilters();
 }
 
@@ -456,10 +430,6 @@ function resetAnalisisFilters() {
     filterTable();
 }
 
-/**
- * Pengendali Realtime Perubahan Memo (WebSocket Event Handler)
- * Memperkemaskan data latar belakang dan menyegerak paparan tanpa kelipan (flicker).
- */
 window.handleAnalyticsRealtimeUpdate = function(payload) {
     if (!payload || !payload.eventType) return;
 
@@ -484,7 +454,6 @@ window.handleAnalyticsRealtimeUpdate = function(payload) {
 
     populateAnalisisFilters(allRecords);
     
-    // Kekalkan penapis sedia ada tetapi render semula halaman semasa
     const query = document.getElementById('searchInput')?.value.toLowerCase() || "";
     const vStatus = document.getElementById('filterStatus')?.value || "";
     const vSektor = document.getElementById('filterSektor')?.value || "";
@@ -529,7 +498,6 @@ window.exportToExcel = function() {
     }
 
     try {
-        // Eksport merangkumi SEMUA rekod yang ditapis di latar belakang, bukan terhad kepada 20 item paparan
         const exportData = currentFilteredRecords.map((row, index) => {
             const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
             const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';

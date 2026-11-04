@@ -1,18 +1,10 @@
-/* ==============================================================================
-   SISTEM PENGURUSAN MEMO@AG
-   Architect: 0.1% Senior Software Architect
-   Modul: Gaya Persembahan Khusus (Custom Styling)
-   ============================================================================== */
-
-/* 1. UTILITI TEKS */
 .uppercase-input { 
     text-transform: uppercase; 
 }
 
-/* 2. ANIMASI PEMUATAN (LOADER) */
 .loader {
     border: 3px solid #e2e8f0;
-    border-top: 3px solid #4f46e5; /* Warna tema: Indigo-600 */
+    border-top: 3px solid #4f46e5;
     border-radius: 50%;
     width: 18px;
     height: 18px;
@@ -26,27 +18,25 @@
     100% { transform: rotate(360deg); } 
 }
 
-/* 3. UBAHSUAI BENTUK SCROLLBAR KORPORAT */
 .custom-scrollbar::-webkit-scrollbar { 
     width: 6px; 
     height: 6px; 
 }
 
 .custom-scrollbar::-webkit-scrollbar-track { 
-    background: #f8fafc; /* slate-50 */
+    background: #f8fafc;
     border-radius: 4px; 
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb { 
-    background: #cbd5e1; /* slate-300 */
+    background: #cbd5e1;
     border-radius: 4px; 
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { 
-    background: #94a3b8; /* slate-400 */
+    background: #94a3b8;
 }
 
-/* 4. ANIMASI PERALIHAN LALAI (SMOOTH TRANSITIONS) */
 input, select, textarea { 
     transition: all 0.2s ease-in-out; 
 }
@@ -55,39 +45,37 @@ input, select, textarea {
     transition: all 0.3s ease; 
 }
 
-/* 5. GAYA KHUSUS SWEETALERT2 (TAILWIND INTEGRATION) */
 .swal2-popup {
     font-family: 'Inter', sans-serif !important;
-    border-radius: 1rem !important; /* rounded-2xl */
+    border-radius: 1rem !important;
     padding: 1.5rem !important;
 }
 
 .swal2-title {
-    font-size: 1.25rem !important; /* text-xl */
-    font-weight: 700 !important; /* font-bold */
-    color: #1e293b !important; /* slate-800 */
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
 }
 
 .swal2-html-container {
-    font-size: 0.875rem !important; /* text-sm */
-    color: #475569 !important; /* slate-600 */
+    font-size: 0.875rem !important;
+    color: #475569 !important;
     line-height: 1.5 !important;
 }
 
 .swal2-confirm {
-    border-radius: 0.5rem !important; /* rounded-lg */
+    border-radius: 0.5rem !important;
     font-weight: 600 !important;
     padding: 0.625rem 1.5rem !important;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
 .swal2-cancel {
-    border-radius: 0.5rem !important; /* rounded-lg */
+    border-radius: 0.5rem !important;
     font-weight: 600 !important;
     padding: 0.625rem 1.5rem !important;
 }
 
-/* Memastikan SweetAlert2 sentiasa berada di atas elemen modal antaramuka lain */
 .swal2-container {
     z-index: 99999 !important;
 }

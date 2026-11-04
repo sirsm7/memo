@@ -1,39 +1,20 @@
-/**
- * ==============================================================================
- * SISTEM PENGURUSAN MEMO@AG
- * Modul: js/admin-delegation.js
- * Tujuan: Aliran TPPD/Ketua Sektor/Ketua Unit, delegasi memo, pemilihan pukal,
- *         carian pegawai, penugasan PIC, had paparan 20 item (chunking & pagination),
- *         notifikasi emel delegasi dan realtime bridge.
- * Patch SWR: Integrasi CacheService invalidation selepas delegasi pukal/tunggal.
- * Patch Global Scope: Pintasan query membenarkan Pentadbir (System Admin) mengurus delegasi.
- * Patch Pembaikan: Tapisan logik mutlak untuk menghalang "ghost records" dari dipaparkan.
- * ==============================================================================
- */
-
-// STATE HALAMAN PAPARAN DELEGASI (PAGINATION 20 ITEM)
 let managerMemoCurrentPage = 1;
 const MANAGER_MEMO_PAGE_SIZE = 20;
 
 async function loadManagerMemo() {
-    // Pindaan Global Scope: Benarkan System Admin untuk memuatkan data ini
     if (!currentAdmin || (!currentAdmin.isManager && !currentAdmin.isSystemAdmin)) return;
 
-    // Reset Pemilihan Pukal
     managerSelectedMemos.clear();
     updateTppdBulkButton();
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) checkAllBox.checked = false;
 
-    // Set semula ke halaman 1 semasa pemuatan baharu
     managerMemoCurrentPage = 1;
 
-    // 1. Inisialisasi binaan pertanyaan asas HANYA DENGAN TERTIB KRONOLOGI
     let queryBuilder = window._supabase
         .from('memo_rekod')
         .select('*');
 
-    // 2. Eksekusi pertanyaan untuk mendapatkan rekod mentah terlebih dahulu
     const { data, error } = await queryBuilder.order('created_at', { ascending: false });
 
     if (error) {
@@ -48,38 +29,27 @@ async function loadManagerMemo() {
     const userRole = String(currentAdmin.role || '').trim().toUpperCase();
     const currentEmail = String(currentAdmin.email || '').trim().toLowerCase();
     
-    // 3. Laksanakan Tapisan Array Javascript (Client-Side Filter)
     managerMemoData = rawData.filter(m => {
-        // A. Tapisan Asas: Ketatkan syarat "Menunggu Tindakan"
-        // 1. Jika ID kalendar mempunyai prefix PENDING_ (Sahkan ia sedang menunggu delegasi)
-        // 2. ATAU jika tiada ID kalendar (null) TETAPI unit sasaran semasa adalah unit Pengurusan (TPPD/KS/KU)
         const isPendingCalendar = String(m.calendar_event_id).startsWith('PENDING_');
         const isNoCalendarAndIsManager = (!m.calendar_event_id) && window.isManagerRole && window.isManagerRole(m.unit);
         
         let isPending = isPendingCalendar || isNoCalendarAndIsManager;
         
-        // TAPISAN MUTLAK (ABSOLUTE FILTER): Menghapus "Ghost Records"
-        // Jika statusnya PENDING_ tetapi unit sasaran sekarang BUKAN lagi unit pengurusan,
-        // ini bermakna ia adalah saki-baki dari data sejarah (sebelum patch). Buang ia dari senarai.
         if (isPendingCalendar && window.isManagerRole && !window.isManagerRole(m.unit)) {
             isPending = false;
         }
 
         if (!isPending) return false;
 
-        // B. Tapisan Spesifik Peranan
         if (currentAdmin.isSystemAdmin) {
-            // Admin bebas melihat semua yang PENDING
             return true;
         } 
         else if (userRole === 'TPPD') {
-            // TPPD: Unit mestilah sama, dan emel penerima mesti mengandungi emel TPPD
             const unitMatch = m.unit === currentAdmin.managerUnit;
             const emelList = String(m.emel_penerima || '').toLowerCase();
             return unitMatch && emelList.includes(currentEmail);
         } 
         else {
-            // Ketua Sektor / Ketua Unit: Mesti di dalam sektor & unit seliaan
             return m.sektor === currentAdmin.managerSektor && m.unit === currentAdmin.managerUnit;
         }
     });
@@ -103,7 +73,6 @@ function renderManagerTable(data) {
     if (managerMemoCurrentPage > totalPages) managerMemoCurrentPage = totalPages;
     if (managerMemoCurrentPage < 1) managerMemoCurrentPage = 1;
 
-    // Chunking 20 item untuk DOM: Hanya 20 rekod pertama halaman semasa dirender
     const startIndex = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE;
     const pageRecords = data.slice(startIndex, startIndex + MANAGER_MEMO_PAGE_SIZE);
 
@@ -138,7 +107,6 @@ function renderManagerTable(data) {
         </tr>
     `}).join('');
 
-    // Kemaskini status kotak semak 'Pilih Semua' berasaskan item halaman semasa
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) {
         const allPageSelected = pageRecords.length > 0 && pageRecords.every(r => managerSelectedMemos.has(r.id));
@@ -213,13 +181,11 @@ window.changeManagerMemoPage = function(targetPage) {
     }
 };
 
-// ---------------- LOGIK PEMILIHAN PUKAL (BULK SELECTION) ----------------
 window.toggleManagerMemoSelection = function(id, isChecked) {
     if (isChecked) managerSelectedMemos.add(id);
     else managerSelectedMemos.delete(id);
     updateTppdBulkButton();
 
-    // Kemaskini status checkbox 'Pilih Semua'
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) {
         const startIndex = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE;
@@ -275,13 +241,11 @@ function updateTppdBatchProgressUI(current, total, text) {
     statusText.textContent = text || `Memproses ${current}/${total} delegasi...`;
 }
 
-// ---------------- MODAL DELEGASI & BORANG ----------------
 window.openManagerAssignModal = function(id = null, isBulk = false) {
     if (isBulk && managerSelectedMemos.size === 0) {
         return window.showMessage("Sila pilih sekurang-kurangnya satu memo daripada jadual untuk tindakan pukal.", "error");
     }
 
-    // Reset Form & State
     document.getElementById('formTppdAssign').reset();
     document.getElementById('carianPegawaiTppd').value = '';
     document.getElementById('dropdownCarianTppd').classList.add('hidden');
@@ -290,17 +254,14 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     managerSelected.clear();
     renderManagerTags();
 
-    // RBAC OVERRIDE: Penentuan Akses Pengurus (Admin kini dianggap sebagai Global)
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
     const isGlobalAdmin = currentAdmin && currentAdmin.isSystemAdmin;
 
-    // Placeholder Carian Pantas Dinamik
     const carianInput = document.getElementById('carianPegawaiTppd');
     if (carianInput) {
         carianInput.placeholder = (isRoleTPPD || isGlobalAdmin) ? "Akses Global: Carian Rentas Sektor..." : "Taip nama pegawai seliaan anda...";
     }
 
-    // Populate Sektor Dinamik
     const sSelect = document.getElementById('tppdSektorSelect');
     sSelect.innerHTML = '<option value="">-- Sila Pilih Sektor --</option>';
 
@@ -319,17 +280,15 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     const uSelect = document.getElementById('tppdUnitSelect');
     const nc = document.getElementById('tppdNamaContainer');
 
-    // Auto-select jika profil bukan TPPD (hanya ada 1 sektor pilihan)
     if (!(isRoleTPPD || isGlobalAdmin) && unikSektor.length === 1) {
         sSelect.value = unikSektor[0];
-        window.populateManagerUnit(); // Terus populasi unit
+        window.populateManagerUnit();
     } else {
         uSelect.innerHTML = '<option value="">Pilih Sektor Dahulu</option>';
         uSelect.disabled = true;
         nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor Atau Gunakan Carian Pantas Dahulu</div>';
     }
 
-    // Isi Maklumat Header Secara Dinamik (Pukal vs Tunggal)
     const infoContainer = document.getElementById('tppdDisplayInfo');
 
     if (isBulk) {
@@ -351,14 +310,12 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
         `;
     }
 
-    // Memastikan teks butang selaras dengan operasi (Sahkan Penugasan)
     const btnSubmit = document.getElementById('btnSubmitTppdAssign');
     if(btnSubmit) btnSubmit.textContent = 'Sahkan Penugasan';
 
     toggleModal('modalTppdAssign', true);
 }
 
-// ---------------- HIERARKI DINAMIK (SEKTOR -> UNIT -> PEGAWAI) ----------------
 window.populateManagerUnit = function() {
     const sk = document.getElementById('tppdSektorSelect').value;
     const uSelect = document.getElementById('tppdUnitSelect');
@@ -381,7 +338,6 @@ window.populateManagerUnit = function() {
     }
 };
 
-// ---------------- CARIAN PANTAS TPPD (DENGAN OVERRIDE RBAC) ----------------
 window.handleCarianTppd = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianTppd');

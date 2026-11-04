@@ -1,12 +1,3 @@
-/**
- * ==============================================================================
- * SISTEM PENGURUSAN MEMO@AG
- * Modul: js/cache-service.js
- * Tujuan: IndexedDB Cache Engine implementing Stale-While-Revalidate (SWR) pattern,
- *         granular record mutations, and realtime synchronization bridge.
- * ==============================================================================
- */
-
 const DB_NAME = 'MemoAG_CacheDB';
 const DB_VERSION = 1;
 const STORES = ['memo_rekod', 'memo_pegawai', 'memo_admin'];
@@ -14,9 +5,6 @@ const STORES = ['memo_rekod', 'memo_pegawai', 'memo_admin'];
 const CacheService = {
     db: null,
 
-    /**
-     * Inisialisasi pangkalan data IndexedDB dan cipta object store sekiranya belum wujud.
-     */
     init: function() {
         return new Promise((resolve, reject) => {
             if (this.db) {
@@ -47,10 +35,6 @@ const CacheService = {
         });
     },
 
-    /**
-     * Memasukkan atau mengemaskini keseluruhan senarai rekod ke dalam stor tertentu.
-     * Mengosongkan stor sedia ada terlebih dahulu bagi memastikan integriti data tepat.
-     */
     setAll: async function(storeName, dataArray) {
         await this.init();
         return new Promise((resolve, reject) => {
@@ -68,9 +52,6 @@ const CacheService = {
         });
     },
 
-    /**
-     * Mengambil semua rekod dari stor dan melaksanakan susunan tempatan (in-memory sorting).
-     */
     getAll: async function(storeName, orderCol = 'id', ascending = true) {
         await this.init();
         return new Promise((resolve, reject) => {
@@ -103,9 +84,6 @@ const CacheService = {
         });
     },
 
-    /**
-     * Mengemaskini atau menyuntik rekod tunggal ke dalam IndexedDB secara granular tanpa memadam keseluruhan stor.
-     */
     upsertRecord: async function(storeName, record) {
         if (!record || !record.id) return;
         await this.init();
@@ -119,9 +97,6 @@ const CacheService = {
         });
     },
 
-    /**
-     * Memadam rekod tunggal dari IndexedDB berasaskan ID primer.
-     */
     deleteRecord: async function(storeName, id) {
         if (!id) return;
         await this.init();
@@ -135,9 +110,6 @@ const CacheService = {
         });
     },
 
-    /**
-     * Mengosongkan keseluruhan stor data (digunakan untuk invalidasi penuh apabila perlu).
-     */
     clearStore: async function(storeName) {
         await this.init();
         return new Promise((resolve, reject) => {
@@ -150,10 +122,6 @@ const CacheService = {
         });
     },
 
-    /**
-     * Menangani mutasi perubahan data secara masa nyata (Realtime Payload Bridge).
-     * Mengemaskini stor cache tempatan secara serta-merta tanpa perlu menarik semula (full fetch) semua rekod.
-     */
     handleRealtimePayload: async function(storeName, payload) {
         if (!payload || !payload.eventType) return;
 
@@ -171,19 +139,7 @@ const CacheService = {
         }
     },
 
-    /**
-     * Stale-While-Revalidate (SWR) Fetch Strategy.
-     * 1. Mengembalikan data cache tempatan serta merta jika wujud.
-     * 2. Menarik data terkini daripada Supabase di latar belakang secara senyap.
-     * 3. Mengemaskini stor IndexedDB dan memanggil semula fungsi panggilan (callback) untuk data segar.
-     *
-     * @param {string} tableName - Nama jadual Supabase
-     * @param {string} orderCol - Kolum susunan data
-     * @param {boolean} ascending - Arah susunan (menaik/menurun)
-     * @param {function} callback - Fungsi penerima (data, isCached)
-     */
     fetchSWR: async function(tableName, orderCol, ascending, callback) {
-        // Langkah 1: Hidangkan data cache sedia ada dengan serta-merta
         try {
             const cachedData = await this.getAll(tableName, orderCol, ascending);
             if (cachedData && cachedData.length > 0) {
@@ -193,7 +149,6 @@ const CacheService = {
             console.warn(`[CacheService] Gagal membaca cache bagi jadual ${tableName}:`, cacheErr);
         }
 
-        // Langkah 2: Dapatkan data terkini dari pelayan Supabase di latar belakang
         try {
             const { data, error } = await window._supabase
                 .from(tableName)
@@ -204,12 +159,10 @@ const CacheService = {
 
             const freshData = data || [];
 
-            // Langkah 3: Kemaskini stor IndexedDB tempatan secara senyap
             await this.setAll(tableName, freshData).catch(e =>
                 console.warn(`[CacheService] Gagal menyegerak cache bagi jadual ${tableName}:`, e)
             );
 
-            // Langkah 4: Hidangkan data segar dari pelayan
             callback(freshData, false);
 
         } catch (networkErr) {
@@ -218,5 +171,4 @@ const CacheService = {
     }
 };
 
-// Pendedahan kepada skop global
 window.CacheService = CacheService;
