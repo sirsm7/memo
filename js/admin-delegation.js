@@ -11,58 +11,75 @@ async function loadManagerMemo() {
 
     managerMemoCurrentPage = 1;
 
-    let queryBuilder = window._supabase
-        .from('memo_rekod')
-        .select('*');
+    try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
 
-    const { data, error } = await queryBuilder.order('created_at', { ascending: false });
+        const client = window._supabase;
+        if (!client || typeof client.from !== 'function') {
+            throw new Error("Klien Supabase belum sedia.");
+        }
 
-    if (error) {
+        const { data, error } = await client
+            .from('memo_rekod')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const rawData = data || [];
+        const userRole = String(currentAdmin.role || '').trim().toUpperCase();
+        const currentEmail = String(currentAdmin.email || '').trim().toLowerCase();
+        
+        managerMemoData = rawData.filter(m => {
+            const isPendingCalendar = String(m.calendar_event_id).startsWith('PENDING_');
+            const isNoCalendarAndIsManager = (!m.calendar_event_id) && window.isManagerRole && window.isManagerRole(m.unit);
+            
+            let isPending = isPendingCalendar || isNoCalendarAndIsManager;
+            
+            if (isPendingCalendar && window.isManagerRole && !window.isManagerRole(m.unit)) {
+                isPending = false;
+            }
+
+            if (!isPending) return false;
+
+            if (currentAdmin.isSystemAdmin) {
+                return true;
+            } 
+            else if (userRole === 'TPPD') {
+                const unitMatch = m.unit === currentAdmin.managerUnit;
+                const emelList = String(m.emel_penerima || '').toLowerCase();
+                return unitMatch && emelList.includes(currentEmail);
+            } 
+            else {
+                return m.sektor === currentAdmin.managerSektor && m.unit === currentAdmin.managerUnit;
+            }
+        });
+
+        renderManagerTable(managerMemoData);
+    } catch (error) {
         console.error("Ralat memuatkan rekod delegasi:", error);
         window.showMessage("Gagal memuatkan rekod delegasi. Sila semak konsol.", "error");
         managerMemoData = [];
         renderManagerTable(managerMemoData);
-        return;
     }
-
-    const rawData = data || [];
-    const userRole = String(currentAdmin.role || '').trim().toUpperCase();
-    const currentEmail = String(currentAdmin.email || '').trim().toLowerCase();
-    
-    managerMemoData = rawData.filter(m => {
-        const isPendingCalendar = String(m.calendar_event_id).startsWith('PENDING_');
-        const isNoCalendarAndIsManager = (!m.calendar_event_id) && window.isManagerRole && window.isManagerRole(m.unit);
-        
-        let isPending = isPendingCalendar || isNoCalendarAndIsManager;
-        
-        if (isPendingCalendar && window.isManagerRole && !window.isManagerRole(m.unit)) {
-            isPending = false;
-        }
-
-        if (!isPending) return false;
-
-        if (currentAdmin.isSystemAdmin) {
-            return true;
-        } 
-        else if (userRole === 'TPPD') {
-            const unitMatch = m.unit === currentAdmin.managerUnit;
-            const emelList = String(m.emel_penerima || '').toLowerCase();
-            return unitMatch && emelList.includes(currentEmail);
-        } 
-        else {
-            return m.sektor === currentAdmin.managerSektor && m.unit === currentAdmin.managerUnit;
-        }
-    });
-
-    renderManagerTable(managerMemoData);
 }
 
 function renderManagerTable(data) {
     const tbody = document.getElementById('tppdTableBody');
     if (!tbody) return;
 
+    tbody.textContent = '';
+
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">Tiada rekod senarai menunggu dipaparkan.</td></tr>';
+        const emptyTr = document.createElement('tr');
+        const emptyTd = document.createElement('td');
+        emptyTd.colSpan = 6;
+        emptyTd.className = 'p-8 text-center text-slate-500';
+        emptyTd.textContent = 'Tiada rekod senarai menunggu dipaparkan.';
+        emptyTr.appendChild(emptyTd);
+        tbody.appendChild(emptyTr);
         renderManagerMemoPagination(0);
         return;
     }
@@ -76,36 +93,93 @@ function renderManagerTable(data) {
     const startIndex = (managerMemoCurrentPage - 1) * MANAGER_MEMO_PAGE_SIZE;
     const pageRecords = data.slice(startIndex, startIndex + MANAGER_MEMO_PAGE_SIZE);
 
-    tbody.innerHTML = pageRecords.map(row => {
-        const isChecked = managerSelectedMemos.has(row.id) ? 'checked' : '';
+    const fragment = document.createDocumentFragment();
+
+    pageRecords.forEach(row => {
+        const isChecked = managerSelectedMemos.has(row.id);
         const penerimaAsal = row.nama_penerima ? row.nama_penerima.split(',')[0].trim() : '-';
 
-        return `
-        <tr class="hover:bg-indigo-50/30 transition-colors">
-            <td class="p-4 border-b text-center align-top">
-                <input type="checkbox" value="${row.id}" onchange="toggleManagerMemoSelection(${row.id}, this.checked)" class="tppd-memo-checkbox w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer transition-colors border-slate-300" ${isChecked}>
-            </td>
-            <td class="p-4 border-b align-top">
-                <div class="font-bold text-slate-700 uppercase text-xs">${row.no_rujukan || 'TIADA'}</div>
-                <div class="text-[11px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
-                <div class="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded inline-block mt-1.5" title="Penerima Asal">Asal: ${penerimaAsal}</div>
-            </td>
-            <td class="p-4 border-b text-[11px] font-semibold text-slate-700 uppercase align-top">${row.dari || '-'}</td>
-            <td class="p-4 border-b align-top">
-                <div class="font-semibold text-slate-700 text-[11px]">${row.tarikh_terima}</div>
-                <div class="text-[10px] text-indigo-600 font-bold mt-0.5">${row.masa_rekod || '-'}</div>
-            </td>
-            <td class="p-4 border-b text-center align-top">
-                ${row.file_url ? `<a href="${row.file_url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold underline">Lihat Fail</a>` : '-'}
-            </td>
-            <td class="p-4 border-b text-center align-top">
-                <button onclick="openManagerAssignModal(${row.id}, false)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto">
-                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                    Tindakan
-                </button>
-            </td>
-        </tr>
-    `}).join('');
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-indigo-50/30 transition-colors';
+
+        const tdCheck = document.createElement('td');
+        tdCheck.className = 'p-4 border-b text-center align-top';
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.value = row.id;
+        chk.checked = isChecked;
+        chk.className = 'tppd-memo-checkbox w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer transition-colors border-slate-300';
+        chk.addEventListener('change', function() {
+            toggleManagerMemoSelection(row.id, this.checked);
+        });
+        tdCheck.appendChild(chk);
+        tr.appendChild(tdCheck);
+
+        const tdDetail = document.createElement('td');
+        tdDetail.className = 'p-4 border-b align-top';
+        const divNoRuj = document.createElement('div');
+        divNoRuj.className = 'font-bold text-slate-700 uppercase text-xs';
+        divNoRuj.textContent = row.no_rujukan || 'TIADA';
+        const divTajuk = document.createElement('div');
+        divTajuk.className = 'text-[11px] text-slate-500 mt-0.5 uppercase';
+        divTajuk.textContent = row.tajuk_program || '-';
+        const divAsal = document.createElement('div');
+        divAsal.className = 'text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded inline-block mt-1.5';
+        divAsal.title = 'Penerima Asal';
+        divAsal.textContent = `Asal: ${penerimaAsal}`;
+        tdDetail.appendChild(divNoRuj);
+        tdDetail.appendChild(divTajuk);
+        tdDetail.appendChild(divAsal);
+        tr.appendChild(tdDetail);
+
+        const tdDari = document.createElement('td');
+        tdDari.className = 'p-4 border-b text-[11px] font-semibold text-slate-700 uppercase align-top';
+        tdDari.textContent = row.dari || '-';
+        tr.appendChild(tdDari);
+
+        const tdTarikh = document.createElement('td');
+        tdTarikh.className = 'p-4 border-b align-top';
+        const divTarikh = document.createElement('div');
+        divTarikh.className = 'font-semibold text-slate-700 text-[11px]';
+        divTarikh.textContent = row.tarikh_terima || '-';
+        const divMasa = document.createElement('div');
+        divMasa.className = 'text-[10px] text-indigo-600 font-bold mt-0.5';
+        divMasa.textContent = row.masa_rekod || '-';
+        tdTarikh.appendChild(divTarikh);
+        tdTarikh.appendChild(divMasa);
+        tr.appendChild(tdTarikh);
+
+        const tdFail = document.createElement('td');
+        tdFail.className = 'p-4 border-b text-center align-top';
+        if (row.file_url) {
+            const aFail = document.createElement('a');
+            aFail.href = row.file_url;
+            aFail.target = '_blank';
+            aFail.rel = 'noopener noreferrer';
+            aFail.className = 'text-indigo-600 hover:text-indigo-800 text-[11px] font-bold underline';
+            aFail.textContent = 'Lihat Fail';
+            tdFail.appendChild(aFail);
+        } else {
+            tdFail.textContent = '-';
+        }
+        tr.appendChild(tdFail);
+
+        const tdAksi = document.createElement('td');
+        tdAksi.className = 'p-4 border-b text-center align-top';
+        const btnAksi = document.createElement('button');
+        btnAksi.type = 'button';
+        btnAksi.className = 'bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto';
+        btnAksi.innerHTML = '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> Tindakan';
+        btnAksi.addEventListener('click', () => {
+            openManagerAssignModal(row.id, false);
+        });
+        tdAksi.appendChild(btnAksi);
+        tr.appendChild(tdAksi);
+
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
 
     const checkAllBox = document.getElementById('tppdCheckAll');
     if (checkAllBox) {
@@ -133,7 +207,7 @@ function renderManagerMemoPagination(totalRecords) {
     if (!container) return;
 
     if (totalRecords === 0) {
-        container.innerHTML = '';
+        container.textContent = '';
         container.classList.add('hidden');
         return;
     }
@@ -147,25 +221,34 @@ function renderManagerMemoPagination(totalRecords) {
     const isPrevDisabled = managerMemoCurrentPage <= 1;
     const isNextDisabled = managerMemoCurrentPage >= totalPages;
 
-    container.innerHTML = `
-        <div class="text-slate-500 font-medium text-center sm:text-left">
-            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> rekod menunggu (Halaman <span class="font-bold text-indigo-600">${managerMemoCurrentPage}</span>/${totalPages})
-        </div>
-        <div class="flex items-center space-x-2">
-            <button type="button" onclick="changeManagerMemoPage(${managerMemoCurrentPage - 1})" 
-                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
-                ${isPrevDisabled ? 'disabled' : ''}>
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                Sebelumnya
-            </button>
-            <button type="button" onclick="changeManagerMemoPage(${managerMemoCurrentPage + 1})" 
-                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
-                ${isNextDisabled ? 'disabled' : ''}>
-                Seterusnya
-                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-            </button>
-        </div>
-    `;
+    container.textContent = '';
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
+    textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> rekod menunggu (Halaman <span class="font-bold text-indigo-600">${managerMemoCurrentPage}</span>/${totalPages})`;
+
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'flex items-center space-x-2';
+
+    const btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
+    btnPrev.disabled = isPrevDisabled;
+    btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+    btnPrev.addEventListener('click', () => window.changeManagerMemoPage(managerMemoCurrentPage - 1));
+
+    const btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
+    btnNext.disabled = isNextDisabled;
+    btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+    btnNext.addEventListener('click', () => window.changeManagerMemoPage(managerMemoCurrentPage + 1));
+
+    btnsDiv.appendChild(btnPrev);
+    btnsDiv.appendChild(btnNext);
+
+    container.appendChild(textDiv);
+    container.appendChild(btnsDiv);
 }
 
 window.changeManagerMemoPage = function(targetPage) {
@@ -263,7 +346,10 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     }
 
     const sSelect = document.getElementById('tppdSektorSelect');
-    sSelect.innerHTML = '<option value="">-- Sila Pilih Sektor --</option>';
+    sSelect.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = ""; defOpt.textContent = "-- Sila Pilih Sektor --";
+    sSelect.appendChild(defOpt);
 
     let availableSektors = [];
     if (isRoleTPPD || isGlobalAdmin) {
@@ -274,7 +360,9 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
 
     const unikSektor = [...new Set(availableSektors)].sort();
     unikSektor.forEach(s => {
-        sSelect.innerHTML += `<option value="${s}">${s}</option>`;
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        sSelect.appendChild(opt);
     });
 
     const uSelect = document.getElementById('tppdUnitSelect');
@@ -284,34 +372,59 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
         sSelect.value = unikSektor[0];
         window.populateManagerUnit();
     } else {
-        uSelect.innerHTML = '<option value="">Pilih Sektor Dahulu</option>';
+        uSelect.textContent = '';
+        const defUOpt = document.createElement('option');
+        defUOpt.value = ""; defUOpt.textContent = "Pilih Sektor Dahulu";
+        uSelect.appendChild(defUOpt);
         uSelect.disabled = true;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor Atau Gunakan Carian Pantas Dahulu</div>';
+        
+        nc.textContent = '';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Sektor Atau Gunakan Carian Pantas Dahulu';
+        nc.appendChild(warn);
     }
 
     const infoContainer = document.getElementById('tppdDisplayInfo');
+    infoContainer.textContent = '';
 
     if (isBulk) {
-        infoContainer.innerHTML = `
-            <div class="flex items-center text-indigo-700 bg-indigo-100/50 p-2 rounded border border-indigo-200 shadow-sm mt-2">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                <span class="text-sm font-bold">Mod Pukal: ${managerSelectedMemos.size} Surat dipilih untuk penugasan serentak.</span>
-            </div>
+        const bulkDiv = document.createElement('div');
+        bulkDiv.className = 'flex items-center text-indigo-700 bg-indigo-100/50 p-2 rounded border border-indigo-200 shadow-sm mt-2';
+        bulkDiv.innerHTML = `
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span class="text-sm font-bold">Mod Pukal: ${managerSelectedMemos.size} Surat dipilih untuk penugasan serentak.</span>
         `;
+        infoContainer.appendChild(bulkDiv);
     } else {
         const m = managerMemoData.find(x => x.id === id);
         if (!m) return;
         document.getElementById('tppdMemoId').value = m.id;
-        infoContainer.innerHTML = `
-            <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5 mt-2">Perkara / Tajuk Surat</p>
-            <p class="text-sm font-semibold text-slate-700 mb-2 leading-tight">${m.tajuk_program}</p>
-            <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5">No. Rujukan</p>
-            <p class="text-sm font-semibold text-slate-700 leading-tight">${m.no_rujukan || 'TIADA RUJUKAN'}</p>
-        `;
+
+        const pTajukTitle = document.createElement('p');
+        pTajukTitle.className = 'text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5 mt-2';
+        pTajukTitle.textContent = 'Perkara / Tajuk Surat';
+
+        const pTajuk = document.createElement('p');
+        pTajuk.className = 'text-sm font-semibold text-slate-700 mb-2 leading-tight';
+        pTajuk.textContent = m.tajuk_program || '-';
+
+        const pRujTitle = document.createElement('p');
+        pRujTitle.className = 'text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5';
+        pRujTitle.textContent = 'No. Rujukan';
+
+        const pRuj = document.createElement('p');
+        pRuj.className = 'text-sm font-semibold text-slate-700 leading-tight';
+        pRuj.textContent = m.no_rujukan || 'TIADA RUJUKAN';
+
+        infoContainer.appendChild(pTajukTitle);
+        infoContainer.appendChild(pTajuk);
+        infoContainer.appendChild(pRujTitle);
+        infoContainer.appendChild(pRuj);
     }
 
     const btnSubmit = document.getElementById('btnSubmitTppdAssign');
-    if(btnSubmit) btnSubmit.textContent = 'Sahkan Penugasan';
+    if (btnSubmit) btnSubmit.textContent = 'Sahkan Penugasan';
 
     toggleModal('modalTppdAssign', true);
 }
@@ -321,27 +434,41 @@ window.populateManagerUnit = function() {
     const uSelect = document.getElementById('tppdUnitSelect');
     const nc = document.getElementById('tppdNamaContainer');
 
-    uSelect.innerHTML = '<option value="">-- Sila Pilih Unit --</option>';
+    uSelect.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = ""; defOpt.textContent = "-- Sila Pilih Unit --";
+    uSelect.appendChild(defOpt);
 
     if (sk) {
         const unitSektor = adminPegawaiData.filter(p => p.sektor === sk).map(p => p.unit);
         const unikUnit = [...new Set(unitSektor)].sort();
 
         unikUnit.forEach(u => {
-            uSelect.innerHTML += `<option value="${u}">${u}</option>`;
+            const opt = document.createElement('option');
+            opt.value = u; opt.textContent = u;
+            uSelect.appendChild(opt);
         });
         uSelect.disabled = false;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        
+        nc.textContent = '';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Unit Dahulu';
+        nc.appendChild(warn);
     } else {
         uSelect.disabled = true;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
+        nc.textContent = '';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Sektor & Unit Dahulu';
+        nc.appendChild(warn);
     }
 };
 
 window.handleCarianTppd = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianTppd');
-    dropdown.innerHTML = '';
+    dropdown.textContent = '';
 
     if (query.length < 2) {
         dropdown.classList.add('hidden');
@@ -358,21 +485,26 @@ window.handleCarianTppd = function(e) {
     }).slice(0, 15);
 
     if (results.length === 0) {
-        dropdown.innerHTML = `<div class="p-3 text-sm text-slate-500 italic text-center font-medium">${(isRoleTPPD || isGlobalAdmin) ? 'Tiada padanan dijumpai...' : 'Tiada padanan di dalam sektor anda...'}</div>`;
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'p-3 text-sm text-slate-500 italic text-center font-medium';
+        emptyDiv.textContent = (isRoleTPPD || isGlobalAdmin) ? 'Tiada padanan dijumpai...' : 'Tiada padanan di dalam sektor anda...';
+        dropdown.appendChild(emptyDiv);
     } else {
         results.forEach(p => {
-            const safeNama = p.nama.replace(/"/g, '&quot;');
-            const safeSektor = p.sektor.replace(/"/g, '&quot;');
-            const safeUnit = p.unit.replace(/"/g, '&quot;');
-            const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
-
             const div = document.createElement('div');
             div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
-            div.innerHTML = `
-                <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
-                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${(isRoleTPPD || isGlobalAdmin) ? p.sektor.replace(/^\d{2}\s/, '') + ' - ' + p.unit : p.unit}</div>
-            `;
-            div.onclick = () => selectPegawaiCarianTppd(safeEmel, safeNama, safeSektor, safeUnit);
+
+            const nDiv = document.createElement('div');
+            nDiv.className = "text-sm font-bold text-slate-700 group-hover:text-indigo-700";
+            nDiv.textContent = p.nama;
+
+            const uDiv = document.createElement('div');
+            uDiv.className = "text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium";
+            uDiv.textContent = (isRoleTPPD || isGlobalAdmin) ? p.sektor.replace(/^\d{2}\s/, '') + ' - ' + p.unit : p.unit;
+
+            div.appendChild(nDiv);
+            div.appendChild(uDiv);
+            div.addEventListener('click', () => selectPegawaiCarianTppd(p.emel_rasmi, p.nama, p.sektor, p.unit));
             dropdown.appendChild(div);
         });
     }
@@ -401,32 +533,69 @@ function populateManagerNama() {
     const sk = document.getElementById('tppdSektorSelect').value;
     const un = document.getElementById('tppdUnitSelect').value;
     const nc = document.getElementById('tppdNamaContainer');
-    nc.innerHTML = '';
+    nc.textContent = '';
 
     const isRoleTPPD = currentAdmin && currentAdmin.role === 'TPPD';
     const isGlobalAdmin = currentAdmin && currentAdmin.isSystemAdmin;
 
     if (sk && un) {
-        nc.innerHTML = `
-            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                <span class="text-xs font-bold text-slate-500 uppercase">${(isRoleTPPD || isGlobalAdmin) ? 'Senarai Pegawai' : 'Pegawai Seliaan Anda'} (${un})</span>
-                <button type="button" onclick="selectAllManagerInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
-            </div>
-        `;
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10';
+
+        const spanTitle = document.createElement('span');
+        spanTitle.className = 'text-xs font-bold text-slate-500 uppercase';
+        spanTitle.textContent = `${(isRoleTPPD || isGlobalAdmin) ? 'Senarai Pegawai' : 'Pegawai Seliaan Anda'} (${un})`;
+
+        const btnToggleAll = document.createElement('button');
+        btnToggleAll.type = 'button';
+        btnToggleAll.className = 'text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none';
+        btnToggleAll.textContent = 'Pilih Semua / Batal';
+        btnToggleAll.addEventListener('click', window.selectAllManagerInUnit);
+
+        header.appendChild(spanTitle);
+        header.appendChild(btnToggleAll);
+        nc.appendChild(header);
 
         const pegs = adminPegawaiData.filter(p => p.sektor === sk && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
 
         pegs.forEach((p, i) => {
-            const isChecked = managerSelected.has(p.emel_rasmi) ? 'checked' : '';
-            const safeNama = p.nama.replace(/"/g, '&quot;');
-            nc.innerHTML += `
-                <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                    <input type="checkbox" id="m_c_${i}" value="${safeNama}" data-email="${p.emel_rasmi}" onchange="toggleManagerPenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded m-checkbox focus:ring-indigo-500" ${isChecked}>
-                    <label for="m_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama} ${(isRoleTPPD || isGlobalAdmin) ? `<span class="text-[10px] text-slate-400 ml-1">(${p.sektor.replace(/^\d{2}\s/, '')})</span>` : ''}</label>
-                </div>`;
+            const isChecked = managerSelected.has(p.emel_rasmi);
+
+            const div = document.createElement('div');
+            div.className = 'flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100';
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.id = `m_c_${i}`;
+            chk.value = p.nama;
+            chk.checked = isChecked;
+            chk.setAttribute('data-email', p.emel_rasmi);
+            chk.className = 'w-4 h-4 text-indigo-600 rounded m-checkbox focus:ring-indigo-500';
+            chk.addEventListener('change', function() {
+                toggleManagerPenerima(this.value, this.getAttribute('data-email'), this.checked);
+            });
+
+            const lbl = document.createElement('label');
+            lbl.htmlFor = `m_c_${i}`;
+            lbl.className = 'ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none';
+            lbl.textContent = p.nama;
+
+            if (isRoleTPPD || isGlobalAdmin) {
+                const subSektor = document.createElement('span');
+                subSektor.className = 'text-[10px] text-slate-400 ml-1';
+                subSektor.textContent = `(${p.sektor.replace(/^\d{2}\s/, '')})`;
+                lbl.appendChild(subSektor);
+            }
+
+            div.appendChild(chk);
+            div.appendChild(lbl);
+            nc.appendChild(div);
         });
     } else {
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu';
+        nc.appendChild(warn);
     }
 }
 
@@ -461,24 +630,38 @@ function renderManagerTags() {
     const container = document.getElementById('tppdSelectedTagsContainer');
     const hiddenCheck = document.getElementById('tppdHiddenEmailCheck');
 
+    container.textContent = '';
+
     if (managerSelected.size === 0) {
-        container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
+        const spanEmpty = document.createElement('span');
+        spanEmpty.className = 'text-sm text-slate-400 italic mt-1 ml-1';
+        spanEmpty.textContent = 'Belum ada penerima dipilih...';
+        container.appendChild(spanEmpty);
         hiddenCheck.value = '';
         return;
     }
 
-    container.innerHTML = '';
     hiddenCheck.value = 'OK';
 
     managerSelected.forEach((nama, emel) => {
-        container.innerHTML += `
-            <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
-                <span>${nama}</span>
-                <button type="button" data-email="${emel}" onclick="removeManagerTag(this.getAttribute('data-email'))" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-        `;
+        const tag = document.createElement('div');
+        tag.className = 'inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = nama;
+
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.setAttribute('data-email', emel);
+        btnRemove.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
+        btnRemove.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        btnRemove.addEventListener('click', function() {
+            removeManagerTag(this.getAttribute('data-email'));
+        });
+
+        tag.appendChild(nameSpan);
+        tag.appendChild(btnRemove);
+        container.appendChild(tag);
     });
 }
 
@@ -521,6 +704,15 @@ async function handleManagerAssignSubmit(e) {
     }
 
     try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+
+        const client = window._supabase;
+        if (!client || typeof client.from !== 'function') {
+            throw new Error("Klien Supabase belum sedia.");
+        }
+
         for (let i = 0; i < totalJobs; i++) {
             const currentId = idsToProcess[i];
             const m = managerMemoData.find(x => x.id === currentId);
@@ -541,7 +733,7 @@ async function handleManagerAssignSubmit(e) {
                     finalEventId = finalEventId.replace('PENDING_', '');
                 }
 
-                const { error: updateError } = await window._supabase.from('memo_rekod').update({
+                const { error: updateError } = await client.from('memo_rekod').update({
                     sektor: targetSektor,
                     unit: targetUnit,
                     nama_penerima: baseNames.join(', '),
@@ -558,7 +750,7 @@ async function handleManagerAssignSubmit(e) {
                 const notifyEmails = baseEmails.filter(e => e.toLowerCase() !== adminEmail);
                 const notifyNames = notifyEmails.map(e => managerSelected.get(e) || e);
 
-                if (notifyEmails.length > 0) {
+                if (notifyEmails.length > 0 && window.GAS_URL) {
                     await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",
@@ -577,7 +769,7 @@ async function handleManagerAssignSubmit(e) {
                     });
                 }
 
-                if (isSelfAssigned) {
+                if (isSelfAssigned && window.GAS_URL) {
                     await fetch(window.GAS_URL, {
                         method: 'POST',
                         redirect: "follow",

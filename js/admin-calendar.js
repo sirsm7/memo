@@ -1,6 +1,6 @@
 window.syncSingleCalendar = async function(id) {
     if (isProcessingBatch) return window.showMessage("Sistem sedang memproses pukal.", "error");
-    
+
     let m = adminMemoData.find(x => x.id === id);
     if (!m && typeof allRecords !== 'undefined') {
         m = allRecords.find(x => x.id === id);
@@ -8,16 +8,24 @@ window.syncSingleCalendar = async function(id) {
     if (!m) return window.showMessage("Ralat pangkalan data: Memo tidak dijumpai.", "error");
 
     try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+
+        const client = window._supabase;
+        const gasUrl = window.GAS_URL;
+        if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
+
         setProcessingState(true, `Menyegerak rekod #${id}...`);
-        
+
         const names = m.nama_penerima ? m.nama_penerima.split(',').map(n => n.trim()) : [];
         const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
 
-        const res = await fetch(window.GAS_URL, {
+        const res = await fetch(gasUrl, {
             method: 'POST',
-            redirect: "follow",
+            redirect: 'follow',
             headers: {
-                "Content-Type": "text/plain;charset=utf-8",
+                'Content-Type': 'text/plain;charset=utf-8'
             },
             body: JSON.stringify({
                 action: 'notify',
@@ -32,23 +40,24 @@ window.syncSingleCalendar = async function(id) {
                 fileUrl: m.file_url || 'Tiada Salinan'
             })
         });
-        const notify = await res.json();
+
+        const notify = JSON.parse(await res.text());
 
         if (notify.status === 'success' && notify.calendarEventId) {
-            await window._supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
-            
+            await client.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', id);
+
             if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
-            
+
             window.showMessage("Penyegerakan kalendar berjaya.", "success");
-            
+
             if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
                 loadAdminMemo();
             }
             if (typeof loadDashboardData === 'function') {
-                allRecords = []; 
+                allRecords = [];
                 loadDashboardData();
             }
-            
+
             refreshIframeKalendar();
         } else {
             throw new Error(notify.message || "Ralat tidak diketahui.");
@@ -82,33 +91,42 @@ window.removeSingleCalendar = function(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
+                if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+                    await window.appConfigReady;
+                }
+
+                const client = window._supabase;
+                const gasUrl = window.GAS_URL;
+                if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
+
                 setProcessingState(true, `Memadam rekod kalendar #${id}...`);
 
-                const res = await fetch(window.GAS_URL, {
+                const res = await fetch(gasUrl, {
                     method: 'POST',
-                    redirect: "follow",
+                    redirect: 'follow',
                     headers: {
-                        "Content-Type": "text/plain;charset=utf-8",
+                        'Content-Type': 'text/plain;charset=utf-8'
                     },
                     body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
                 });
-                const responseJSON = await res.json();
+
+                const responseJSON = JSON.parse(await res.text());
 
                 if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
-                    await window._supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
-                    
+                    await client.from('memo_rekod').update({ calendar_event_id: null }).eq('id', id);
+
                     if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
-                    
+
                     window.showMessage("Acara kalendar berjaya ditanggalkan.", "success");
-                    
+
                     if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
                         loadAdminMemo();
                     }
                     if (typeof loadDashboardData === 'function') {
-                        allRecords = []; 
+                        allRecords = [];
                         loadDashboardData();
                     }
-                    
+
                     refreshIframeKalendar();
                 } else {
                     throw new Error(responseJSON.message);
@@ -148,35 +166,45 @@ window.deleteMemo = function(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
+                if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+                    await window.appConfigReady;
+                }
+
+                const client = window._supabase;
+                const gasUrl = window.GAS_URL;
+                if (!client) throw new Error("Konfigurasi pangkalan data belum sedia.");
+
                 setProcessingState(true, "Memadam data secara menyeluruh...");
 
-                if (m.calendar_event_id && !m.calendar_event_id.startsWith('RESOLVED')) {
-                     let eventId = m.calendar_event_id.replace('PENDING_', '');
-                     try {
-                        await fetch(window.GAS_URL, {
+                if (m.calendar_event_id && !m.calendar_event_id.startsWith('RESOLVED') && gasUrl) {
+                    let eventId = m.calendar_event_id.replace('PENDING_', '');
+                    try {
+                        await fetch(gasUrl, {
                             method: 'POST',
-                            redirect: "follow",
+                            redirect: 'follow',
                             headers: {
-                                "Content-Type": "text/plain;charset=utf-8",
+                                'Content-Type': 'text/plain;charset=utf-8'
                             },
                             body: JSON.stringify({ action: 'deleteEvent', eventId: eventId })
                         });
-                    } catch (e) { console.error("Ralat padam kalendar ketika hapus data", e); }
+                    } catch (e) {
+                        console.error("Ralat padam kalendar ketika hapus data", e);
+                    }
                 }
 
-                const { error } = await window._supabase.from('memo_rekod').delete().eq('id', id);
+                const { error } = await client.from('memo_rekod').delete().eq('id', id);
                 if (error) throw error;
-                
+
                 if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
 
                 if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
                     loadAdminMemo();
                 }
                 if (typeof loadDashboardData === 'function') {
-                    allRecords = []; 
+                    allRecords = [];
                     loadDashboardData();
                 }
-                
+
                 refreshIframeKalendar();
                 window.showMessage("Rekod surat telah berjaya dihapuskan sepenuhnya.", "success");
 
@@ -195,6 +223,8 @@ function updateBatchProgressUI(current, total, text) {
     const percentage = document.getElementById('batchPercentage');
     const statusText = document.getElementById('batchStatusText');
 
+    if (!container || !bar || !percentage || !statusText) return;
+
     if (total === 0) {
         container.classList.add('hidden');
         return;
@@ -202,7 +232,7 @@ function updateBatchProgressUI(current, total, text) {
 
     container.classList.remove('hidden');
     const perc = Math.round((current / total) * 100);
-    
+
     bar.style.width = `${perc}%`;
     percentage.textContent = `${perc}%`;
     statusText.textContent = text || `Memproses ${current}/${total} rekod...`;
@@ -219,7 +249,8 @@ function setProcessingState(isProcessing, lockText = "Sedang diproses...") {
         }
     });
 
-    if (isProcessing && !document.getElementById('adminBatchProgressContainer').classList.contains('hidden') === false) {
+    const progressContainer = document.getElementById('adminBatchProgressContainer');
+    if (isProcessing && progressContainer && progressContainer.classList.contains('hidden')) {
         updateBatchProgressUI(1, 1, lockText);
     } else if (!isProcessing) {
         updateBatchProgressUI(0, 0);
@@ -228,7 +259,7 @@ function setProcessingState(isProcessing, lockText = "Sedang diproses...") {
 
 window.startBatchSync = function() {
     if (isProcessingBatch) return;
-    
+
     const queue = adminMemoData.filter(m => !m.calendar_event_id);
     if (queue.length === 0) {
         return window.showMessage("Semua data telah pun disegerakkan ke kalendar.", "success");
@@ -251,66 +282,80 @@ window.startBatchSync = function() {
             let errorCount = 0;
             let dbUpdated = false;
 
-            for (let i = 0; i < queue.length; i++) {
-                const m = queue[i];
-                updateBatchProgressUI(i, queue.length, `Menyegerak ID #${m.id} (${i+1}/${queue.length})...`);
-                
-                try {
-                    const names = m.nama_penerima ? m.nama_penerima.split(',').map(n => n.trim()) : [];
-                    const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
-
-                    const res = await fetch(window.GAS_URL, {
-                        method: 'POST',
-                        redirect: "follow",
-                        headers: {
-                            "Content-Type": "text/plain;charset=utf-8",
-                        },
-                        body: JSON.stringify({
-                            action: 'notify',
-                            sektor: m.sektor,
-                            unit: m.unit,
-                            namaArray: names,
-                            emailArray: emails,
-                            noRujukan: m.no_rujukan || 'TIADA',
-                            tajukProgram: m.tajuk_program,
-                            tarikhTerima: m.tarikh_terima,
-                            masaRekod: m.masa_rekod || '08:00',
-                            fileUrl: m.file_url || 'Tiada Salinan'
-                        })
-                    });
-                    const notify = await res.json();
-
-                    if (notify.status === 'success' && notify.calendarEventId) {
-                        await window._supabase.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', m.id);
-                        successCount++;
-                        dbUpdated = true;
-                    } else {
-                        errorCount++;
-                    }
-                } catch (err) {
-                    errorCount++;
-                    console.error(`Ralat Pukal Sync ID ${m.id}:`, err);
+            try {
+                if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+                    await window.appConfigReady;
                 }
-            }
-            
-            if (dbUpdated && window.CacheService) {
-                 await window.CacheService.clearStore('memo_rekod');
-            }
 
-            updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
-            setProcessingState(false);
-            
-            if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
-                loadAdminMemo();
+                const client = window._supabase;
+                const gasUrl = window.GAS_URL;
+                if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
+
+                for (let i = 0; i < queue.length; i++) {
+                    const m = queue[i];
+                    updateBatchProgressUI(i, queue.length, `Menyegerak ID #${m.id} (${i+1}/${queue.length})...`);
+
+                    try {
+                        const names = m.nama_penerima ? m.nama_penerima.split(',').map(n => n.trim()) : [];
+                        const emails = m.emel_penerima ? m.emel_penerima.split(',').map(e => e.trim()) : [];
+
+                        const res = await fetch(gasUrl, {
+                            method: 'POST',
+                            redirect: 'follow',
+                            headers: {
+                                'Content-Type': 'text/plain;charset=utf-8'
+                            },
+                            body: JSON.stringify({
+                                action: 'notify',
+                                sektor: m.sektor,
+                                unit: m.unit,
+                                namaArray: names,
+                                emailArray: emails,
+                                noRujukan: m.no_rujukan || 'TIADA',
+                                tajukProgram: m.tajuk_program,
+                                tarikhTerima: m.tarikh_terima,
+                                masaRekod: m.masa_rekod || '08:00',
+                                fileUrl: m.file_url || 'Tiada Salinan'
+                            })
+                        });
+
+                        const notify = JSON.parse(await res.text());
+
+                        if (notify.status === 'success' && notify.calendarEventId) {
+                            await client.from('memo_rekod').update({ calendar_event_id: notify.calendarEventId }).eq('id', m.id);
+                            successCount++;
+                            dbUpdated = true;
+                        } else {
+                            errorCount++;
+                        }
+                    } catch (err) {
+                        errorCount++;
+                        console.error(`Ralat Pukal Sync ID ${m.id}:`, err);
+                    }
+                }
+
+                if (dbUpdated && window.CacheService) {
+                    await window.CacheService.clearStore('memo_rekod');
+                }
+
+                updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
+                setProcessingState(false);
+
+                if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                    loadAdminMemo();
+                }
+                if (typeof loadDashboardData === 'function') {
+                    allRecords = [];
+                    loadDashboardData();
+                }
+
+                refreshIframeKalendar();
+
+                window.showMessage(`Operasi Segerak Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
+            } catch (err) {
+                setProcessingState(false);
+                window.showMessage("Ralat operasi pukal: " + err.message, "error");
             }
-            if (typeof loadDashboardData === 'function') {
-                allRecords = []; 
-                loadDashboardData();
-            }
-            
-            refreshIframeKalendar();
-            
-            window.showMessage(`Operasi Segerak Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
         }
     });
 };
@@ -340,52 +385,66 @@ window.startBatchDelete = function() {
             let errorCount = 0;
             let dbUpdated = false;
 
-            for (let i = 0; i < queue.length; i++) {
-                const m = queue[i];
-                updateBatchProgressUI(i, queue.length, `Memadam Kalendar ID #${m.id} (${i+1}/${queue.length})...`);
-
-                try {
-                    const res = await fetch(window.GAS_URL, {
-                        method: 'POST',
-                        redirect: "follow",
-                        headers: {
-                            "Content-Type": "text/plain;charset=utf-8",
-                        },
-                        body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
-                    });
-                    const responseJSON = await res.json();
-
-                    if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
-                        await window._supabase.from('memo_rekod').update({ calendar_event_id: null }).eq('id', m.id);
-                        successCount++;
-                        dbUpdated = true;
-                    } else {
-                        errorCount++;
-                    }
-                } catch (err) {
-                    errorCount++;
-                    console.error(`Ralat Pukal Delete ID ${m.id}:`, err);
+            try {
+                if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+                    await window.appConfigReady;
                 }
-            }
 
-            if (dbUpdated && window.CacheService) {
-                 await window.CacheService.clearStore('memo_rekod');
-            }
+                const client = window._supabase;
+                const gasUrl = window.GAS_URL;
+                if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
 
-            updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
-            setProcessingState(false);
-            
-            if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
-                loadAdminMemo();
-            }
-            if (typeof loadDashboardData === 'function') {
-                allRecords = []; 
-                loadDashboardData();
-            }
-            
-            refreshIframeKalendar();
+                for (let i = 0; i < queue.length; i++) {
+                    const m = queue[i];
+                    updateBatchProgressUI(i, queue.length, `Memadam Kalendar ID #${m.id} (${i+1}/${queue.length})...`);
 
-            window.showMessage(`Operasi Padam Kalendar Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
+                    try {
+                        const res = await fetch(gasUrl, {
+                            method: 'POST',
+                            redirect: 'follow',
+                            headers: {
+                                'Content-Type': 'text/plain;charset=utf-8'
+                            },
+                            body: JSON.stringify({ action: 'deleteEvent', eventId: m.calendar_event_id })
+                        });
+
+                        const responseJSON = JSON.parse(await res.text());
+
+                        if (responseJSON.status === 'success' || responseJSON.status === 'not_found') {
+                            await client.from('memo_rekod').update({ calendar_event_id: null }).eq('id', m.id);
+                            successCount++;
+                            dbUpdated = true;
+                        } else {
+                            errorCount++;
+                        }
+                    } catch (err) {
+                        errorCount++;
+                        console.error(`Ralat Pukal Delete ID ${m.id}:`, err);
+                    }
+                }
+
+                if (dbUpdated && window.CacheService) {
+                    await window.CacheService.clearStore('memo_rekod');
+                }
+
+                updateBatchProgressUI(queue.length, queue.length, "Proses Selesai.");
+                setProcessingState(false);
+
+                if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+                    loadAdminMemo();
+                }
+                if (typeof loadDashboardData === 'function') {
+                    allRecords = [];
+                    loadDashboardData();
+                }
+
+                refreshIframeKalendar();
+
+                window.showMessage(`Operasi Padam Kalendar Pukal Tamat.<br>Berjaya: ${successCount}<br>Gagal: ${errorCount}`, "success");
+            } catch (err) {
+                setProcessingState(false);
+                window.showMessage("Ralat operasi padam pukal: " + err.message, "error");
+            }
         }
     });
 };

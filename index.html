@@ -648,12 +648,12 @@
             <form id="formLoginAdmin" class="p-6 space-y-4">
                 <div id="loginAdminError" class="hidden text-xs text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 text-center font-bold"></div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alamat Emel</label>
-                    <input type="email" id="loginAdminEmail" required class="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm">
+                    <label for="loginAdminEmail" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alamat Emel</label>
+                    <input type="email" id="loginAdminEmail" autocomplete="email" required class="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kata Laluan</label>
-                    <input type="password" id="loginAdminPassword" required class="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm">
+                    <label for="loginAdminPassword" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kata Laluan</label>
+                    <input type="password" id="loginAdminPassword" autocomplete="current-password" required class="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm">
                 </div>
                 <div class="pt-4 flex space-x-3">
                     <button type="button" id="btnBatalLogin" class="flex-1 px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded hover:bg-slate-200 transition-colors">Batal</button>
@@ -674,11 +674,11 @@
             <form id="formPegawai" class="p-6 space-y-4">
                 <input type="hidden" id="pegawaiId">
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Nama Penuh <span class="text-red-500">*</span></label>
+                    <label for="pegawaiNama" class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Nama Penuh <span class="text-red-500">*</span></label>
                     <input type="text" id="pegawaiNama" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold" placeholder="CTH: AHMAD BIN ABU">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Sektor <span class="text-red-500">*</span></label>
+                    <label for="pegawaiSektorSelect" class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Sektor <span class="text-red-500">*</span></label>
                     <select id="pegawaiSektorSelect" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-2">
                         <option value="">-- PILIH SEKTOR --</option>
                         <option value="MANUAL">++ TAMBAH SEKTOR BAHARU ++</option>
@@ -686,7 +686,7 @@
                     <input type="text" id="pegawaiSektorManual" class="hidden w-full px-3 py-2 border border-slate-400 rounded text-sm uppercase-input bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="MASUKKAN SEKTOR BARU (CTH: 01 SEKTOR PENGURUSAN)">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Unit <span class="text-red-500">*</span></label>
+                    <label for="pegawaiUnitSelect" class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Unit <span class="text-red-500">*</span></label>
                     <select id="pegawaiUnitSelect" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-2">
                         <option value="">-- PILIH UNIT --</option>
                         <option value="MANUAL">++ TAMBAH UNIT BAHARU ++</option>
@@ -694,8 +694,8 @@
                     <input type="text" id="pegawaiUnitManual" class="hidden w-full px-3 py-2 border border-slate-400 rounded text-sm uppercase-input bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="MASUKKAN UNIT BARU">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Emel Rasmi <span class="text-red-500">*</span></label>
-                    <input type="email" id="pegawaiEmel" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="cth@moe.gov.my">
+                    <label for="pegawaiEmel" class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Emel Rasmi <span class="text-red-500">*</span></label>
+                    <input type="email" id="pegawaiEmel" autocomplete="email" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="cth@moe.gov.my">
                 </div>
                 <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
                     <button type="button" class="btnTutupModal px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded text-sm hover:bg-slate-200 transition-colors">Batal</button>
@@ -722,31 +722,31 @@
                 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">No. Fail Kementerian Ibu Pejabat</label>
+                        <label for="memoNoRujukan" class="block text-xs font-bold text-slate-500 uppercase mb-1">No. Fail Kementerian Ibu Pejabat</label>
                         <input type="text" id="memoNoRujukan" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm font-bold">
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nombor-Nombor Yang Lain (EXT)</label>
+                        <label for="memoNoTambahan" class="block text-xs font-bold text-slate-500 uppercase mb-1">Nombor-Nombor Yang Lain (EXT)</label>
                         <input type="text" id="memoNoTambahan" class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Daripada Siapa</label>
+                        <label for="memoDari" class="block text-xs font-bold text-slate-500 uppercase mb-1">Daripada Siapa</label>
                         <input type="text" id="memoDari" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Perkara / Tajuk Surat</label>
+                        <label for="memoTajuk" class="block text-xs font-bold text-slate-500 uppercase mb-1">Perkara / Tajuk Surat</label>
                         <input type="text" id="memoTajuk" required class="w-full px-3 py-2 border border-slate-300 rounded uppercase-input text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Surat</label>
+                        <label for="memoTarikhSurat" class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Surat</label>
                         <input type="date" id="memoTarikhSurat" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Terima</label>
+                        <label for="memoTarikhTerima" class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarikh Terima</label>
                         <input type="date" id="memoTarikhTerima" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Masa Rekod</label>
+                        <label for="memoMasaRekod" class="block text-xs font-bold text-slate-500 uppercase mb-1">Masa Rekod</label>
                         <input type="time" id="memoMasaRekod" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-slate-50">
                     </div>
                 </div>
@@ -766,13 +766,13 @@
                     </div>
 
                     <div class="col-span-1 md:col-span-2 z-10">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sektor</label>
+                        <label for="adminEditSektor" class="block text-xs font-bold text-slate-500 uppercase mb-1">Sektor</label>
                         <select id="adminEditSektor" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50">
                             <option value="">-- Pilih Sektor --</option>
                         </select>
                     </div>
                     <div class="col-span-1 md:col-span-2 z-10">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
+                        <label for="adminEditUnit" class="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
                         <select id="adminEditUnit" class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50" disabled>
                             <option value="">Pilih Sektor Dahulu</option>
                         </select>
@@ -869,15 +869,15 @@
             </div>
             <form id="formTambahAdmin" class="p-6 space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alamat Emel <span class="text-red-500">*</span></label>
-                    <input type="email" id="tambahAdminEmail" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="contoh@moe.gov.my">
+                    <label for="tambahAdminEmail" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alamat Emel <span class="text-red-500">*</span></label>
+                    <input type="email" id="tambahAdminEmail" autocomplete="email" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="contoh@moe.gov.my">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kata Laluan <span class="text-red-500">*</span></label>
-                    <input type="password" id="tambahAdminPassword" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="******">
+                    <label for="tambahAdminPassword" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kata Laluan <span class="text-red-500">*</span></label>
+                    <input type="password" id="tambahAdminPassword" autocomplete="new-password" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="******">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Peranan Sistem <span class="text-red-500">*</span></label>
+                    <label for="tambahAdminRole" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Peranan Sistem <span class="text-red-500">*</span></label>
                     <select id="tambahAdminRole" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="">-- PILIH PERANAN --</option>
                         <option value="PERAKAM">PERAKAM (Akses Daftar Surat Sahaja)</option>

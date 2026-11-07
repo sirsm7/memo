@@ -144,11 +144,21 @@ async function handleLogin(e) {
     const btn = document.getElementById('btnSubmitLogin');
 
     errorDiv.classList.add('hidden');
+    errorDiv.textContent = '';
     btn.disabled = true;
     btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Sahkan...';
 
     try {
-        const { data, error } = await _supabase
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+
+        const client = window._supabase;
+        if (!client || typeof client.from !== 'function') {
+            throw new Error("Klien pangkalan data belum sedia. Sila semak konfigurasi pelayan.");
+        }
+
+        const { data, error } = await client
             .from('memo_admin')
             .select('*')
             .eq('email', email)
@@ -165,7 +175,7 @@ async function handleLogin(e) {
         let managerUnit = null;
 
         if (isManager) {
-            const { data: pData, error: pError } = await _supabase
+            const { data: pData, error: pError } = await client
                 .from('memo_pegawai')
                 .select('sektor, unit')
                 .eq('emel_rasmi', email)
@@ -193,7 +203,7 @@ async function handleLogin(e) {
         window.showMessage(welcomeMsg, 'success');
 
     } catch (err) {
-        errorDiv.textContent = err.message;
+        errorDiv.textContent = err.message || "Ralat tidak diketahui.";
         errorDiv.classList.remove('hidden');
     } finally {
         btn.disabled = false;
@@ -301,8 +311,16 @@ function renderAdminMemoTable(data) {
     const tbody = document.getElementById('adminTableMemoBody');
     if (!tbody) return;
 
+    tbody.textContent = '';
+
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+        const emptyTr = document.createElement('tr');
+        const emptyTd = document.createElement('td');
+        emptyTd.colSpan = 5;
+        emptyTd.className = 'p-4 text-center text-slate-500';
+        emptyTd.textContent = 'Tiada rekod.';
+        emptyTr.appendChild(emptyTd);
+        tbody.appendChild(emptyTr);
         renderAdminMemoPagination(0);
         return;
     }
@@ -316,38 +334,94 @@ function renderAdminMemoTable(data) {
     const startIndex = (adminMemoCurrentPage - 1) * ADMIN_MEMO_PAGE_SIZE;
     const pageRecords = data.slice(startIndex, startIndex + ADMIN_MEMO_PAGE_SIZE);
 
-    tbody.innerHTML = pageRecords.map(row => {
-        const hasCalendar = !!row.calendar_event_id;
-        
-        return `
-        <tr class="hover:bg-slate-50 transition-colors">
-            <td class="p-2 border-b text-[11px] font-mono text-slate-400 align-top">#${row.id}</td>
-            <td class="p-2 border-b align-top">
-                <div class="font-bold text-slate-700 uppercase text-[11px] md:text-xs">${row.no_rujukan || 'TIADA'}</div>
-                <div class="text-[10px] text-slate-500 mt-0.5 uppercase">${row.tajuk_program}</div>
-            </td>
-            <td class="p-2 border-b align-top">
-                <div class="font-semibold text-slate-700 text-[11px]">${row.tarikh_terima}</div>
-                <div class="text-[10px] text-indigo-600 font-bold mt-0.5">${row.masa_rekod || '-'}</div>
-            </td>
-            <td class="p-2 border-b text-center align-top">
-                ${hasCalendar ? 
-                    `<button onclick="removeSingleCalendar(${row.id})" class="text-red-500 hover:text-red-700 text-[10px] font-bold bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24">
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Padam Kalendar
-                    </button>` 
-                    : 
-                    `<button onclick="syncSingleCalendar(${row.id})" class="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24">
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Segerak Kalendar
-                    </button>`
-                }
-            </td>
-            <td class="p-2 border-b text-center align-top space-x-2">
-                <button onclick="editMemo(${row.id})" class="text-indigo-600 hover:text-indigo-900 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded">Edit</button>
-                <button onclick="deleteMemo(${row.id})" class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded mt-1 md:mt-0">Padam</button>
-            </td>
-        </tr>
-    `}).join('');
+    const fragment = document.createDocumentFragment();
 
+    pageRecords.forEach(row => {
+        const hasCalendar = !!row.calendar_event_id;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors';
+
+        const tdId = document.createElement('td');
+        tdId.className = 'p-2 border-b text-[11px] font-mono text-slate-400 align-top';
+        tdId.textContent = '#' + (row.id ?? '');
+        tr.appendChild(tdId);
+
+        const tdRef = document.createElement('td');
+        tdRef.className = 'p-2 border-b align-top';
+        const divNoRuj = document.createElement('div');
+        divNoRuj.className = 'font-bold text-slate-700 uppercase text-[11px] md:text-xs';
+        divNoRuj.textContent = row.no_rujukan || 'TIADA';
+        const divTajuk = document.createElement('div');
+        divTajuk.className = 'text-[10px] text-slate-500 mt-0.5 uppercase';
+        divTajuk.textContent = row.tajuk_program || '';
+        tdRef.appendChild(divNoRuj);
+        tdRef.appendChild(divTajuk);
+        tr.appendChild(tdRef);
+
+        const tdDate = document.createElement('td');
+        tdDate.className = 'p-2 border-b align-top';
+        const divTarikh = document.createElement('div');
+        divTarikh.className = 'font-semibold text-slate-700 text-[11px]';
+        divTarikh.textContent = row.tarikh_terima || '';
+        const divMasa = document.createElement('div');
+        divMasa.className = 'text-[10px] text-indigo-600 font-bold mt-0.5';
+        divMasa.textContent = row.masa_rekod || '-';
+        tdDate.appendChild(divTarikh);
+        tdDate.appendChild(divMasa);
+        tr.appendChild(tdDate);
+
+        const tdCal = document.createElement('td');
+        tdCal.className = 'p-2 border-b text-center align-top';
+        const btnCal = document.createElement('button');
+        if (hasCalendar) {
+            btnCal.className = 'text-red-500 hover:text-red-700 text-[10px] font-bold bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24';
+            btnCal.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Padam Kalendar';
+            btnCal.addEventListener('click', () => {
+                if (typeof window.removeSingleCalendar === 'function') {
+                    window.removeSingleCalendar(row.id);
+                }
+            });
+        } else {
+            btnCal.className = 'text-emerald-600 hover:text-emerald-800 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24';
+            btnCal.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Segerak Kalendar';
+            btnCal.addEventListener('click', () => {
+                if (typeof window.syncSingleCalendar === 'function') {
+                    window.syncSingleCalendar(row.id);
+                }
+            });
+        }
+        tdCal.appendChild(btnCal);
+        tr.appendChild(tdCal);
+
+        const tdAction = document.createElement('td');
+        tdAction.className = 'p-2 border-b text-center align-top space-x-2';
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'text-indigo-600 hover:text-indigo-900 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded';
+        btnEdit.textContent = 'Edit';
+        btnEdit.addEventListener('click', () => {
+            if (typeof window.editMemo === 'function') {
+                window.editMemo(row.id);
+            }
+        });
+
+        const btnDelete = document.createElement('button');
+        btnDelete.className = 'text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-1 rounded mt-1 md:mt-0';
+        btnDelete.textContent = 'Padam';
+        btnDelete.addEventListener('click', () => {
+            if (typeof window.deleteMemo === 'function') {
+                window.deleteMemo(row.id);
+            }
+        });
+
+        tdAction.appendChild(btnEdit);
+        tdAction.appendChild(btnDelete);
+        tr.appendChild(tdAction);
+
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
     renderAdminMemoPagination(totalRecords);
 }
 
@@ -368,7 +442,7 @@ function renderAdminMemoPagination(totalRecords) {
     if (!container) return;
 
     if (totalRecords === 0) {
-        container.innerHTML = '';
+        container.textContent = '';
         container.classList.add('hidden');
         return;
     }
@@ -382,25 +456,34 @@ function renderAdminMemoPagination(totalRecords) {
     const isPrevDisabled = adminMemoCurrentPage <= 1;
     const isNextDisabled = adminMemoCurrentPage >= totalPages;
 
-    container.innerHTML = `
-        <div class="text-slate-500 font-medium text-center sm:text-left">
-            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> memo (Halaman <span class="font-bold text-indigo-600">${adminMemoCurrentPage}</span>/${totalPages})
-        </div>
-        <div class="flex items-center space-x-2">
-            <button type="button" onclick="changeAdminMemoPage(${adminMemoCurrentPage - 1})" 
-                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
-                ${isPrevDisabled ? 'disabled' : ''}>
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                Sebelumnya
-            </button>
-            <button type="button" onclick="changeAdminMemoPage(${adminMemoCurrentPage + 1})" 
-                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
-                ${isNextDisabled ? 'disabled' : ''}>
-                Seterusnya
-                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-            </button>
-        </div>
-    `;
+    container.textContent = '';
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
+    textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> memo (Halaman <span class="font-bold text-indigo-600">${adminMemoCurrentPage}</span>/${totalPages})`;
+
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'flex items-center space-x-2';
+
+    const btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
+    btnPrev.disabled = isPrevDisabled;
+    btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+    btnPrev.addEventListener('click', () => window.changeAdminMemoPage(adminMemoCurrentPage - 1));
+
+    const btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
+    btnNext.disabled = isNextDisabled;
+    btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+    btnNext.addEventListener('click', () => window.changeAdminMemoPage(adminMemoCurrentPage + 1));
+
+    btnsDiv.appendChild(btnPrev);
+    btnsDiv.appendChild(btnNext);
+
+    container.appendChild(textDiv);
+    container.appendChild(btnsDiv);
 }
 
 window.changeAdminMemoPage = function(targetPage) {
@@ -420,8 +503,16 @@ function renderAdminPegawaiTable(data) {
     const tbody = document.getElementById('adminTablePegawaiBody');
     if (!tbody) return;
 
+    tbody.textContent = '';
+
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+        const emptyTr = document.createElement('tr');
+        const emptyTd = document.createElement('td');
+        emptyTd.colSpan = 4;
+        emptyTd.className = 'p-4 text-center text-slate-500';
+        emptyTd.textContent = 'Tiada rekod.';
+        emptyTr.appendChild(emptyTd);
+        tbody.appendChild(emptyTr);
         renderAdminPegawaiPagination(0);
         return;
     }
@@ -435,21 +526,63 @@ function renderAdminPegawaiTable(data) {
     const startIndex = (adminPegawaiCurrentPage - 1) * ADMIN_PEGAWAI_PAGE_SIZE;
     const pageRecords = data.slice(startIndex, startIndex + ADMIN_PEGAWAI_PAGE_SIZE);
 
-    tbody.innerHTML = pageRecords.map(row => `
-        <tr class="hover:bg-slate-50 transition-colors">
-            <td class="p-2 border-b font-bold text-slate-700 uppercase text-[11px] md:text-xs">${row.nama}</td>
-            <td class="p-2 border-b text-[10px] md:text-[11px]">
-                <div class="font-semibold text-indigo-600 uppercase">${row.sektor}</div>
-                <div class="text-slate-500 uppercase">${row.unit}</div>
-            </td>
-            <td class="p-2 border-b text-slate-600 text-[11px]">${row.emel_rasmi}</td>
-            <td class="p-2 border-b text-center space-x-2">
-                <button onclick="editPegawai(${row.id})" class="text-indigo-600 hover:text-indigo-900 font-bold text-xs">Edit</button>
-                <button onclick="deletePegawai(${row.id})" class="text-red-500 hover:text-red-700 font-bold text-xs">Padam</button>
-            </td>
-        </tr>
-    `).join('');
+    const fragment = document.createDocumentFragment();
 
+    pageRecords.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors';
+
+        const tdNama = document.createElement('td');
+        tdNama.className = 'p-2 border-b font-bold text-slate-700 uppercase text-[11px] md:text-xs';
+        tdNama.textContent = row.nama || '-';
+        tr.appendChild(tdNama);
+
+        const tdSektor = document.createElement('td');
+        tdSektor.className = 'p-2 border-b text-[10px] md:text-[11px]';
+        const divSektor = document.createElement('div');
+        divSektor.className = 'font-semibold text-indigo-600 uppercase';
+        divSektor.textContent = row.sektor || '-';
+        const divUnit = document.createElement('div');
+        divUnit.className = 'text-slate-500 uppercase';
+        divUnit.textContent = row.unit || '-';
+        tdSektor.appendChild(divSektor);
+        tdSektor.appendChild(divUnit);
+        tr.appendChild(tdSektor);
+
+        const tdEmel = document.createElement('td');
+        tdEmel.className = 'p-2 border-b text-slate-600 text-[11px]';
+        tdEmel.textContent = row.emel_rasmi || '-';
+        tr.appendChild(tdEmel);
+
+        const tdAksi = document.createElement('td');
+        tdAksi.className = 'p-2 border-b text-center space-x-2';
+
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'text-indigo-600 hover:text-indigo-900 font-bold text-xs';
+        btnEdit.textContent = 'Edit';
+        btnEdit.addEventListener('click', () => {
+            if (typeof window.editPegawai === 'function') {
+                window.editPegawai(row.id);
+            }
+        });
+
+        const btnPadam = document.createElement('button');
+        btnPadam.className = 'text-red-500 hover:text-red-700 font-bold text-xs';
+        btnPadam.textContent = 'Padam';
+        btnPadam.addEventListener('click', () => {
+            if (typeof window.deletePegawai === 'function') {
+                window.deletePegawai(row.id);
+            }
+        });
+
+        tdAksi.appendChild(btnEdit);
+        tdAksi.appendChild(btnPadam);
+        tr.appendChild(tdAksi);
+
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
     renderAdminPegawaiPagination(totalRecords);
 }
 
@@ -470,7 +603,7 @@ function renderAdminPegawaiPagination(totalRecords) {
     if (!container) return;
 
     if (totalRecords === 0) {
-        container.innerHTML = '';
+        container.textContent = '';
         container.classList.add('hidden');
         return;
     }
@@ -484,25 +617,34 @@ function renderAdminPegawaiPagination(totalRecords) {
     const isPrevDisabled = adminPegawaiCurrentPage <= 1;
     const isNextDisabled = adminPegawaiCurrentPage >= totalPages;
 
-    container.innerHTML = `
-        <div class="text-slate-500 font-medium text-center sm:text-left">
-            Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> pegawai (Halaman <span class="font-bold text-indigo-600">${adminPegawaiCurrentPage}</span>/${totalPages})
-        </div>
-        <div class="flex items-center space-x-2">
-            <button type="button" onclick="changeAdminPegawaiPage(${adminPegawaiCurrentPage - 1})" 
-                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
-                ${isPrevDisabled ? 'disabled' : ''}>
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                Sebelumnya
-            </button>
-            <button type="button" onclick="changeAdminPegawaiPage(${adminPegawaiCurrentPage + 1})" 
-                class="px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white" 
-                ${isNextDisabled ? 'disabled' : ''}>
-                Seterusnya
-                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-            </button>
-        </div>
-    `;
+    container.textContent = '';
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
+    textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> pegawai (Halaman <span class="font-bold text-indigo-600">${adminPegawaiCurrentPage}</span>/${totalPages})`;
+
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'flex items-center space-x-2';
+
+    const btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
+    btnPrev.disabled = isPrevDisabled;
+    btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+    btnPrev.addEventListener('click', () => window.changeAdminPegawaiPage(adminPegawaiCurrentPage - 1));
+
+    const btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
+    btnNext.disabled = isNextDisabled;
+    btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+    btnNext.addEventListener('click', () => window.changeAdminPegawaiPage(adminPegawaiCurrentPage + 1));
+
+    btnsDiv.appendChild(btnPrev);
+    btnsDiv.appendChild(btnNext);
+
+    container.appendChild(textDiv);
+    container.appendChild(btnsDiv);
 }
 
 window.changeAdminPegawaiPage = function(targetPage) {
@@ -520,21 +662,78 @@ window.changeAdminPegawaiPage = function(targetPage) {
 
 function renderAdminSistemTable(data) {
     const tbody = document.getElementById('adminTableSistemBody');
-    tbody.innerHTML = data.map(row => {
-        const badgeClass = row.role === 'SUPER ADMIN' ? 'bg-purple-100 text-purple-700' : 
-                           (row.role === 'TPPD' ? 'bg-indigo-100 text-indigo-700' : 
-                           (row.role === 'PERAKAM' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'));
-        return `
-            <tr class="hover:bg-slate-50 transition-colors">
-                <td class="p-2 border-b text-slate-400 text-[11px]">#${row.id}</td>
-                <td class="p-2 border-b font-medium text-xs">${row.email}</td>
-                <td class="p-2 border-b"><span class="px-2 py-0.5 ${badgeClass} text-[10px] font-bold rounded">${row.role}</span></td>
-                <td class="p-2 border-b text-center">
-                    ${row.role !== 'SUPER ADMIN' ? `<button onclick="deleteAdmin(${row.id})" class="text-red-500 hover:text-red-700 font-bold text-[11px]">Gugurkan</button>` : '<span class="text-[10px] text-slate-300 italic">Tiada Tindakan</span>'}
-                </td>
-            </tr>
-        `;
-    }).join('') || '<tr><td colspan="4" class="p-4 text-center text-slate-500">Tiada rekod.</td></tr>';
+    if (!tbody) return;
+
+    tbody.textContent = '';
+
+    if (!data || data.length === 0) {
+        const emptyTr = document.createElement('tr');
+        const emptyTd = document.createElement('td');
+        emptyTd.colSpan = 4;
+        emptyTd.className = 'p-4 text-center text-slate-500';
+        emptyTd.textContent = 'Tiada rekod.';
+        emptyTr.appendChild(emptyTd);
+        tbody.appendChild(emptyTr);
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors';
+
+        const tdId = document.createElement('td');
+        tdId.className = 'p-2 border-b text-slate-400 text-[11px]';
+        tdId.textContent = '#' + (row.id ?? '');
+        tr.appendChild(tdId);
+
+        const tdEmail = document.createElement('td');
+        tdEmail.className = 'p-2 border-b font-medium text-xs';
+        tdEmail.textContent = row.email || '-';
+        tr.appendChild(tdEmail);
+
+        const tdRole = document.createElement('td');
+        tdRole.className = 'p-2 border-b';
+        const spanRole = document.createElement('span');
+        const role = String(row.role || '').toUpperCase();
+        let badgeClass = 'bg-slate-100 text-slate-600';
+        if (role === 'SUPER ADMIN') {
+            badgeClass = 'bg-purple-100 text-purple-700';
+        } else if (role === 'TPPD') {
+            badgeClass = 'bg-indigo-100 text-indigo-700';
+        } else if (role === 'PERAKAM') {
+            badgeClass = 'bg-amber-100 text-amber-700';
+        }
+        spanRole.className = `px-2 py-0.5 ${badgeClass} text-[10px] font-bold rounded`;
+        spanRole.textContent = role || '-';
+        tdRole.appendChild(spanRole);
+        tr.appendChild(tdRole);
+
+        const tdAksi = document.createElement('td');
+        tdAksi.className = 'p-2 border-b text-center';
+        if (role !== 'SUPER ADMIN') {
+            const btnGugur = document.createElement('button');
+            btnGugur.className = 'text-red-500 hover:text-red-700 font-bold text-[11px]';
+            btnGugur.textContent = 'Gugurkan';
+            btnGugur.addEventListener('click', () => {
+                if (typeof window.deleteAdmin === 'function') {
+                    window.deleteAdmin(row.id);
+                }
+            });
+            tdAksi.appendChild(btnGugur);
+        } else {
+            const spanNoAction = document.createElement('span');
+            spanNoAction.className = 'text-[10px] text-slate-300 italic';
+            spanNoAction.textContent = 'Tiada Tindakan';
+            tdAksi.appendChild(spanNoAction);
+        }
+        tr.appendChild(tdAksi);
+
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
 }
 
 function switchAdminSection(section) {
@@ -549,8 +748,8 @@ function switchAdminSection(section) {
     
     const div = document.getElementById(targetSection);
     const btn = document.getElementById(targetBtn);
-    if(div) div.classList.remove('hidden');
-    if(btn) {
+    if (div) div.classList.remove('hidden');
+    if (btn) {
         btn.classList.add('bg-indigo-100', 'text-indigo-700');
         btn.classList.remove('text-slate-600');
     }
@@ -607,9 +806,9 @@ function updateSortIcons(type) {
     
     if (activeIconContainer) {
         if (state.direction === 'asc') {
-            activeIconContainer.innerHTML = `<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>`;
+            activeIconContainer.innerHTML = '<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>';
         } else {
-            activeIconContainer.innerHTML = `<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+            activeIconContainer.innerHTML = '<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
         }
     }
 }

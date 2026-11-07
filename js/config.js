@@ -1,10 +1,60 @@
-const SUPABASE_URL = 'https://app.tech4ag.my';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxaK3ifWFHX70UlNjZyJKJNPyRQQK6Y__whs-VWO7G0gvurkVmoOgmHPVtF-nl2Nu6S/exec';
+window.SUPABASE_URL = '';
+window.SUPABASE_KEY = '';
+window.SUPABASE_ANON_KEY = '';
+window.GAS_URL = '';
+window.GAS_ENDPOINT_URL = '';
+window._supabase = null;
 
-const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+window.appConfigReady = (async function() {
+    try {
+        const response = await fetch('/api/config', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            cache: 'no-store'
+        });
 
-window.SUPABASE_URL = SUPABASE_URL;
-window.SUPABASE_KEY = SUPABASE_KEY;
-window.GAS_URL = GAS_URL;
-window._supabase = _supabase;
+        if (!response.ok) {
+            throw new Error(`Gagal memuatkan konfigurasi: ${response.status}`);
+        }
+
+        const config = await response.json();
+
+        const supabaseUrl = config.SUPABASE_URL || '';
+        const supabaseKey = config.SUPABASE_KEY || config.SUPABASE_ANON_KEY || '';
+        const gasUrl = config.GAS_URL || config.GAS_ENDPOINT_URL || '';
+
+        let supabaseClient = null;
+        if (window.supabase && typeof window.supabase.createClient === 'function' && supabaseUrl && supabaseKey) {
+            supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        }
+
+        window.SUPABASE_URL = supabaseUrl;
+        window.SUPABASE_KEY = supabaseKey;
+        window.SUPABASE_ANON_KEY = supabaseKey;
+        window.GAS_URL = gasUrl;
+        window.GAS_ENDPOINT_URL = gasUrl;
+        window._supabase = supabaseClient;
+
+        window.APP_CONFIG = Object.freeze({
+            SUPABASE_URL: supabaseUrl,
+            SUPABASE_KEY: supabaseKey,
+            SUPABASE_ANON_KEY: supabaseKey,
+            GAS_URL: gasUrl,
+            GAS_ENDPOINT_URL: gasUrl
+        });
+
+        window.dispatchEvent(new CustomEvent('appConfigLoaded', {
+            detail: {
+                supabaseUrl,
+                gasUrl
+            }
+        }));
+
+        return window.APP_CONFIG;
+    } catch (error) {
+        console.error('Ralat pemulaan konfigurasi:', error);
+        throw error;
+    }
+})();

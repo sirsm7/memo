@@ -12,13 +12,35 @@ window.openPegawaiModal = function(pegawai = null) {
     const unikSektor = [...new Set(adminPegawaiData.map(p => p.sektor))].sort();
     const unikUnit = [...new Set(adminPegawaiData.map(p => p.unit))].sort();
 
-    sSelect.innerHTML = '<option value="">-- PILIH SEKTOR --</option>';
-    unikSektor.forEach(s => sSelect.innerHTML += `<option value="${s}">${s}</option>`);
-    sSelect.innerHTML += '<option value="MANUAL">++ TAMBAH SEKTOR BAHARU ++</option>';
+    sSelect.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = ""; defOpt.textContent = "-- PILIH SEKTOR --";
+    sSelect.appendChild(defOpt);
+    
+    unikSektor.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        sSelect.appendChild(opt);
+    });
+    
+    const newOpt = document.createElement('option');
+    newOpt.value = "MANUAL"; newOpt.textContent = "++ TAMBAH SEKTOR BAHARU ++";
+    sSelect.appendChild(newOpt);
 
-    uSelect.innerHTML = '<option value="">-- PILIH UNIT --</option>';
-    unikUnit.forEach(u => uSelect.innerHTML += `<option value="${u}">${u}</option>`);
-    uSelect.innerHTML += '<option value="MANUAL">++ TAMBAH UNIT BAHARU ++</option>';
+    uSelect.textContent = '';
+    const defUOpt = document.createElement('option');
+    defUOpt.value = ""; defUOpt.textContent = "-- PILIH UNIT --";
+    uSelect.appendChild(defUOpt);
+    
+    unikUnit.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u; opt.textContent = u;
+        uSelect.appendChild(opt);
+    });
+    
+    const newUOpt = document.createElement('option');
+    newUOpt.value = "MANUAL"; newUOpt.textContent = "++ TAMBAH UNIT BAHARU ++";
+    uSelect.appendChild(newUOpt);
 
     if (pegawai) {
         document.getElementById('modalPegawaiTitle').textContent = "Kemaskini Data Pegawai";
@@ -66,18 +88,22 @@ async function handlePegawaiSubmit(e) {
     };
 
     try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+        const client = window._supabase;
+        if (!client) throw new Error("Supabase tidak tersedia.");
+
         if (id) {
-            await window._supabase.from('memo_pegawai').update(payload).eq('id', id);
+            await client.from('memo_pegawai').update(payload).eq('id', id);
             window.showMessage("Data pegawai berjaya dikemaskini.", "success");
         } else {
-            await window._supabase.from('memo_pegawai').insert([payload]);
+            await client.from('memo_pegawai').insert([payload]);
             window.showMessage("Pegawai baharu berjaya didaftarkan.", "success");
         }
         
         if (window.CacheService) await window.CacheService.clearStore('memo_pegawai');
-        
         toggleModal('modalPegawai', false);
-        
         if (typeof loadAdminPegawai === 'function') loadAdminPegawai();
         
     } catch (err) {
@@ -99,10 +125,14 @@ window.deletePegawai = function(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
-                await window._supabase.from('memo_pegawai').delete().eq('id', id);
-                
+                if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+                    await window.appConfigReady;
+                }
+                const client = window._supabase;
+                if (!client) throw new Error("Supabase tidak tersedia.");
+
+                await client.from('memo_pegawai').delete().eq('id', id);
                 if (window.CacheService) await window.CacheService.clearStore('memo_pegawai');
-                
                 if (typeof loadAdminPegawai === 'function') loadAdminPegawai();
                 
                 window.showMessage("Pegawai telah dikeluarkan dari sistem.", "success");
@@ -116,7 +146,7 @@ window.deletePegawai = function(id) {
 window.handleCarianAdminEdit = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianEdit');
-    dropdown.innerHTML = '';
+    dropdown.textContent = '';
 
     if (query.length < 2) {
         dropdown.classList.add('hidden');
@@ -130,21 +160,27 @@ window.handleCarianAdminEdit = function(e) {
     ).slice(0, 15); 
 
     if (results.length === 0) {
-        dropdown.innerHTML = '<div class="p-3 text-sm text-slate-500 italic text-center font-medium">Tiada padanan rekod dijumpai...</div>';
+        const div = document.createElement('div');
+        div.className = 'p-3 text-sm text-slate-500 italic text-center font-medium';
+        div.textContent = 'Tiada padanan rekod dijumpai...';
+        dropdown.appendChild(div);
     } else {
         results.forEach(p => {
-            const safeNama = p.nama.replace(/"/g, '&quot;');
-            const safeSektor = p.sektor.replace(/"/g, '&quot;');
-            const safeUnit = p.unit.replace(/"/g, '&quot;');
-            const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
-            
             const div = document.createElement('div');
             div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
-            div.innerHTML = `
-                <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
-                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}</div>
-            `;
-            div.onclick = () => selectPegawaiCarianEdit(safeEmel, safeNama, safeSektor, safeUnit);
+            
+            const nDiv = document.createElement('div');
+            nDiv.className = "text-sm font-bold text-slate-700 group-hover:text-indigo-700";
+            nDiv.textContent = p.nama;
+            
+            const sDiv = document.createElement('div');
+            sDiv.className = "text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium";
+            sDiv.textContent = p.sektor.replace(/^\d{2}\s/, '') + " - " + p.unit;
+            
+            div.appendChild(nDiv);
+            div.appendChild(sDiv);
+            div.addEventListener('click', () => selectPegawaiCarianEdit(p.emel_rasmi, p.nama, p.sektor, p.unit));
+            
             dropdown.appendChild(div);
         });
     }
@@ -173,8 +209,17 @@ function populateAdminEditSektor() {
     const sSelect = document.getElementById('adminEditSektor');
     if (!sSelect) return;
     const unikSektor = [...new Set(adminPegawaiData.map(p => p.sektor))].sort();
-    sSelect.innerHTML = '<option value="">-- Pilih Sektor --</option>';
-    unikSektor.forEach(s => sSelect.innerHTML += `<option value="${s}">${s}</option>`);
+    
+    sSelect.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = ""; defOpt.textContent = "-- Pilih Sektor --";
+    sSelect.appendChild(defOpt);
+    
+    unikSektor.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        sSelect.appendChild(opt);
+    });
 }
 
 function populateAdminEditUnit() {
@@ -182,17 +227,34 @@ function populateAdminEditUnit() {
     const uSelect = document.getElementById('adminEditUnit');
     const nc = document.getElementById('adminEditNamaContainer');
     
-    uSelect.innerHTML = '<option value="">-- Pilih Unit --</option>';
+    uSelect.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = ""; defOpt.textContent = "-- Pilih Unit --";
+    uSelect.appendChild(defOpt);
     
     if (sk) {
         const unitSektor = adminPegawaiData.filter(p => p.sektor === sk).map(p => p.unit);
         const unikUnit = [...new Set(unitSektor)].sort();
-        unikUnit.forEach(u => uSelect.innerHTML += `<option value="${u}">${u}</option>`);
+        
+        unikUnit.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u; opt.textContent = u;
+            uSelect.appendChild(opt);
+        });
         uSelect.disabled = false;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        
+        nc.textContent = '';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Unit Dahulu';
+        nc.appendChild(warn);
     } else {
         uSelect.disabled = true;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
+        nc.textContent = '';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Sektor & Unit Dahulu';
+        nc.appendChild(warn);
     }
 }
 
@@ -200,29 +262,59 @@ function populateAdminEditNama() {
     const sk = document.getElementById('adminEditSektor').value;
     const un = document.getElementById('adminEditUnit').value;
     const nc = document.getElementById('adminEditNamaContainer');
-    nc.innerHTML = '';
+    nc.textContent = '';
 
     if (sk && un) {
-        nc.innerHTML = `
-            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                <span class="text-xs font-bold text-slate-500 uppercase">Senarai Pegawai (${un})</span>
-                <button type="button" onclick="selectAllAdminEditInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
-            </div>
-        `;
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10';
+        
+        const title = document.createElement('span');
+        title.className = 'text-xs font-bold text-slate-500 uppercase';
+        title.textContent = `Senarai Pegawai (${un})`;
+        
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none';
+        btn.textContent = 'Pilih Semua / Batal';
+        btn.addEventListener('click', window.selectAllAdminEditInUnit);
+        
+        header.appendChild(title);
+        header.appendChild(btn);
+        nc.appendChild(header);
 
         const pegs = adminPegawaiData.filter(p => p.sektor === sk && p.unit === un).sort((a,b)=>a.nama.localeCompare(b.nama));
         
         pegs.forEach((p, i) => {
-            const isChecked = adminEditSelected.has(p.emel_rasmi) ? 'checked' : '';
-            const safeNama = p.nama.replace(/"/g, '&quot;');
-            nc.innerHTML += `
-                <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                    <input type="checkbox" id="ae_c_${i}" value="${safeNama}" data-email="${p.emel_rasmi}" onchange="toggleAdminEditPenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded ae-checkbox focus:ring-indigo-500" ${isChecked}>
-                    <label for="ae_c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
-                </div>`;
+            const isChecked = adminEditSelected.has(p.emel_rasmi);
+            
+            const div = document.createElement('div');
+            div.className = 'flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100';
+            
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.id = `ae_c_${i}`;
+            chk.value = p.nama;
+            chk.className = 'w-4 h-4 text-indigo-600 rounded ae-checkbox focus:ring-indigo-500';
+            chk.checked = isChecked;
+            chk.setAttribute('data-email', p.emel_rasmi);
+            chk.addEventListener('change', function() {
+                toggleAdminEditPenerima(this.value, this.getAttribute('data-email'), this.checked);
+            });
+            
+            const lbl = document.createElement('label');
+            lbl.htmlFor = `ae_c_${i}`;
+            lbl.className = 'ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none';
+            lbl.textContent = p.nama;
+            
+            div.appendChild(chk);
+            div.appendChild(lbl);
+            nc.appendChild(div);
         });
     } else {
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu</div>';
+        const warn = document.createElement('div');
+        warn.className = 'text-slate-400 italic text-sm mt-1';
+        warn.textContent = 'Sila Pilih Unit Atau Gunakan Carian Pantas Dahulu';
+        nc.appendChild(warn);
     }
 }
 
@@ -251,20 +343,32 @@ window.removeAdminEditTag = function(emel) {
 
 function renderAdminEditTags() {
     const container = document.getElementById('adminEditSelectedTagsContainer');
+    container.textContent = '';
+    
     if (adminEditSelected.size === 0) {
-        container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
+        const span = document.createElement('span');
+        span.className = 'text-sm text-slate-400 italic mt-1 ml-1';
+        span.textContent = 'Belum ada penerima dipilih...';
+        container.appendChild(span);
         return;
     }
-    container.innerHTML = '';
+    
     adminEditSelected.forEach((nama, emel) => {
-        container.innerHTML += `
-            <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
-                <span>${nama}</span>
-                <button type="button" data-email="${emel}" onclick="removeAdminEditTag(this.getAttribute('data-email'))" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-        `;
+        const div = document.createElement('div');
+        div.className = 'inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5';
+        
+        const span = document.createElement('span');
+        span.textContent = nama;
+        
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        btn.addEventListener('click', () => removeAdminEditTag(emel));
+        
+        div.appendChild(span);
+        div.appendChild(btn);
+        container.appendChild(div);
     });
 }
 
@@ -329,6 +433,12 @@ async function handleMemoSubmit(e) {
     btn.innerHTML = '<div class="loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4"></div> Memproses...';
 
     try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+        const client = window._supabase;
+        if (!client) throw new Error("Supabase tidak tersedia.");
+
         const names = Array.from(adminEditSelected.values());
         const emails = Array.from(adminEditSelected.keys());
         const targetSektor = document.getElementById('adminEditSektor').value;
@@ -348,7 +458,6 @@ async function handleMemoSubmit(e) {
         });
 
         const isEmailAdded = newlyAddedEmails.length > 0;
-
         const adminEmail = currentAdmin.email.toLowerCase();
         const managerProfile = adminPegawaiData.find(p => p.emel_rasmi.toLowerCase() === adminEmail);
         const actualDelegasiNama = managerProfile ? managerProfile.nama : (currentAdmin.managerUnit || currentAdmin.role || 'Pentadbir Sistem');
@@ -367,14 +476,14 @@ async function handleMemoSubmit(e) {
             emel_penerima: emails.join(', ')
         };
 
-        const { error } = await window._supabase.from('memo_rekod').update(payload).eq('id', id);
+        const { error } = await client.from('memo_rekod').update(payload).eq('id', id);
         if (error) throw error;
 
         if (window.CacheService) await window.CacheService.clearStore('memo_rekod');
 
         let messageText = "Maklumat surat dikemaskini. (Tiada notifikasi e-mel tambahan dihantar)";
         
-        if (isEmailAdded) {
+        if (isEmailAdded && window.GAS_URL) {
             try {
                 await fetch(window.GAS_URL, {
                     method: 'POST',
@@ -400,13 +509,10 @@ async function handleMemoSubmit(e) {
         }
 
         toggleModal('modalMemo', false);
-        
-        if (currentAdmin && currentAdmin.isSystemAdmin) {
-            if (typeof loadAdminMemo === 'function') loadAdminMemo();
+        if (currentAdmin && currentAdmin.isSystemAdmin && typeof loadAdminMemo === 'function') {
+            loadAdminMemo();
         }
-        if (typeof loadDashboardData === 'function') {
-            loadDashboardData(); 
-        }
+        if (typeof loadDashboardData === 'function') loadDashboardData(); 
         
         window.showMessage("Selesai. " + messageText, "success");
 
@@ -414,7 +520,7 @@ async function handleMemoSubmit(e) {
         window.showMessage("Ralat Transaksi: Gagal mengemaskini maklumat surat. " + err.message, "error");
     } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Simpan & Kemaskini';
+        btn.textContent = 'Simpan & Kemaskini';
     }
 }
 
@@ -429,14 +535,19 @@ async function handleTambahAdminSubmit(e) {
     btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Menyimpan...';
 
     try {
-        await window._supabase.from('memo_admin').insert([{
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+        const client = window._supabase;
+        if (!client) throw new Error("Supabase tidak tersedia.");
+
+        await client.from('memo_admin').insert([{
             email: email,
             password: pass,
             role: role
         }]);
         
         if (window.CacheService) await window.CacheService.clearStore('memo_admin');
-        
         if (typeof loadAdminSistem === 'function') loadAdminSistem();
         
         toggleModal('modalTambahAdmin', false);
@@ -446,7 +557,7 @@ async function handleTambahAdminSubmit(e) {
         window.showMessage("Gagal menambah akses sistem: " + err.message, "error");
     } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Daftar Pengguna';
+        btn.textContent = 'Daftar Pengguna';
     }
 }
 
@@ -464,10 +575,14 @@ window.deleteAdmin = function(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
-                await window._supabase.from('memo_admin').delete().eq('id', id);
-                
+                if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+                    await window.appConfigReady;
+                }
+                const client = window._supabase;
+                if (!client) throw new Error("Supabase tidak tersedia.");
+
+                await client.from('memo_admin').delete().eq('id', id);
                 if (window.CacheService) await window.CacheService.clearStore('memo_admin');
-                
                 if (typeof loadAdminSistem === 'function') loadAdminSistem();
                 
                 window.showMessage("Akses profil telah berjaya dibatalkan.", "success");

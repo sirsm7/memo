@@ -35,13 +35,18 @@ function loadPublicPegawaiData() {
     });
 }
 
-function setupSupabaseRealtime() {
-    if (!window._supabase) {
+async function setupSupabaseRealtime() {
+    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+        await window.appConfigReady;
+    }
+
+    const client = window._supabase;
+    if (!client || typeof client.channel !== 'function') {
         console.warn("[Realtime] Objek _supabase tidak ditemui. Langganan realtime dilepaskan.");
         return;
     }
 
-    window._supabase
+    client
         .channel('memo-realtime-channel')
         .on(
             'postgres_changes',
@@ -244,10 +249,16 @@ window.populateSektor = function() {
     
     const currentVal = s.value;
     
-    s.innerHTML = '<option value="">-- PILIH SEKTOR --</option>';
+    s.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = '-- PILIH SEKTOR --';
+    s.appendChild(defOpt);
+
     Object.keys(groupedData).sort().forEach(sk => {
         const opt = document.createElement('option');
-        opt.value = sk; opt.textContent = sk;
+        opt.value = sk;
+        opt.textContent = sk;
         s.appendChild(opt);
     });
     
@@ -262,12 +273,17 @@ window.populateUnit = function() {
     const nc = document.getElementById('namaContainer');
     
     const currentVal = u.value;
-    u.innerHTML = '<option value="">-- PILIH UNIT --</option>';
+    u.textContent = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = '-- PILIH UNIT --';
+    u.appendChild(defOpt);
     
     if (sk && groupedData[sk]) {
         Object.keys(groupedData[sk]).sort().forEach(un => {
             const opt = document.createElement('option');
-            opt.value = un; opt.textContent = un;
+            opt.value = un;
+            opt.textContent = un;
             u.appendChild(opt);
         });
         u.disabled = false;
@@ -275,11 +291,19 @@ window.populateUnit = function() {
         if (currentVal && groupedData[sk][currentVal]) {
             u.value = currentVal;
         } else {
-            nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+            nc.textContent = '';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'text-slate-400 italic text-sm mt-1';
+            msgDiv.textContent = 'Sila Pilih Unit Dahulu';
+            nc.appendChild(msgDiv);
         }
     } else {
         u.disabled = true;
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Sektor & Unit Dahulu</div>';
+        nc.textContent = '';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'text-slate-400 italic text-sm mt-1';
+        msgDiv.textContent = 'Sila Pilih Sektor & Unit Dahulu';
+        nc.appendChild(msgDiv);
     }
 };
 
@@ -287,34 +311,68 @@ window.populateNama = function() {
     const sk = document.getElementById('sektor').value;
     const un = document.getElementById('unit').value;
     const nc = document.getElementById('namaContainer');
-    nc.innerHTML = '';
+    nc.textContent = '';
     
-    if (sk && un && groupedData[sk][un]) {
-        nc.innerHTML = `
-            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                <span class="text-xs font-bold text-slate-500 uppercase">Senarai Pegawai (${un})</span>
-                <button type="button" onclick="selectAllInUnit()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none">Pilih Semua / Batal</button>
-            </div>
-        `;
+    if (sk && un && groupedData[sk] && groupedData[sk][un]) {
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10';
+
+        const spanTitle = document.createElement('span');
+        spanTitle.className = 'text-xs font-bold text-slate-500 uppercase';
+        spanTitle.textContent = `Senarai Pegawai (${un})`;
+
+        const btnSelectAll = document.createElement('button');
+        btnSelectAll.type = 'button';
+        btnSelectAll.className = 'text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none';
+        btnSelectAll.textContent = 'Pilih Semua / Batal';
+        btnSelectAll.addEventListener('click', selectAllInUnit);
+
+        headerDiv.appendChild(spanTitle);
+        headerDiv.appendChild(btnSelectAll);
+        nc.appendChild(headerDiv);
+
+        const fragment = document.createDocumentFragment();
 
         groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
-            const isChecked = globalSelected.has(p.emel) ? 'checked' : '';
-            const safeNama = p.nama.replace(/"/g, '&quot;');
-            nc.innerHTML += `
-                <div class="flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100">
-                    <input type="checkbox" id="c_${i}" value="${safeNama}" data-email="${p.emel}" onchange="togglePenerima(this.value, this.getAttribute('data-email'), this.checked)" class="w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500" ${isChecked}>
-                    <label for="c_${i}" class="ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none">${p.nama}</label>
-                </div>`;
+            const isChecked = globalSelected.has(p.emel);
+
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100';
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.id = `c_${i}`;
+            chk.value = p.nama;
+            chk.setAttribute('data-email', p.emel);
+            chk.checked = isChecked;
+            chk.className = 'w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500 cursor-pointer';
+            chk.addEventListener('change', function() {
+                togglePenerima(this.value, this.getAttribute('data-email'), this.checked);
+            });
+
+            const lbl = document.createElement('label');
+            lbl.htmlFor = `c_${i}`;
+            lbl.className = 'ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none';
+            lbl.textContent = p.nama;
+
+            rowDiv.appendChild(chk);
+            rowDiv.appendChild(lbl);
+            fragment.appendChild(rowDiv);
         });
+
+        nc.appendChild(fragment);
     } else {
-        nc.innerHTML = '<div class="text-slate-400 italic text-sm mt-1">Sila Pilih Unit Dahulu</div>';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'text-slate-400 italic text-sm mt-1';
+        msgDiv.textContent = 'Sila Pilih Unit Dahulu';
+        nc.appendChild(msgDiv);
     }
 };
 
 window.handleCarianDaftar = function(e) {
     const query = e.target.value.toLowerCase();
     const dropdown = document.getElementById('dropdownCarianUtama');
-    dropdown.innerHTML = '';
+    dropdown.textContent = '';
 
     if (query.length < 2) {
         dropdown.classList.add('hidden');
@@ -328,21 +386,30 @@ window.handleCarianDaftar = function(e) {
     ).slice(0, 15); 
 
     if (results.length === 0) {
-        dropdown.innerHTML = '<div class="p-3 text-sm text-slate-500 italic text-center font-medium">Tiada padanan rekod dijumpai...</div>';
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'p-3 text-sm text-slate-500 italic text-center font-medium';
+        emptyDiv.textContent = 'Tiada padanan rekod dijumpai...';
+        dropdown.appendChild(emptyDiv);
     } else {
         results.forEach(p => {
-            const safeNama = p.nama.replace(/"/g, '&quot;');
-            const safeSektor = p.sektor.replace(/"/g, '&quot;');
-            const safeUnit = p.unit.replace(/"/g, '&quot;');
-            const safeEmel = p.emel_rasmi.replace(/"/g, '&quot;');
-            
             const div = document.createElement('div');
             div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
-            div.innerHTML = `
-                <div class="text-sm font-bold text-slate-700 group-hover:text-indigo-700">${p.nama}</div>
-                <div class="text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium">${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}</div>
-            `;
-            div.onclick = () => selectPegawaiCarian(safeEmel, safeNama, safeSektor, safeUnit);
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = "text-sm font-bold text-slate-700 group-hover:text-indigo-700";
+            nameDiv.textContent = p.nama;
+
+            const unitDiv = document.createElement('div');
+            unitDiv.className = "text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium";
+            unitDiv.textContent = `${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}`;
+
+            div.appendChild(nameDiv);
+            div.appendChild(unitDiv);
+
+            div.addEventListener('click', () => {
+                selectPegawaiCarian(p.emel_rasmi, p.nama, p.sektor, p.unit);
+            });
+
             dropdown.appendChild(div);
         });
     }
@@ -399,25 +466,40 @@ function renderTags() {
     const container = document.getElementById('selectedTagsContainer');
     const emailInput = document.getElementById('email');
     
+    container.textContent = '';
+
     if (globalSelected.size === 0) {
-        container.innerHTML = '<span class="text-sm text-slate-400 italic mt-1 ml-1">Belum ada penerima dipilih...</span>';
+        const emptySpan = document.createElement('span');
+        emptySpan.className = 'text-sm text-slate-400 italic mt-1 ml-1';
+        emptySpan.textContent = 'Belum ada penerima dipilih...';
+        container.appendChild(emptySpan);
         emailInput.value = '';
         return;
     }
 
-    container.innerHTML = '';
     const emails = [];
     
     globalSelected.forEach((nama, emel) => {
         emails.push(emel);
-        container.innerHTML += `
-            <div class="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5">
-                <span>${nama}</span>
-                <button type="button" data-email="${emel}" onclick="removeTag(this.getAttribute('data-email'))" class="ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-        `;
+
+        const tagDiv = document.createElement('div');
+        tagDiv.className = 'inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5';
+
+        const spanNama = document.createElement('span');
+        spanNama.textContent = nama;
+
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.setAttribute('data-email', emel);
+        btnRemove.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
+        btnRemove.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        btnRemove.addEventListener('click', function() {
+            removeTag(this.getAttribute('data-email'));
+        });
+
+        tagDiv.appendChild(spanNama);
+        tagDiv.appendChild(btnRemove);
+        container.appendChild(tagDiv);
     });
     
     emailInput.value = emails.join(', ');
@@ -474,9 +556,16 @@ async function handleEarlyUpload(input) {
     input.disabled = true;
 
     try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+
+        const gasUrl = window.GAS_URL;
+        if (!gasUrl) throw new Error("Endpoint Google Apps Script belum sedia.");
+
         const base64Full = await toBase64(file);
         
-        const res = await fetch(GAS_URL, {
+        const res = await fetch(gasUrl, {
             method: 'POST',
             redirect: "follow",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -488,7 +577,7 @@ async function handleEarlyUpload(input) {
             })
         });
         
-        const data = await res.json();
+        const data = JSON.parse(await res.text());
         if (data.status !== 'success') throw new Error(data.message);
 
         uploadedFileUrl = data.fileUrl;
@@ -541,6 +630,14 @@ async function handleFormSubmit(e) {
     setLoading(true, "Mengesahkan Hierarki Sistem...");
 
     try {
+        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+            await window.appConfigReady;
+        }
+
+        const client = window._supabase;
+        const gasUrl = window.GAS_URL;
+        if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
+
         const names = Array.from(globalSelected.values());
         const emels = Array.from(globalSelected.keys());
         const currentUnit = document.getElementById('unit').value;
@@ -549,14 +646,14 @@ async function handleFormSubmit(e) {
         try {
             adminList = await window.CacheService.getAll('memo_admin', 'id', true);
             if (!adminList || adminList.length === 0) {
-                 const { data, error } = await _supabase.from('memo_admin').select('email, role');
+                 const { data, error } = await client.from('memo_admin').select('email, role');
                  if (error) throw error;
                  adminList = data;
                  await window.CacheService.setAll('memo_admin', data);
             }
         } catch (adminErr) {
              console.error("Gagal mendapatkan senarai admin dari cache:", adminErr);
-             const { data, error } = await _supabase.from('memo_admin').select('email, role');
+             const { data, error } = await client.from('memo_admin').select('email, role');
              if (error) throw error;
              adminList = data;
         }
@@ -601,7 +698,7 @@ async function handleFormSubmit(e) {
 
         setLoading(true, "Menyimpan Data...");
 
-        const { data: rec, error: subError } = await _supabase.from('memo_rekod').insert([{
+        const { data: rec, error: subError } = await client.from('memo_rekod').insert([{
             sektor: document.getElementById('sektor').value,
             unit: currentUnit,
             nama_penerima: names.join(', '),
@@ -626,7 +723,7 @@ async function handleFormSubmit(e) {
 
         const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
 
-        const res = await fetch(GAS_URL, {
+        const res = await fetch(gasUrl, {
             method: 'POST',
             redirect: "follow",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -643,7 +740,7 @@ async function handleFormSubmit(e) {
                 fileUrl: uploadedFileUrl
             })
         });
-        const notify = await res.json();
+        const notify = JSON.parse(await res.text());
 
         if (notify.status === 'error') {
             throw new Error("Pangkalan data dikemaskini, TETAPI pelayan emel Google memulangkan ralat: " + (notify.message || "Gagal menghantar notifikasi."));
@@ -654,7 +751,7 @@ async function handleFormSubmit(e) {
 
         if (notify.status === 'success' && notify.calendarEventId) {
             const finalEventId = isManagerDeferred ? 'PENDING_' + notify.calendarEventId : notify.calendarEventId;
-            await _supabase.from('memo_rekod').update({ calendar_event_id: finalEventId }).eq('id', rec[0].id);
+            await client.from('memo_rekod').update({ calendar_event_id: finalEventId }).eq('id', rec[0].id);
         }
 
         if (isManagerDeferred) {
@@ -680,7 +777,18 @@ function setLoading(status, txt) {
     const bt = document.getElementById('btnText');
     if (!btn || !bt) return;
     btn.disabled = status;
-    bt.innerHTML = status ? `<div class="loader mr-2 border-white border-top-indigo-500"></div> <span>${txt}</span>` : "Simpan & Hantar Rekod";
+    bt.textContent = '';
+
+    if (status) {
+        const loader = document.createElement('div');
+        loader.className = 'loader mr-2 border-white border-top-indigo-500';
+        const span = document.createElement('span');
+        span.textContent = txt;
+        bt.appendChild(loader);
+        bt.appendChild(span);
+    } else {
+        bt.textContent = 'Simpan & Hantar Rekod';
+    }
 }
 
 window.showMessage = function(m, t) {
