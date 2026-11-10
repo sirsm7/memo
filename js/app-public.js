@@ -1,831 +1,833 @@
 var groupedData = {};
 var globalPegawaiFlat = [];
-var uploadedFileUrl = "";
-var allRecords = []; 
-var currentFilteredRecords = []; 
+var allRecords = [];
+var currentFilteredRecords = [];
 var globalSelected = new Map();
 
 document.addEventListener('DOMContentLoaded', () => {
-    const yearElem = document.getElementById('currentYear');
-    if (yearElem) yearElem.textContent = new Date().getFullYear();
+  const yearElem = document.getElementById('currentYear');
+  if (yearElem) yearElem.textContent = new Date().getFullYear();
 
-    loadPublicPegawaiData();
-    setupEventListeners();
-    setupSupabaseRealtime();
-    switchTab('utama');
+  loadPublicPegawaiData();
+  setupEventListeners();
+  setupSupabaseRealtime();
+  switchTab('utama');
 });
 
 function loadPublicPegawaiData() {
-    if (!window.CacheService) {
-        console.error("CacheService tidak dijumpai. Sila pastikan cache-service.js dimuatkan.");
-        return;
-    }
+  if (!window.CacheService) {
+    return;
+  }
 
-    window.CacheService.fetchSWR('memo_pegawai', 'sektor', true, (data, isCached) => {
-        if (!data || data.length === 0) return;
-        
-        processPegawai(data);
-        populateSektor();
-        
-        if (isCached) {
-            console.log("[SWR] Data pegawai dimuatkan dari IndexedDB (" + data.length + " rekod).");
-        } else {
-            console.log("[SWR] Data pegawai dikemaskini dari Supabase (" + data.length + " rekod).");
-        }
-    });
+  window.CacheService.fetchSWR('memo_pegawai', 'sektor', true, (data) => {
+    if (!data || data.length === 0) return;
+
+    processPegawai(data);
+    populateSektor();
+  });
 }
 
 async function setupSupabaseRealtime() {
-    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-        await window.appConfigReady;
-    }
+  if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+    await window.appConfigReady;
+  }
 
-    const client = window._supabase;
-    if (!client || typeof client.channel !== 'function') {
-        console.warn("[Realtime] Objek _supabase tidak ditemui. Langganan realtime dilepaskan.");
-        return;
-    }
+  const client = window._supabase;
+  if (!client || typeof client.channel !== 'function') {
+    return;
+  }
 
-    client
-        .channel('memo-realtime-channel')
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'memo_rekod' },
-            async (payload) => {
-                console.log('[Realtime] Perubahan memo_rekod dikesan:', payload.eventType, payload);
+  client
+    .channel('memo-realtime-channel')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'memo_rekod' },
+      async (payload) => {
+        if (window.CacheService) {
+          await window.CacheService.handleRealtimePayload('memo_rekod', payload);
+        }
 
-                if (window.CacheService) {
-                    await window.CacheService.handleRealtimePayload('memo_rekod', payload);
-                }
+        if (typeof window.handleAnalyticsRealtimeUpdate === 'function') {
+          window.handleAnalyticsRealtimeUpdate(payload);
+        }
 
-                if (typeof window.handleAnalyticsRealtimeUpdate === 'function') {
-                    window.handleAnalyticsRealtimeUpdate(payload);
-                }
+        if (typeof window.handleAdminRealtimeUpdate === 'function') {
+          window.handleAdminRealtimeUpdate('memo_rekod', payload);
+        }
 
-                if (typeof window.handleAdminRealtimeUpdate === 'function') {
-                    window.handleAdminRealtimeUpdate('memo_rekod', payload);
-                }
+        if (typeof loadManagerMemo === 'function' && typeof currentAdmin !== 'undefined' && currentAdmin && (currentAdmin.isManager || currentAdmin.isSystemAdmin)) {
+          loadManagerMemo();
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'memo_pegawai' },
+      async (payload) => {
+        if (window.CacheService) {
+          await window.CacheService.handleRealtimePayload('memo_pegawai', payload);
+        }
 
-                if (typeof loadManagerMemo === 'function' && typeof currentAdmin !== 'undefined' && currentAdmin && (currentAdmin.isManager || currentAdmin.isSystemAdmin)) {
-                    loadManagerMemo();
-                }
-            }
-        )
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'memo_pegawai' },
-            async (payload) => {
-                console.log('[Realtime] Perubahan memo_pegawai dikesan:', payload.eventType, payload);
+        if (payload.eventType === 'INSERT' && payload.new) {
+          if (!globalPegawaiFlat.some(p => p.id === payload.new.id)) {
+            globalPegawaiFlat.push(payload.new);
+          }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          const idx = globalPegawaiFlat.findIndex(p => p.id === payload.new.id);
+          if (idx !== -1) globalPegawaiFlat[idx] = payload.new;
+          else globalPegawaiFlat.push(payload.new);
+        } else if (payload.eventType === 'DELETE') {
+          const targetId = payload.old ? payload.old.id : payload.id;
+          if (targetId) globalPegawaiFlat = globalPegawaiFlat.filter(p => p.id !== targetId);
+        }
 
-                if (window.CacheService) {
-                    await window.CacheService.handleRealtimePayload('memo_pegawai', payload);
-                }
+        processPegawai(globalPegawaiFlat);
+        populateSektor();
 
-                if (payload.eventType === 'INSERT' && payload.new) {
-                    if (!globalPegawaiFlat.some(p => p.id === payload.new.id)) {
-                        globalPegawaiFlat.push(payload.new);
-                    }
-                } else if (payload.eventType === 'UPDATE' && payload.new) {
-                    const idx = globalPegawaiFlat.findIndex(p => p.id === payload.new.id);
-                    if (idx !== -1) globalPegawaiFlat[idx] = payload.new;
-                    else globalPegawaiFlat.push(payload.new);
-                } else if (payload.eventType === 'DELETE') {
-                    const targetId = payload.old ? payload.old.id : payload.id;
-                    if (targetId) globalPegawaiFlat = globalPegawaiFlat.filter(p => p.id !== targetId);
-                }
+        if (typeof window.handleAdminRealtimeUpdate === 'function') {
+          window.handleAdminRealtimeUpdate('memo_pegawai', payload);
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'memo_admin' },
+      async (payload) => {
+        if (window.CacheService) {
+          await window.CacheService.handleRealtimePayload('memo_admin', payload);
+        }
 
-                processPegawai(globalPegawaiFlat);
-                populateSektor();
-
-                if (typeof window.handleAdminRealtimeUpdate === 'function') {
-                    window.handleAdminRealtimeUpdate('memo_pegawai', payload);
-                }
-            }
-        )
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'memo_admin' },
-            async (payload) => {
-                console.log('[Realtime] Perubahan memo_admin dikesan:', payload.eventType, payload);
-
-                if (window.CacheService) {
-                    await window.CacheService.handleRealtimePayload('memo_admin', payload);
-                }
-
-                if (typeof window.handleAdminRealtimeUpdate === 'function') {
-                    window.handleAdminRealtimeUpdate('memo_admin', payload);
-                }
-            }
-        )
-        .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log('[Realtime] Saluran WebSocket aktif untuk pangkalan data Memo@AG.');
-            }
-        });
+        if (typeof window.handleAdminRealtimeUpdate === 'function') {
+          window.handleAdminRealtimeUpdate('memo_admin', payload);
+        }
+      }
+    )
+    .subscribe();
 }
 
 function setupEventListeners() {
-    document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
-    document.getElementById('tabBtnTppdPanel')?.addEventListener('click', () => switchTab('tppd'));
+  document.getElementById('tabBtnAdminPanel')?.addEventListener('click', () => switchTab('admin'));
+  document.getElementById('tabBtnTppdPanel')?.addEventListener('click', () => switchTab('tppd'));
 
-    document.getElementById('sektor')?.addEventListener('change', populateUnit);
-    document.getElementById('unit')?.addEventListener('change', populateNama);
-    
-    document.getElementById('carianPegawaiUtama')?.addEventListener('input', window.handleCarianDaftar);
-    
-    document.getElementById('salinanSurat')?.addEventListener('change', function() { handleEarlyUpload(this); });
-    document.getElementById('resetFileBtn')?.addEventListener('click', resetFileUpload);
-    
-    document.getElementById('mainForm')?.addEventListener('submit', handleFormSubmit);
-    
-    document.getElementById('searchInput')?.addEventListener('keyup', filterTable);
-    document.getElementById('filterStatus')?.addEventListener('change', filterTable);
-    document.getElementById('filterSektor')?.addEventListener('change', filterTable);
-    document.getElementById('filterUnit')?.addEventListener('change', filterTable);
-    document.getElementById('filterBulan')?.addEventListener('change', filterTable);
-    document.getElementById('filterTarikh')?.addEventListener('change', filterTable);
-    document.getElementById('btnResetFilter')?.addEventListener('click', resetAnalisisFilters);
+  document.getElementById('sektor')?.addEventListener('change', populateUnit);
+  document.getElementById('unit')?.addEventListener('change', populateNama);
 
-    document.addEventListener('click', (e) => {
-        const inputUtama = document.getElementById('carianPegawaiUtama');
-        const dropUtama = document.getElementById('dropdownCarianUtama');
-        if (dropUtama && inputUtama && !dropUtama.contains(e.target) && e.target !== inputUtama) {
-            dropUtama.classList.add('hidden');
-        }
-    });
+  document.getElementById('carianPegawaiUtama')?.addEventListener('input', window.handleCarianDaftar);
+
+  document.getElementById('salinanSurat')?.addEventListener('change', function() { handleEarlyUpload(this); });
+  document.getElementById('resetFileBtn')?.addEventListener('click', resetFileUpload);
+
+  document.getElementById('mainForm')?.addEventListener('submit', handleFormSubmit);
+
+  document.getElementById('searchInput')?.addEventListener('keyup', filterTable);
+  document.getElementById('filterStatus')?.addEventListener('change', filterTable);
+  document.getElementById('filterSektor')?.addEventListener('change', filterTable);
+  document.getElementById('filterUnit')?.addEventListener('change', filterTable);
+  document.getElementById('filterBulan')?.addEventListener('change', filterTable);
+  document.getElementById('filterTarikh')?.addEventListener('change', filterTable);
+  document.getElementById('btnResetFilter')?.addEventListener('click', resetAnalisisFilters);
+
+  document.addEventListener('click', (e) => {
+    const inputUtama = document.getElementById('carianPegawaiUtama');
+    const dropUtama = document.getElementById('dropdownCarianUtama');
+    if (dropUtama && inputUtama && !dropUtama.contains(e.target) && e.target !== inputUtama) {
+      dropUtama.classList.add('hidden');
+    }
+  });
 }
 
 window.isManagerRole = function(unitName) {
-    if (!unitName) return false;
-    const u = unitName.toUpperCase();
-    return u === 'TPPD' || u === 'KETUA SEKTOR' || u.startsWith('KETUA UNIT');
+  if (!unitName) return false;
+  const u = unitName.toUpperCase();
+  return u === 'TPPD' || u === 'KETUA SEKTOR' || u.startsWith('KETUA UNIT');
 };
 
 window.switchTab = function(tabName) {
-    if (['daftar', 'admin', 'tppd'].includes(tabName)) {
-        const sessionStr = sessionStorage.getItem('memo_admin_session');
-        const adminData = sessionStr ? JSON.parse(sessionStr) : null;
-        
-        if (tabName === 'daftar') {
-            if (!adminData || (!adminData.isPerakam && !adminData.isSystemAdmin)) {
-                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada profil PERAKAM dan PENTADBIR sahaja.", "error");
-                return;
-            }
-        }
-        
-        if (tabName === 'admin') {
-            if (!adminData || !adminData.isSystemAdmin) {
-                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada profil PENTADBIR (System Admin) sahaja.", "error");
-                return;
-            }
-        }
-        
-        if (tabName === 'tppd') {
-            if (!adminData || (!adminData.isManager && !adminData.isSystemAdmin)) {
-                if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada hierarki PENGURUSAN atau PENTADBIR SISTEM sahaja.", "error");
-                return;
-            }
-        }
+  if (['daftar', 'admin', 'tppd'].includes(tabName)) {
+    const sessionStr = sessionStorage.getItem('memo_admin_session');
+    const adminData = sessionStr ? JSON.parse(sessionStr) : null;
+
+    if (tabName === 'daftar') {
+      if (!adminData || (!adminData.isPerakam && !adminData.isSystemAdmin)) {
+        if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada profil PERAKAM dan PENTADBIR sahaja.", "error");
+        return;
+      }
     }
 
-    const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about', 'tppd'];
-    
-    tabs.forEach(t => {
-        const divId = t === 'admin' ? 'tabAdmin' : (t === 'tppd' ? 'tabTppd' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1));
-        const tabDiv = document.getElementById(divId);
-        
-        if (!tabDiv) return;
-
-        if (t === tabName) {
-            tabDiv.classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-            tabDiv.classList.add('hidden');
-        }
-    });
-
-    const tabBtnAdmin = document.getElementById('tabBtnAdminPanel');
-    if (tabBtnAdmin) {
-        if (tabName === 'admin') {
-            tabBtnAdmin.classList.add('border-red-600', 'text-red-700');
-            tabBtnAdmin.classList.remove('border-transparent', 'text-red-500');
-        } else {
-            tabBtnAdmin.classList.remove('border-red-600', 'text-red-700');
-            tabBtnAdmin.classList.add('border-transparent', 'text-red-500');
-        }
+    if (tabName === 'admin') {
+      if (!adminData || !adminData.isSystemAdmin) {
+        if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada profil PENTADBIR (System Admin) sahaja.", "error");
+        return;
+      }
     }
 
-    const tabBtnTppd = document.getElementById('tabBtnTppdPanel');
-    if (tabBtnTppd) {
-        if (tabName === 'tppd') {
-            tabBtnTppd.classList.add('border-indigo-600', 'text-indigo-800');
-            tabBtnTppd.classList.remove('border-transparent', 'text-indigo-600');
-        } else {
-            tabBtnTppd.classList.remove('border-indigo-600', 'text-indigo-800');
-            tabBtnTppd.classList.add('border-transparent', 'text-indigo-600');
-        }
+    if (tabName === 'tppd') {
+      if (!adminData || (!adminData.isManager && !adminData.isSystemAdmin)) {
+        if (window.showMessage) window.showMessage("Akses Ditolak: Modul ini terhad kepada hierarki PENGURUSAN atau PENTADBIR SISTEM sahaja.", "error");
+        return;
+      }
     }
+  }
 
-    if (tabName === 'analisis') {
-        if (typeof loadDashboardData === 'function') {
-            loadDashboardData();
-        }
+  const tabs = ['utama', 'daftar', 'analisis', 'kalendar', 'admin', 'about', 'tppd'];
+
+  tabs.forEach(t => {
+    const divId = t === 'admin' ? 'tabAdmin' : (t === 'tppd' ? 'tabTppd' : 'tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    const tabDiv = document.getElementById(divId);
+
+    if (!tabDiv) return;
+
+    if (t === tabName) {
+      tabDiv.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      tabDiv.classList.add('hidden');
     }
+  });
+
+  const tabBtnAdmin = document.getElementById('tabBtnAdminPanel');
+  if (tabBtnAdmin) {
+    if (tabName === 'admin') {
+      tabBtnAdmin.classList.add('border-red-600', 'text-red-700');
+      tabBtnAdmin.classList.remove('border-transparent', 'text-red-500');
+    } else {
+      tabBtnAdmin.classList.remove('border-red-600', 'text-red-700');
+      tabBtnAdmin.classList.add('border-transparent', 'text-red-500');
+    }
+  }
+
+  const tabBtnTppd = document.getElementById('tabBtnTppdPanel');
+  if (tabBtnTppd) {
+    if (tabName === 'tppd') {
+      tabBtnTppd.classList.add('border-indigo-600', 'text-indigo-800');
+      tabBtnTppd.classList.remove('border-transparent', 'text-indigo-600');
+    } else {
+      tabBtnTppd.classList.remove('border-indigo-600', 'text-indigo-800');
+      tabBtnTppd.classList.add('border-transparent', 'text-indigo-600');
+    }
+  }
+
+  if (tabName === 'analisis') {
+    if (typeof loadDashboardData === 'function') {
+      loadDashboardData();
+    }
+  }
 };
 
 function processPegawai(data) {
-    groupedData = {};
-    globalPegawaiFlat = data;
-    data.forEach(p => {
-        if (!groupedData[p.sektor]) groupedData[p.sektor] = {};
-        if (!groupedData[p.sektor][p.unit]) groupedData[p.sektor][p.unit] = [];
-        groupedData[p.sektor][p.unit].push({ nama: p.nama, emel: p.emel_rasmi });
-    });
+  groupedData = {};
+  globalPegawaiFlat = data;
+  data.forEach(p => {
+    if (!groupedData[p.sektor]) groupedData[p.sektor] = {};
+    if (!groupedData[p.sektor][p.unit]) groupedData[p.sektor][p.unit] = [];
+    groupedData[p.sektor][p.unit].push({ nama: p.nama, emel: p.emel_rasmi });
+  });
 }
 
 window.populateSektor = function() {
-    const s = document.getElementById('sektor');
-    if (!s) return;
-    
-    const currentVal = s.value;
-    
-    s.textContent = '';
-    const defOpt = document.createElement('option');
-    defOpt.value = '';
-    defOpt.textContent = '-- PILIH SEKTOR --';
-    s.appendChild(defOpt);
+  const s = document.getElementById('sektor');
+  if (!s) return;
 
-    Object.keys(groupedData).sort().forEach(sk => {
-        const opt = document.createElement('option');
-        opt.value = sk;
-        opt.textContent = sk;
-        s.appendChild(opt);
-    });
-    
-    if (currentVal && groupedData[currentVal]) {
-        s.value = currentVal;
-    }
+  const currentVal = s.value;
+
+  s.textContent = '';
+  const defOpt = document.createElement('option');
+  defOpt.value = '';
+  defOpt.textContent = '-- PILIH SEKTOR --';
+  s.appendChild(defOpt);
+
+  Object.keys(groupedData).sort().forEach(sk => {
+    const opt = document.createElement('option');
+    opt.value = sk;
+    opt.textContent = sk;
+    s.appendChild(opt);
+  });
+
+  if (currentVal && groupedData[currentVal]) {
+    s.value = currentVal;
+  }
 };
 
 window.populateUnit = function() {
-    const sk = document.getElementById('sektor').value;
-    const u = document.getElementById('unit');
-    const nc = document.getElementById('namaContainer');
-    
-    const currentVal = u.value;
-    u.textContent = '';
-    const defOpt = document.createElement('option');
-    defOpt.value = '';
-    defOpt.textContent = '-- PILIH UNIT --';
-    u.appendChild(defOpt);
-    
-    if (sk && groupedData[sk]) {
-        Object.keys(groupedData[sk]).sort().forEach(un => {
-            const opt = document.createElement('option');
-            opt.value = un;
-            opt.textContent = un;
-            u.appendChild(opt);
-        });
-        u.disabled = false;
-        
-        if (currentVal && groupedData[sk][currentVal]) {
-            u.value = currentVal;
-        } else {
-            nc.textContent = '';
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'text-slate-400 italic text-sm mt-1';
-            msgDiv.textContent = 'Sila Pilih Unit Dahulu';
-            nc.appendChild(msgDiv);
-        }
+  const sk = document.getElementById('sektor').value;
+  const u = document.getElementById('unit');
+  const nc = document.getElementById('namaContainer');
+
+  const currentVal = u.value;
+  u.textContent = '';
+  const defOpt = document.createElement('option');
+  defOpt.value = '';
+  defOpt.textContent = '-- PILIH UNIT --';
+  u.appendChild(defOpt);
+
+  if (sk && groupedData[sk]) {
+    Object.keys(groupedData[sk]).sort().forEach(un => {
+      const opt = document.createElement('option');
+      opt.value = un;
+      opt.textContent = un;
+      u.appendChild(opt);
+    });
+    u.disabled = false;
+
+    if (currentVal && groupedData[sk][currentVal]) {
+      u.value = currentVal;
     } else {
-        u.disabled = true;
-        nc.textContent = '';
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'text-slate-400 italic text-sm mt-1';
-        msgDiv.textContent = 'Sila Pilih Sektor & Unit Dahulu';
-        nc.appendChild(msgDiv);
+      nc.textContent = '';
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'text-slate-400 italic text-sm mt-1';
+      msgDiv.textContent = 'Sila Pilih Unit Dahulu';
+      nc.appendChild(msgDiv);
     }
+  } else {
+    u.disabled = true;
+    nc.textContent = '';
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'text-slate-400 italic text-sm mt-1';
+    msgDiv.textContent = 'Sila Pilih Sektor & Unit Dahulu';
+    nc.appendChild(msgDiv);
+  }
 };
 
 window.populateNama = function() {
-    const sk = document.getElementById('sektor').value;
-    const un = document.getElementById('unit').value;
-    const nc = document.getElementById('namaContainer');
-    nc.textContent = '';
-    
-    if (sk && un && groupedData[sk] && groupedData[sk][un]) {
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10';
+  const sk = document.getElementById('sektor').value;
+  const un = document.getElementById('unit').value;
+  const nc = document.getElementById('namaContainer');
+  nc.textContent = '';
 
-        const spanTitle = document.createElement('span');
-        spanTitle.className = 'text-xs font-bold text-slate-500 uppercase';
-        spanTitle.textContent = `Senarai Pegawai (${un})`;
+  if (sk && un && groupedData[sk] && groupedData[sk][un]) {
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex items-center justify-between pb-2 mb-2 border-b border-slate-200 sticky top-0 bg-slate-50 z-10';
 
-        const btnSelectAll = document.createElement('button');
-        btnSelectAll.type = 'button';
-        btnSelectAll.className = 'text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none';
-        btnSelectAll.textContent = 'Pilih Semua / Batal';
-        btnSelectAll.addEventListener('click', selectAllInUnit);
+    const spanTitle = document.createElement('span');
+    spanTitle.className = 'text-xs font-bold text-slate-500 uppercase';
+    spanTitle.textContent = `Senarai Pegawai (${un})`;
 
-        headerDiv.appendChild(spanTitle);
-        headerDiv.appendChild(btnSelectAll);
-        nc.appendChild(headerDiv);
+    const btnSelectAll = document.createElement('button');
+    btnSelectAll.type = 'button';
+    btnSelectAll.className = 'text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-3 py-1.5 rounded transition-colors shadow-sm focus:outline-none';
+    btnSelectAll.textContent = 'Pilih Semua / Batal';
+    btnSelectAll.addEventListener('click', selectAllInUnit);
 
-        const fragment = document.createDocumentFragment();
+    headerDiv.appendChild(spanTitle);
+    headerDiv.appendChild(btnSelectAll);
+    nc.appendChild(headerDiv);
 
-        groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
-            const isChecked = globalSelected.has(p.emel);
+    const fragment = document.createDocumentFragment();
 
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100';
+    groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
+      const isChecked = globalSelected.has(p.emel);
 
-            const chk = document.createElement('input');
-            chk.type = 'checkbox';
-            chk.id = `c_${i}`;
-            chk.value = p.nama;
-            chk.setAttribute('data-email', p.emel);
-            chk.checked = isChecked;
-            chk.className = 'w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500 cursor-pointer';
-            chk.addEventListener('change', function() {
-                togglePenerima(this.value, this.getAttribute('data-email'), this.checked);
-            });
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'flex items-center mb-2 hover:bg-indigo-50/70 p-2 rounded transition-colors border border-transparent hover:border-indigo-100';
 
-            const lbl = document.createElement('label');
-            lbl.htmlFor = `c_${i}`;
-            lbl.className = 'ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none';
-            lbl.textContent = p.nama;
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.id = `c_${i}`;
+      chk.value = p.nama;
+      chk.setAttribute('data-email', p.emel);
+      chk.checked = isChecked;
+      chk.className = 'w-4 h-4 text-indigo-600 rounded unit-checkbox focus:ring-indigo-500 cursor-pointer';
+      chk.addEventListener('change', function() {
+        togglePenerima(this.value, this.getAttribute('data-email'), this.checked);
+      });
 
-            rowDiv.appendChild(chk);
-            rowDiv.appendChild(lbl);
-            fragment.appendChild(rowDiv);
-        });
+      const lbl = document.createElement('label');
+      lbl.htmlFor = `c_${i}`;
+      lbl.className = 'ml-3 text-sm font-medium text-slate-700 cursor-pointer flex-1 select-none';
+      lbl.textContent = p.nama;
 
-        nc.appendChild(fragment);
-    } else {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'text-slate-400 italic text-sm mt-1';
-        msgDiv.textContent = 'Sila Pilih Unit Dahulu';
-        nc.appendChild(msgDiv);
-    }
+      rowDiv.appendChild(chk);
+      rowDiv.appendChild(lbl);
+      fragment.appendChild(rowDiv);
+    });
+
+    nc.appendChild(fragment);
+  } else {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'text-slate-400 italic text-sm mt-1';
+    msgDiv.textContent = 'Sila Pilih Unit Dahulu';
+    nc.appendChild(msgDiv);
+  }
 };
 
 window.handleCarianDaftar = function(e) {
-    const query = e.target.value.toLowerCase();
-    const dropdown = document.getElementById('dropdownCarianUtama');
-    dropdown.textContent = '';
+  const query = e.target.value.toLowerCase();
+  const dropdown = document.getElementById('dropdownCarianUtama');
+  dropdown.textContent = '';
 
-    if (query.length < 2) {
-        dropdown.classList.add('hidden');
-        return;
-    }
+  if (query.length < 2) {
+    dropdown.classList.add('hidden');
+    return;
+  }
 
-    const results = globalPegawaiFlat.filter(p => 
-        p.nama.toLowerCase().includes(query) || 
-        p.sektor.toLowerCase().includes(query) || 
-        p.unit.toLowerCase().includes(query)
-    ).slice(0, 15); 
+  const results = globalPegawaiFlat.filter(p => 
+    p.nama.toLowerCase().includes(query) || 
+    p.sektor.toLowerCase().includes(query) || 
+    p.unit.toLowerCase().includes(query)
+  ).slice(0, 15);
 
-    if (results.length === 0) {
-        const emptyDiv = document.createElement('div');
-        emptyDiv.className = 'p-3 text-sm text-slate-500 italic text-center font-medium';
-        emptyDiv.textContent = 'Tiada padanan rekod dijumpai...';
-        dropdown.appendChild(emptyDiv);
-    } else {
-        results.forEach(p => {
-            const div = document.createElement('div');
-            div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
+  if (results.length === 0) {
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'p-3 text-sm text-slate-500 italic text-center font-medium';
+    emptyDiv.textContent = 'Tiada padanan rekod dijumpai...';
+    dropdown.appendChild(emptyDiv);
+  } else {
+    results.forEach(p => {
+      const div = document.createElement('div');
+      div.className = "p-3 hover:bg-indigo-50 border-b border-slate-100 cursor-pointer transition-colors group";
 
-            const nameDiv = document.createElement('div');
-            nameDiv.className = "text-sm font-bold text-slate-700 group-hover:text-indigo-700";
-            nameDiv.textContent = p.nama;
+      const nameDiv = document.createElement('div');
+      nameDiv.className = "text-sm font-bold text-slate-700 group-hover:text-indigo-700";
+      nameDiv.textContent = p.nama;
 
-            const unitDiv = document.createElement('div');
-            unitDiv.className = "text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium";
-            unitDiv.textContent = `${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}`;
+      const unitDiv = document.createElement('div');
+      unitDiv.className = "text-xs text-slate-500 mt-0.5 group-hover:text-indigo-500 font-medium";
+      unitDiv.textContent = `${p.sektor.replace(/^\d{2}\s/, '')} - ${p.unit}`;
 
-            div.appendChild(nameDiv);
-            div.appendChild(unitDiv);
+      div.appendChild(nameDiv);
+      div.appendChild(unitDiv);
 
-            div.addEventListener('click', () => {
-                selectPegawaiCarian(p.emel_rasmi, p.nama, p.sektor, p.unit);
-            });
+      div.addEventListener('click', () => {
+        selectPegawaiCarian(p.emel_rasmi, p.nama, p.sektor, p.unit);
+      });
 
-            dropdown.appendChild(div);
-        });
-    }
-    dropdown.classList.remove('hidden');
+      dropdown.appendChild(div);
+    });
+  }
+  dropdown.classList.remove('hidden');
 };
 
 window.selectPegawaiCarian = function(emel, nama, sektor, unit) {
-    const input = document.getElementById('carianPegawaiUtama');
-    const dropdown = document.getElementById('dropdownCarianUtama');
-    const elSektor = document.getElementById('sektor');
-    const elUnit = document.getElementById('unit');
+  const input = document.getElementById('carianPegawaiUtama');
+  const dropdown = document.getElementById('dropdownCarianUtama');
+  const elSektor = document.getElementById('sektor');
+  const elUnit = document.getElementById('unit');
 
-    elSektor.value = sektor;
-    populateUnit();
-    elUnit.value = unit;
-    
-    globalSelected.set(emel, nama);
-    populateNama(); 
-    renderTags();
+  elSektor.value = sektor;
+  populateUnit();
+  elUnit.value = unit;
 
-    input.value = '';
-    dropdown.classList.add('hidden');
+  globalSelected.set(emel, nama);
+  populateNama(); 
+  renderTags();
+
+  input.value = '';
+  dropdown.classList.add('hidden');
 };
 
 window.togglePenerima = function(nama, emel, isChecked) {
-    if (isChecked) {
-        globalSelected.set(emel, nama);
-    } else {
-        globalSelected.delete(emel);
-    }
-    renderTags();
+  if (isChecked) {
+    globalSelected.set(emel, nama);
+  } else {
+    globalSelected.delete(emel);
+  }
+  renderTags();
 };
 
 window.selectAllInUnit = function() {
-    const checkboxes = document.querySelectorAll('.unit-checkbox');
-    if (checkboxes.length === 0) return;
+  const checkboxes = document.querySelectorAll('.unit-checkbox');
+  if (checkboxes.length === 0) return;
 
-    const allChecked = Array.from(checkboxes).every(c => c.checked);
-    
-    checkboxes.forEach(c => {
-        c.checked = !allChecked;
-        togglePenerima(c.value, c.getAttribute('data-email'), !allChecked);
-    });
+  const allChecked = Array.from(checkboxes).every(c => c.checked);
+
+  checkboxes.forEach(c => {
+    c.checked = !allChecked;
+    togglePenerima(c.value, c.getAttribute('data-email'), !allChecked);
+  });
 };
 
 window.removeTag = function(emel) {
-    globalSelected.delete(emel);
-    const cb = document.querySelector(`.unit-checkbox[data-email="${emel}"]`);
-    if (cb) cb.checked = false;
-    renderTags();
+  globalSelected.delete(emel);
+  const cb = document.querySelector(`.unit-checkbox[data-email="${emel}"]`);
+  if (cb) cb.checked = false;
+  renderTags();
 };
 
 function renderTags() {
-    const container = document.getElementById('selectedTagsContainer');
-    const emailInput = document.getElementById('email');
-    
-    container.textContent = '';
+  const container = document.getElementById('selectedTagsContainer');
+  const emailInput = document.getElementById('email');
 
-    if (globalSelected.size === 0) {
-        const emptySpan = document.createElement('span');
-        emptySpan.className = 'text-sm text-slate-400 italic mt-1 ml-1';
-        emptySpan.textContent = 'Belum ada penerima dipilih...';
-        container.appendChild(emptySpan);
-        emailInput.value = '';
-        return;
-    }
+  container.textContent = '';
 
-    const emails = [];
-    
-    globalSelected.forEach((nama, emel) => {
-        emails.push(emel);
+  if (globalSelected.size === 0) {
+    const emptySpan = document.createElement('span');
+    emptySpan.className = 'text-sm text-slate-400 italic mt-1 ml-1';
+    emptySpan.textContent = 'Belum ada penerima dipilih...';
+    container.appendChild(emptySpan);
+    emailInput.value = '';
+    return;
+  }
 
-        const tagDiv = document.createElement('div');
-        tagDiv.className = 'inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5';
+  const emails = [];
 
-        const spanNama = document.createElement('span');
-        spanNama.textContent = nama;
+  globalSelected.forEach((nama, emel) => {
+    emails.push(emel);
 
-        const btnRemove = document.createElement('button');
-        btnRemove.type = 'button';
-        btnRemove.setAttribute('data-email', emel);
-        btnRemove.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
-        btnRemove.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-        btnRemove.addEventListener('click', function() {
-            removeTag(this.getAttribute('data-email'));
-        });
+    const tagDiv = document.createElement('div');
+    tagDiv.className = 'inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5';
 
-        tagDiv.appendChild(spanNama);
-        tagDiv.appendChild(btnRemove);
-        container.appendChild(tagDiv);
+    const spanNama = document.createElement('span');
+    spanNama.textContent = nama;
+
+    const btnRemove = document.createElement('button');
+    btnRemove.type = 'button';
+    btnRemove.setAttribute('data-email', emel);
+    btnRemove.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
+    btnRemove.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+    btnRemove.addEventListener('click', function() {
+      removeTag(this.getAttribute('data-email'));
     });
-    
-    emailInput.value = emails.join(', ');
+
+    tagDiv.appendChild(spanNama);
+    tagDiv.appendChild(btnRemove);
+    container.appendChild(tagDiv);
+  });
+
+  emailInput.value = emails.join(', ');
 }
 
 const toBase64 = file => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = error => reject(error);
 });
 
 async function handleEarlyUpload(input) {
-    if (!input.files || input.files.length === 0) return;
-    
-    const file = input.files[0];
+  if (!input.files || input.files.length === 0) return;
 
-    const MAX_SIZE_MB = 5;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-    
-    if (file.size > MAX_SIZE_BYTES) {
-        resetFileUpload();
-        return showMessage(`Saiz fail melebihi had dibenarkan (${MAX_SIZE_MB}MB). Sila mampatkan fail anda sebelum muat naik.`, "error");
+  const file = input.files[0];
+  const MAX_SIZE_MB = 5;
+  const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+  if (file.size > MAX_SIZE_BYTES) {
+    resetFileUpload();
+    return showMessage(`Saiz fail melebihi had dibenarkan (${MAX_SIZE_MB}MB). Sila mampatkan fail anda sebelum muat naik.`, "error");
+  }
+
+  let resolvedMimeType = file.type;
+  if (!resolvedMimeType) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const mimeMap = {
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'pdf': 'application/pdf',
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg'
+    };
+    resolvedMimeType = mimeMap[ext] || 'application/octet-stream';
+  }
+
+  const statusDiv = document.getElementById('uploadStatus');
+  const loader = document.getElementById('uploadLoader');
+  const text = document.getElementById('uploadText');
+  const link = document.getElementById('fileLink');
+  const resetBtn = document.getElementById('resetFileBtn');
+  const formUtamaDiv = document.getElementById('borangUtama');
+  const masaRekodInput = document.getElementById('masaRekod');
+  const hiddenUrlInput = document.getElementById('uploadedFileUrl');
+  const hiddenTxnInput = document.getElementById('transactionId');
+
+  statusDiv.classList.remove('hidden');
+  loader.classList.remove('hidden');
+  text.textContent = "Sedang memuat naik fail ke Drive pelayan...";
+  text.classList.replace('text-emerald-600', 'text-slate-600');
+  link.classList.add('hidden');
+  resetBtn.classList.add('hidden');
+  input.disabled = true;
+
+  try {
+    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+      await window.appConfigReady;
     }
 
-    let resolvedMimeType = file.type;
-    if (!resolvedMimeType) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const mimeMap = {
-            'doc': 'application/msword',
-            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'pdf': 'application/pdf',
-            'png': 'image/png',
-            'jpg': 'image/jpeg',
-            'jpeg': 'image/jpeg'
-        };
-        resolvedMimeType = mimeMap[ext] || 'application/octet-stream';
-    }
+    const gasUrl = window.GAS_URL;
+    if (!gasUrl) throw new Error("Endpoint Google Apps Script belum sedia.");
 
-    const statusDiv = document.getElementById('uploadStatus');
-    const loader = document.getElementById('uploadLoader');
-    const text = document.getElementById('uploadText');
-    const link = document.getElementById('fileLink');
-    const resetBtn = document.getElementById('resetFileBtn');
-    const formUtamaDiv = document.getElementById('borangUtama');
-    const masaRekodInput = document.getElementById('masaRekod');
+    const base64Full = await toBase64(file);
 
-    statusDiv.classList.remove('hidden');
-    loader.classList.remove('hidden');
-    text.textContent = "Sedang memuat naik fail ke Drive pelayan...";
-    text.classList.replace('text-emerald-600', 'text-slate-600');
-    link.classList.add('hidden');
-    resetBtn.classList.add('hidden');
-    input.disabled = true;
+    const res = await fetch(gasUrl, {
+      method: 'POST',
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: 'upload',
+        fileBase64: base64Full.split(',')[1],
+        fileName: file.name,
+        fileMimeType: resolvedMimeType
+      })
+    });
 
-    try {
-        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-            await window.appConfigReady;
-        }
+    const data = JSON.parse(await res.text());
+    if (data.status !== 'success') throw new Error(data.message);
 
-        const gasUrl = window.GAS_URL;
-        if (!gasUrl) throw new Error("Endpoint Google Apps Script belum sedia.");
+    const txnId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'TXN_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
-        const base64Full = await toBase64(file);
-        
-        const res = await fetch(gasUrl, {
-            method: 'POST',
-            redirect: "follow",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-                action: 'upload',
-                fileBase64: base64Full.split(',')[1],
-                fileName: file.name,
-                fileMimeType: resolvedMimeType
-            })
-        });
-        
-        const data = JSON.parse(await res.text());
-        if (data.status !== 'success') throw new Error(data.message);
+    if (hiddenUrlInput) hiddenUrlInput.value = data.fileUrl;
+    if (hiddenTxnInput) hiddenTxnInput.value = txnId;
 
-        uploadedFileUrl = data.fileUrl;
-        text.textContent = "Fail Sedia: ";
-        text.classList.replace('text-slate-600', 'text-emerald-600');
-        loader.classList.add('hidden');
-        link.href = uploadedFileUrl;
-        link.classList.remove('hidden');
-        resetBtn.classList.remove('hidden');
-        
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        if (masaRekodInput) masaRekodInput.value = `${hours}:${minutes}`;
+    text.textContent = "Fail Sedia: ";
+    text.classList.replace('text-slate-600', 'text-emerald-600');
+    loader.classList.add('hidden');
+    link.href = data.fileUrl;
+    link.classList.remove('hidden');
+    resetBtn.classList.remove('hidden');
 
-        formUtamaDiv.classList.remove('hidden');
-        setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    if (masaRekodInput) masaRekodInput.value = `${hours}:${minutes}`;
 
-        showMessage("Muat naik fail disahkan. Masa rekod telah ditetapkan, sila lengkapkan maklumat borang.", "success");
-    } catch (err) {
-        text.textContent = "Ralat pelayan: Sila cuba lagi.";
-        text.classList.replace('text-slate-600', 'text-red-500');
-        loader.classList.add('hidden');
-        input.disabled = false;
-        resetBtn.classList.remove('hidden');
-        showMessage("Gagal muat naik fail: " + err.message, "error");
-    }
+    formUtamaDiv.classList.remove('hidden');
+    setTimeout(() => { formUtamaDiv.classList.remove('opacity-0'); }, 50);
+
+    showMessage("Muat naik fail disahkan. Masa rekod telah ditetapkan, sila lengkapkan maklumat borang.", "success");
+  } catch (err) {
+    text.textContent = "Ralat pelayan: Sila cuba lagi.";
+    text.classList.replace('text-slate-600', 'text-red-500');
+    loader.classList.add('hidden');
+    input.disabled = false;
+    resetBtn.classList.remove('hidden');
+    if (hiddenUrlInput) hiddenUrlInput.value = '';
+    if (hiddenTxnInput) hiddenTxnInput.value = '';
+    showMessage("Gagal muat naik fail: " + err.message, "error");
+  }
 }
 
 function resetFileUpload() {
-    uploadedFileUrl = "";
-    const input = document.getElementById('salinanSurat');
+  const hiddenUrlInput = document.getElementById('uploadedFileUrl');
+  const hiddenTxnInput = document.getElementById('transactionId');
+  if (hiddenUrlInput) hiddenUrlInput.value = "";
+  if (hiddenTxnInput) hiddenTxnInput.value = "";
+
+  const input = document.getElementById('salinanSurat');
+  if (input) {
     input.value = "";
     input.disabled = false;
-    document.getElementById('uploadStatus').classList.add('hidden');
-    
-    const masaRekodInput = document.getElementById('masaRekod');
-    if (masaRekodInput) masaRekodInput.value = "";
-    
-    const formUtamaDiv = document.getElementById('borangUtama');
+  }
+  const statusEl = document.getElementById('uploadStatus');
+  if (statusEl) statusEl.classList.add('hidden');
+
+  const masaRekodInput = document.getElementById('masaRekod');
+  if (masaRekodInput) masaRekodInput.value = "";
+
+  const formUtamaDiv = document.getElementById('borangUtama');
+  if (formUtamaDiv) {
     formUtamaDiv.classList.add('opacity-0');
     setTimeout(() => { formUtamaDiv.classList.add('hidden'); }, 500);
+  }
 }
 
 async function handleFormSubmit(e) {
-    e.preventDefault();
-    if (!uploadedFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
-    if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
+  e.preventDefault();
+  const hiddenUrlInput = document.getElementById('uploadedFileUrl');
+  const currentFileUrl = hiddenUrlInput ? hiddenUrlInput.value.trim() : "";
 
-    setLoading(true, "Mengesahkan Hierarki Sistem...");
+  if (!currentFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
+  if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
-    try {
-        if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-            await window.appConfigReady;
-        }
+  setLoading(true, "Mengesahkan Hierarki Sistem...");
 
-        const client = window._supabase;
-        const gasUrl = window.GAS_URL;
-        if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
-
-        const names = Array.from(globalSelected.values());
-        const emels = Array.from(globalSelected.keys());
-        const currentUnit = document.getElementById('unit').value;
-
-        let adminList = [];
-        try {
-            adminList = await window.CacheService.getAll('memo_admin', 'id', true);
-            if (!adminList || adminList.length === 0) {
-                 const { data, error } = await client.from('memo_admin').select('email, role');
-                 if (error) throw error;
-                 adminList = data;
-                 await window.CacheService.setAll('memo_admin', data);
-            }
-        } catch (adminErr) {
-             console.error("Gagal mendapatkan senarai admin dari cache:", adminErr);
-             const { data, error } = await client.from('memo_admin').select('email, role');
-             if (error) throw error;
-             adminList = data;
-        }
-
-        const managerRoles = ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'];
-        const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
-        const normalizeRole = (value) => String(value || '').trim().toUpperCase();
-
-        const managerEmails = (adminList || [])
-            .filter(a => managerRoles.includes(normalizeRole(a.role)))
-            .map(a => normalizeEmail(a.email))
-            .filter(email => email);
-
-        const tppdEmails = (adminList || [])
-            .filter(a => normalizeRole(a.role) === 'TPPD')
-            .map(a => normalizeEmail(a.email))
-            .filter(email => email);
-
-        let currentSelectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
-        const isAnyTPPDSelected = currentSelectedEmails.some(email => tppdEmails.includes(email));
-
-        const isPureManagement = currentSelectedEmails.length > 0 && currentSelectedEmails.every(email => managerEmails.includes(email));
-
-        let isManagerDeferred = false;
-
-        if (isPureManagement) {
-            isManagerDeferred = true;
-            
-            if (isAnyTPPDSelected) {
-                tppdEmails.forEach(tppdEmail => {
-                    if (!currentSelectedEmails.includes(tppdEmail)) {
-                        emels.push(tppdEmail);
-                        currentSelectedEmails.push(tppdEmail);
-                        const pegInfo = globalPegawaiFlat.find(p => normalizeEmail(p.emel_rasmi) === tppdEmail);
-                        names.push(pegInfo ? pegInfo.nama : 'PENGURUSAN TPPD (KOLABORATIF)');
-                    }
-                });
-            }
-        } else {
-            isManagerDeferred = false;
-        }
-
-        setLoading(true, "Menyimpan Data...");
-
-        const { data: rec, error: subError } = await client.from('memo_rekod').insert([{
-            sektor: document.getElementById('sektor').value,
-            unit: currentUnit,
-            nama_penerima: names.join(', '),
-            emel_penerima: emels.join(', '),
-            no_rujukan: document.getElementById('noRujukan').value.toUpperCase(),
-            no_tambahan: document.getElementById('noTambahan').value.toUpperCase(),
-            tarikh_surat: document.getElementById('tarikhSurat').value,
-            dari: document.getElementById('dari').value.toUpperCase(),
-            tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
-            tarikh_terima: document.getElementById('tarikhTerima').value,
-            masa_rekod: document.getElementById('masaRekod').value,
-            file_url: uploadedFileUrl
-        }]).select();
-
-        if (subError) throw subError;
-
-        if (window.CacheService) {
-            await window.CacheService.clearStore('memo_rekod');
-        }
-
-        setLoading(true, isManagerDeferred ? "Menghantar Notifikasi Pengurusan..." : "Menghantar Notifikasi RSVP & Kalendar...");
-
-        const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
-
-        const res = await fetch(gasUrl, {
-            method: 'POST',
-            redirect: "follow",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-                action: gasAction,
-                sektor: document.getElementById('sektor').value,
-                unit: currentUnit,
-                namaArray: names,
-                emailArray: emels,
-                noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
-                tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
-                tarikhTerima: document.getElementById('tarikhTerima').value,
-                masaRekod: document.getElementById('masaRekod').value,
-                fileUrl: uploadedFileUrl
-            })
-        });
-        const notify = JSON.parse(await res.text());
-
-        if (notify.status === 'error') {
-            throw new Error("Pangkalan data dikemaskini, TETAPI pelayan emel Google memulangkan ralat: " + (notify.message || "Gagal menghantar notifikasi."));
-        }
-        if (notify.status === 'warning') {
-            console.warn("Amaran Pelayan GAS:", notify.message);
-        }
-
-        if (notify.status === 'success' && notify.calendarEventId) {
-            const finalEventId = isManagerDeferred ? 'PENDING_' + notify.calendarEventId : notify.calendarEventId;
-            await client.from('memo_rekod').update({ calendar_event_id: finalEventId }).eq('id', rec[0].id);
-        }
-
-        if (isManagerDeferred) {
-            showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong><br><br>Rekod surat disimpan. Notifikasi emel telah dihantar kepada barisan Pengurusan (TPPD/KS/KU) untuk tujuan delegasi.", "success");
-        } else {
-            showMessage("<strong>Rekod & Agihan Berjaya!</strong><br><br>Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik terus kepada semua pegawai penerima.", "success");
-        }
-        
-        const calFrame = document.getElementById('calendarFrame');
-        if (calFrame) calFrame.src = calFrame.src; 
-
-        resetForm();
-
-    } catch (err) {
-        showMessage("Ralat Transaksi: " + err.message, "error");
-    } finally {
-        setLoading(false);
+  try {
+    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+      await window.appConfigReady;
     }
+
+    const client = window._supabase;
+    const gasUrl = window.GAS_URL;
+    if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
+
+    const names = Array.from(globalSelected.values());
+    const emels = Array.from(globalSelected.keys());
+    const currentUnit = document.getElementById('unit').value;
+
+    let adminList = [];
+    try {
+      adminList = await window.CacheService.getAll('memo_admin', 'id', true);
+      if (!adminList || adminList.length === 0) {
+        const { data, error } = await client.from('memo_admin').select('email, role');
+        if (error) throw error;
+        adminList = data;
+        await window.CacheService.setAll('memo_admin', data);
+      }
+    } catch (adminErr) {
+      const { data, error } = await client.from('memo_admin').select('email, role');
+      if (error) throw error;
+      adminList = data;
+    }
+
+    const managerRoles = ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'];
+    const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+    const normalizeRole = (value) => String(value || '').trim().toUpperCase();
+
+    const managerEmails = (adminList || [])
+      .filter(a => managerRoles.includes(normalizeRole(a.role)))
+      .map(a => normalizeEmail(a.email))
+      .filter(email => email);
+
+    const tppdEmails = (adminList || [])
+      .filter(a => normalizeRole(a.role) === 'TPPD')
+      .map(a => normalizeEmail(a.email))
+      .filter(email => email);
+
+    let currentSelectedEmails = emels.map(e => normalizeEmail(e)).filter(email => email);
+    const isAnyTPPDSelected = currentSelectedEmails.some(email => tppdEmails.includes(email));
+    const isPureManagement = currentSelectedEmails.length > 0 && currentSelectedEmails.every(email => managerEmails.includes(email));
+
+    let isManagerDeferred = false;
+
+    if (isPureManagement) {
+      isManagerDeferred = true;
+
+      if (isAnyTPPDSelected) {
+        tppdEmails.forEach(tppdEmail => {
+          if (!currentSelectedEmails.includes(tppdEmail)) {
+            emels.push(tppdEmail);
+            currentSelectedEmails.push(tppdEmail);
+            const pegInfo = globalPegawaiFlat.find(p => normalizeEmail(p.emel_rasmi) === tppdEmail);
+            names.push(pegInfo ? pegInfo.nama : 'PENGURUSAN TPPD (KOLABORATIF)');
+          }
+        });
+      }
+    } else {
+      isManagerDeferred = false;
+    }
+
+    setLoading(true, "Menyimpan Data...");
+
+    const sessionStr = sessionStorage.getItem('memo_admin_session');
+    const adminData = sessionStr ? JSON.parse(sessionStr) : null;
+    const perakamEmail = adminData ? adminData.email : '';
+
+    const newRecordPayload = {
+      sektor: document.getElementById('sektor').value,
+      unit: currentUnit,
+      nama_penerima: names.join(', '),
+      emel_penerima: emels.join(', '),
+      no_rujukan: document.getElementById('noRujukan').value.toUpperCase(),
+      no_tambahan: document.getElementById('noTambahan').value.toUpperCase(),
+      tarikh_surat: document.getElementById('tarikhSurat').value,
+      dari: document.getElementById('dari').value.toUpperCase(),
+      tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
+      tarikh_terima: document.getElementById('tarikhTerima').value,
+      masa_rekod: document.getElementById('masaRekod').value,
+      file_url: currentFileUrl
+    };
+
+    const { data: rec, error: subError } = await client.from('memo_rekod').insert([newRecordPayload]).select();
+
+    if (subError) throw subError;
+
+    if (window.CacheService) {
+      await window.CacheService.clearStore('memo_rekod');
+    }
+
+    setLoading(true, isManagerDeferred ? "Menghantar Notifikasi Pengurusan..." : "Menghantar Notifikasi RSVP & Kalendar...");
+
+    const gasAction = isManagerDeferred ? 'notifyManager' : 'notify';
+
+    const res = await fetch(gasUrl, {
+      method: 'POST',
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: gasAction,
+        sektor: document.getElementById('sektor').value,
+        unit: currentUnit,
+        namaArray: names,
+        emailArray: emels,
+        noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
+        tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
+        tarikhTerima: document.getElementById('tarikhTerima').value,
+        masaRekod: document.getElementById('masaRekod').value,
+        fileUrl: currentFileUrl,
+        perakamEmail: perakamEmail
+      })
+    });
+    const notify = JSON.parse(await res.text());
+
+    if (notify.status === 'error') {
+      throw new Error("Pangkalan data dikemaskini, TETAPI pelayan emel Google memulangkan ralat: " + (notify.message || "Gagal menghantar notifikasi."));
+    }
+
+    if (notify.status === 'success' && notify.calendarEventId) {
+      const finalEventId = isManagerDeferred ? 'PENDING_' + notify.calendarEventId : notify.calendarEventId;
+      await client.from('memo_rekod').update({ calendar_event_id: finalEventId }).eq('id', rec[0].id);
+    }
+
+    if (isManagerDeferred) {
+      showMessage("<strong>Penerimaan Pengurusan Dikesan.</strong><br><br>Rekod surat disimpan. Notifikasi emel telah dihantar kepada barisan Pengurusan (TPPD/KS/KU) untuk tujuan delegasi.", "success");
+    } else {
+      showMessage("<strong>Rekod & Agihan Berjaya!</strong><br><br>Surat disimpan dan jemputan kalendar (RSVP) telah dihantar secara automatik terus kepada semua pegawai penerima.", "success");
+    }
+
+    const calFrame = document.getElementById('calendarFrame');
+    if (calFrame) calFrame.src = calFrame.src;
+
+    resetForm();
+
+  } catch (err) {
+    showMessage("Ralat Transaksi: " + err.message, "error");
+  } finally {
+    setLoading(false);
+  }
 }
 
 function setLoading(status, txt) {
-    const btn = document.getElementById('submitBtn');
-    const bt = document.getElementById('btnText');
-    if (!btn || !bt) return;
-    btn.disabled = status;
-    bt.textContent = '';
+  const btn = document.getElementById('submitBtn');
+  const bt = document.getElementById('btnText');
+  if (!btn || !bt) return;
+  btn.disabled = status;
+  bt.textContent = '';
 
-    if (status) {
-        const loader = document.createElement('div');
-        loader.className = 'loader mr-2 border-white border-top-indigo-500';
-        const span = document.createElement('span');
-        span.textContent = txt;
-        bt.appendChild(loader);
-        bt.appendChild(span);
-    } else {
-        bt.textContent = 'Simpan & Hantar Rekod';
-    }
+  if (status) {
+    const loader = document.createElement('div');
+    loader.className = 'loader mr-2 border-white border-top-indigo-500';
+    const span = document.createElement('span');
+    span.textContent = txt;
+    bt.appendChild(loader);
+    bt.appendChild(span);
+  } else {
+    bt.textContent = 'Simpan & Hantar Rekod';
+  }
 }
 
 window.showMessage = function(m, t) {
-    let iconType = 'info';
-    let titleText = 'Makluman';
-    
-    if (t === 'error') {
-        iconType = 'error';
-        titleText = 'Ralat Sistem';
-    } else if (t === 'success') {
-        iconType = 'success';
-        titleText = 'Berjaya';
-    }
+  let iconType = 'info';
+  let titleText = 'Makluman';
 
-    Swal.fire({
-        title: titleText,
-        html: m,
-        icon: iconType,
-        confirmButtonColor: '#4f46e5',
-        confirmButtonText: 'Tutup',
-        customClass: {
-            confirmButton: 'text-sm font-bold',
-            popup: 'rounded-2xl',
-            title: 'text-slate-800'
-        }
-    });
+  if (t === 'error') {
+    iconType = 'error';
+    titleText = 'Ralat Sistem';
+  } else if (t === 'success') {
+    iconType = 'success';
+    titleText = 'Berjaya';
+  }
+
+  Swal.fire({
+    title: titleText,
+    html: m,
+    icon: iconType,
+    confirmButtonColor: '#4f46e5',
+    confirmButtonText: 'Tutup',
+    customClass: {
+      confirmButton: 'text-sm font-bold',
+      popup: 'rounded-2xl',
+      title: 'text-slate-800'
+    }
+  });
 };
 
 function resetForm() {
-    const mainForm = document.getElementById('mainForm');
-    const inputCarian = document.getElementById('carianPegawaiUtama');
-    
-    if (mainForm) mainForm.reset();
-    if (inputCarian) inputCarian.value = '';
-    
-    resetFileUpload();
-    globalSelected.clear();
-    renderTags();
-    populateUnit();
+  const mainForm = document.getElementById('mainForm');
+  const inputCarian = document.getElementById('carianPegawaiUtama');
+
+  if (mainForm) mainForm.reset();
+  if (inputCarian) inputCarian.value = '';
+
+  resetFileUpload();
+  globalSelected.clear();
+  renderTags();
+  populateUnit();
 }

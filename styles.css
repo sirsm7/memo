@@ -1,81 +1,81 @@
-.uppercase-input { 
-    text-transform: uppercase; 
+.uppercase-input {
+  text-transform: uppercase;
 }
 
 .loader {
-    border: 3px solid #e2e8f0;
-    border-top: 3px solid #4f46e5;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    animation: spin 1s linear infinite;
-    display: inline-block;
-    vertical-align: middle;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #4f46e5;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
 }
 
-@keyframes spin { 
-    0% { transform: rotate(0deg); } 
-    100% { transform: rotate(360deg); } 
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.custom-scrollbar::-webkit-scrollbar { 
-    width: 6px; 
-    height: 6px; 
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track { 
-    background: #f8fafc;
-    border-radius: 4px; 
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb { 
-    background: #cbd5e1;
-    border-radius: 4px; 
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { 
-    background: #94a3b8;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
-input, select, textarea { 
-    transition: all 0.2s ease-in-out; 
+input, select, textarea {
+  transition: all 0.2s ease-in-out;
 }
 
-.tab-btn, .admin-sub-tab, .btnTutupModal { 
-    transition: all 0.3s ease; 
+.tab-btn, .admin-sub-tab, .btnTutupModal {
+  transition: all 0.3s ease;
 }
 
 .swal2-popup {
-    font-family: 'Inter', sans-serif !important;
-    border-radius: 1rem !important;
-    padding: 1.5rem !important;
+  font-family: 'Inter', sans-serif !important;
+  border-radius: 1rem !important;
+  padding: 1.5rem !important;
 }
 
 .swal2-title {
-    font-size: 1.25rem !important;
-    font-weight: 700 !important;
-    color: #1e293b !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
 }
 
 .swal2-html-container {
-    font-size: 0.875rem !important;
-    color: #475569 !important;
-    line-height: 1.5 !important;
+  font-size: 0.875rem !important;
+  color: #475569 !important;
+  line-height: 1.5 !important;
 }
 
 .swal2-confirm {
-    border-radius: 0.5rem !important;
-    font-weight: 600 !important;
-    padding: 0.625rem 1.5rem !important;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+  padding: 0.625rem 1.5rem !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
 .swal2-cancel {
-    border-radius: 0.5rem !important;
-    font-weight: 600 !important;
-    padding: 0.625rem 1.5rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+  padding: 0.625rem 1.5rem !important;
 }
 
 .swal2-container {
-    z-index: 99999 !important;
+  z-index: 99999 !important;
 }
