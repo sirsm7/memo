@@ -1,19 +1,36 @@
 export async function onRequestGet(context) {
   const env = context.env || {};
-  const config = {
-    SUPABASE_URL: env.SUPABASE_URL || '',
-    SUPABASE_KEY: env.SUPABASE_ANON_KEY || env.SUPABASE_KEY || '',
-    GAS_URL: env.GAS_URL || env.GAS_ENDPOINT_URL || ''
+  const supabaseUrl = String(env.SUPABASE_URL || "").trim();
+  const supabaseAnonKey = String(env.SUPABASE_ANON_KEY || "").trim();
+  const gasEndpointUrl = String(env.GAS_ENDPOINT_URL || "").trim();
+
+  const headers = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store"
   };
 
-  return new Response(JSON.stringify(config), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
-      'X-Content-Type-Options': 'nosniff'
-    }
-  });
-}
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: "Server configuration missing required environment secrets."
+      }),
+      {
+        status: 500,
+        headers
+      }
+    );
+  }
 
-export const onRequest = onRequestGet;
+  return new Response(
+    JSON.stringify({
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_ANON_KEY: supabaseAnonKey,
+      GAS_ENDPOINT_URL: gasEndpointUrl
+    }),
+    {
+      status: 200,
+      headers
+    }
+  );
+}
