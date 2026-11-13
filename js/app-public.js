@@ -1,16 +1,21 @@
-var groupedData = {};
-var globalPegawaiFlat = [];
-var allRecords = [];
-var currentFilteredRecords = [];
+var groupedData = window.groupedData || {};
+var globalPegawaiFlat = window.globalPegawaiFlat || [];
+var allRecords = window.allRecords || [];
+var currentFilteredRecords = window.currentFilteredRecords || [];
 var globalSelected = new Map();
+var isSubmittingForm = false;
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (window.__appPublicInitialized) {
+    return;
+  }
+  window.__appPublicInitialized = true;
+
   const yearElem = document.getElementById('currentYear');
   if (yearElem) yearElem.textContent = new Date().getFullYear();
 
   loadPublicPegawaiData();
   setupEventListeners();
-  setupSupabaseRealtime();
   switchTab('utama');
 });
 
@@ -25,84 +30,6 @@ function loadPublicPegawaiData() {
     processPegawai(data);
     populateSektor();
   });
-}
-
-async function setupSupabaseRealtime() {
-  if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-    await window.appConfigReady;
-  }
-
-  const client = window._supabase;
-  if (!client || typeof client.channel !== 'function') {
-    return;
-  }
-
-  client
-    .channel('memo-realtime-channel')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'memo_rekod' },
-      async (payload) => {
-        if (window.CacheService) {
-          await window.CacheService.handleRealtimePayload('memo_rekod', payload);
-        }
-
-        if (typeof window.handleAnalyticsRealtimeUpdate === 'function') {
-          window.handleAnalyticsRealtimeUpdate(payload);
-        }
-
-        if (typeof window.handleAdminRealtimeUpdate === 'function') {
-          window.handleAdminRealtimeUpdate('memo_rekod', payload);
-        }
-
-        if (typeof loadManagerMemo === 'function' && typeof currentAdmin !== 'undefined' && currentAdmin && (currentAdmin.isManager || currentAdmin.isSystemAdmin)) {
-          loadManagerMemo();
-        }
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'memo_pegawai' },
-      async (payload) => {
-        if (window.CacheService) {
-          await window.CacheService.handleRealtimePayload('memo_pegawai', payload);
-        }
-
-        if (payload.eventType === 'INSERT' && payload.new) {
-          if (!globalPegawaiFlat.some(p => p.id === payload.new.id)) {
-            globalPegawaiFlat.push(payload.new);
-          }
-        } else if (payload.eventType === 'UPDATE' && payload.new) {
-          const idx = globalPegawaiFlat.findIndex(p => p.id === payload.new.id);
-          if (idx !== -1) globalPegawaiFlat[idx] = payload.new;
-          else globalPegawaiFlat.push(payload.new);
-        } else if (payload.eventType === 'DELETE') {
-          const targetId = payload.old ? payload.old.id : payload.id;
-          if (targetId) globalPegawaiFlat = globalPegawaiFlat.filter(p => p.id !== targetId);
-        }
-
-        processPegawai(globalPegawaiFlat);
-        populateSektor();
-
-        if (typeof window.handleAdminRealtimeUpdate === 'function') {
-          window.handleAdminRealtimeUpdate('memo_pegawai', payload);
-        }
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'memo_admin' },
-      async (payload) => {
-        if (window.CacheService) {
-          await window.CacheService.handleRealtimePayload('memo_admin', payload);
-        }
-
-        if (typeof window.handleAdminRealtimeUpdate === 'function') {
-          window.handleAdminRealtimeUpdate('memo_admin', payload);
-        }
-      }
-    )
-    .subscribe();
 }
 
 function setupEventListeners() {
@@ -216,12 +143,15 @@ window.switchTab = function(tabName) {
 
 function processPegawai(data) {
   groupedData = {};
-  globalPegawaiFlat = data;
-  data.forEach(p => {
+  globalPegawaiFlat = Array.isArray(data) ? data : [];
+  globalPegawaiFlat.forEach(p => {
+    if (!p || !p.sektor || !p.unit) return;
     if (!groupedData[p.sektor]) groupedData[p.sektor] = {};
     if (!groupedData[p.sektor][p.unit]) groupedData[p.sektor][p.unit] = [];
     groupedData[p.sektor][p.unit].push({ nama: p.nama, emel: p.emel_rasmi });
   });
+  window.groupedData = groupedData;
+  window.globalPegawaiFlat = globalPegawaiFlat;
 }
 
 window.populateSektor = function() {
@@ -314,7 +244,7 @@ window.populateNama = function() {
 
     const fragment = document.createDocumentFragment();
 
-    groupedData[sk][un].sort((a,b)=>a.nama.localeCompare(b.nama)).forEach((p,i) => {
+    groupedData[sk][un].sort((a, b) => a.nama.localeCompare(b.nama)).forEach((p, i) => {
       const isChecked = globalSelected.has(p.emel);
 
       const rowDiv = document.createElement('div');
@@ -360,10 +290,10 @@ window.handleCarianDaftar = function(e) {
     return;
   }
 
-  const results = globalPegawaiFlat.filter(p => 
-    p.nama.toLowerCase().includes(query) || 
-    p.sektor.toLowerCase().includes(query) || 
-    p.unit.toLowerCase().includes(query)
+  const results = globalPegawaiFlat.filter(p =>
+    (p.nama && p.nama.toLowerCase().includes(query)) ||
+    (p.sektor && p.sektor.toLowerCase().includes(query)) ||
+    (p.unit && p.unit.toLowerCase().includes(query))
   ).slice(0, 15);
 
   if (results.length === 0) {
@@ -408,7 +338,7 @@ window.selectPegawaiCarian = function(emel, nama, sektor, unit) {
   elUnit.value = unit;
 
   globalSelected.set(emel, nama);
-  populateNama(); 
+  populateNama();
   renderTags();
 
   input.value = '';
@@ -538,11 +468,12 @@ async function handleEarlyUpload(input) {
   input.disabled = true;
 
   try {
-    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-      await window.appConfigReady;
+    const readyPromise = window.ENV_READY || window.appConfigReady;
+    if (readyPromise && typeof readyPromise.then === 'function') {
+      await readyPromise;
     }
 
-    const gasUrl = window.GAS_URL;
+    const gasUrl = window.GAS_URL || window.GAS_ENDPOINT_URL;
     if (!gasUrl) throw new Error("Endpoint Google Apps Script belum sedia.");
 
     const base64Full = await toBase64(file);
@@ -621,21 +552,25 @@ function resetFileUpload() {
 
 async function handleFormSubmit(e) {
   e.preventDefault();
+  if (isSubmittingForm) return;
+
   const hiddenUrlInput = document.getElementById('uploadedFileUrl');
   const currentFileUrl = hiddenUrlInput ? hiddenUrlInput.value.trim() : "";
 
   if (!currentFileUrl) return showMessage("Pautan fail tidak dijumpai. Sila muat naik dokumen semula.", "error");
   if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
+  isSubmittingForm = true;
   setLoading(true, "Mengesahkan Hierarki Sistem...");
 
   try {
-    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-      await window.appConfigReady;
+    const readyPromise = window.ENV_READY || window.appConfigReady;
+    if (readyPromise && typeof readyPromise.then === 'function') {
+      await readyPromise;
     }
 
     const client = window._supabase;
-    const gasUrl = window.GAS_URL;
+    const gasUrl = window.GAS_URL || window.GAS_ENDPOINT_URL;
     if (!client || !gasUrl) throw new Error("Konfigurasi pelayan belum sedia.");
 
     const names = Array.from(globalSelected.values());
@@ -770,6 +705,7 @@ async function handleFormSubmit(e) {
   } catch (err) {
     showMessage("Ralat Transaksi: " + err.message, "error");
   } finally {
+    isSubmittingForm = false;
     setLoading(false);
   }
 }
@@ -831,3 +767,6 @@ function resetForm() {
   renderTags();
   populateUnit();
 }
+
+window.loadPublicPegawaiData = loadPublicPegawaiData;
+window.processPegawai = processPegawai;
