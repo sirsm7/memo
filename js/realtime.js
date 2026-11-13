@@ -7,6 +7,7 @@
   let activeChannel = null;
   let isSubscribing = false;
   let syncDebounceTimer = null;
+  let managerReloadTimer = null;
 
   function getTargetSchema() {
     const schema = (window.__ENV && window.__ENV.SUPABASE_SCHEMA)
@@ -54,6 +55,24 @@
     } catch (err) {
       return true;
     }
+  }
+
+  function scheduleManagerMemoReload() {
+    if (managerReloadTimer) {
+      clearTimeout(managerReloadTimer);
+    }
+
+    managerReloadTimer = setTimeout(() => {
+      managerReloadTimer = null;
+      const activeAdmin = window.currentAdmin || null;
+      if (
+        typeof window.loadManagerMemo === 'function' &&
+        activeAdmin &&
+        (activeAdmin.isManager || activeAdmin.isSystemAdmin)
+      ) {
+        window.loadManagerMemo();
+      }
+    }, 600);
   }
 
   function syncGlobalPegawaiState(payload) {
@@ -115,14 +134,7 @@
       window.handleAdminRealtimeUpdate('memo_rekod', payload);
     }
 
-    const activeAdmin = window.currentAdmin || null;
-    if (
-      typeof window.loadManagerMemo === 'function' &&
-      activeAdmin &&
-      (activeAdmin.isManager || activeAdmin.isSystemAdmin)
-    ) {
-      window.loadManagerMemo();
-    }
+    scheduleManagerMemoReload();
   }
 
   async function handleMemoPegawaiChange(payload) {
@@ -158,6 +170,10 @@
   }
 
   async function cleanupRealtimeChannel() {
+    if (managerReloadTimer) {
+      clearTimeout(managerReloadTimer);
+      managerReloadTimer = null;
+    }
     const client = window._supabase;
     if (activeChannel && client && typeof client.removeChannel === 'function') {
       try {
@@ -283,9 +299,7 @@
             if (activeAdmin.isSystemAdmin && typeof window.loadAdminMemo === 'function') {
               window.loadAdminMemo();
             }
-            if (typeof window.loadManagerMemo === 'function') {
-              window.loadManagerMemo();
-            }
+            scheduleManagerMemoReload();
           }
         });
       }
