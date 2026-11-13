@@ -20,7 +20,7 @@
       table_name: 'memo_pegawai',
       primary_key: 'id',
       headers: ['id', 'nama', 'sektor', 'unit', 'emel_rasmi'],
-      optional_headers: ['created_at', 'updated_at']
+      optional_headers: ['jawatan_penyandang', 'created_at', 'updated_at']
     },
     memo_rekod: {
       table_name: 'memo_rekod',
@@ -48,6 +48,14 @@
 
   let isMigrating = false;
   let activeAbortController = null;
+
+  function getTargetSchema() {
+    const schema = (window.__ENV && window.__ENV.SUPABASE_SCHEMA)
+      || (window.APP_CONFIG && window.APP_CONFIG.SUPABASE_SCHEMA)
+      || window.SUPABASE_SCHEMA
+      || 'memo_ag';
+    return String(schema).trim() || 'memo_ag';
+  }
 
   function verifySystemAdminAccess() {
     const activeAdmin = window.currentAdmin || null;
@@ -149,6 +157,17 @@
     return client;
   }
 
+  async function ensureSuperAdminAuthSession(client) {
+    if (!client.auth || typeof client.auth.getSession !== 'function') {
+      throw new Error('Modul Supabase Auth tidak tersedia.');
+    }
+    const { data, error } = await client.auth.getSession();
+    if (error || !data || !data.session || !data.session.user) {
+      throw new Error('Sesi Supabase Auth tidak aktif. Sila log keluar dan log masuk semula menggunakan akaun SUPER ADMIN berdaftar (Authentication > Users) sebelum menjalankan pemulihan data.');
+    }
+    return data.session;
+  }
+
   function buildDeterministicRow(row, headers) {
     const cleanRow = {};
     headers.forEach(col => {
@@ -179,7 +198,8 @@
     setControlsDisabled(true);
 
     try {
-      renderMigrationStatus('loading', 'Menjana fail sandaran 1-to-1 JSON...', 'Sedang membaca semua rekod daripada pangkalan data.');
+      const targetSchema = getTargetSchema();
+      renderMigrationStatus('loading', `Menjana fail sandaran 1-to-1 JSON (${targetSchema})...`, 'Sedang membaca semua rekod daripada pangkalan data.');
       const client = await getSupabaseClient();
 
       const exportedTables = {};
@@ -196,7 +216,7 @@
 
         renderMigrationStatus(
           'loading',
-          `Mengeksport jadual (${i + 1}/${TABLE_ORDER.length}): ${tableName}...`,
+          `Mengeksport jadual (${i + 1}/${TABLE_ORDER.length}): ${targetSchema}.${tableName}...`,
           'Sila tunggu sehingga semua jadual selesai dimuat turun.'
         );
 
@@ -235,7 +255,7 @@
           rows: normalizedRows
         };
 
-        summaryLines.push(`${tableName}: ${normalizedRows.length} rekod`);
+        summaryLines.push(`${targetSchema}.${tableName}: ${normalizedRows.length} rekod`);
       }
 
       if (signal.aborted) {
@@ -245,6 +265,7 @@
       const payload = {
         metadata: {
           app: APP_NAME,
+          schema: targetSchema,
           schema_version: SCHEMA_VERSION,
           exported_at: new Date().toISOString(),
           table_order: [...TABLE_ORDER]
@@ -402,13 +423,14 @@
   }
 
   async function confirmRestoreDialog(validatedData) {
+    const targetSchema = getTargetSchema();
     const countsText = TABLE_ORDER.map(t => `${t}: ${validatedData.tables[t].rows.length} rekod`).join(' | ');
     const exportedAt = validatedData.metadata.exported_at || 'Tidak dinyatakan';
 
     if (typeof window.Swal !== 'undefined' && typeof window.Swal.fire === 'function') {
       const result = await window.Swal.fire({
         title: 'Pengesahan Pemulihan Data 1-to-1',
-        text: `Fail sandaran bertarikh ${exportedAt} (${countsText}) akan dipulihkan ke pangkalan data dan mengemas kini rekod sedia ada. Teruskan?`,
+        text: `Fail sandaran bertarikh ${exportedAt} (${countsText}) akan dipulihkan ke skema ${targetSchema} secara non-destructive sambil mengekalkan rekod sedia ada. Teruskan?`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#4f46e5',
@@ -424,7 +446,7 @@
       return Boolean(result && result.isConfirmed);
     }
 
-    return window.confirm(`Pulihkan data sandaran (${countsText}) ke pangkalan data?`);
+    return window.confirm(`Pulihkan data sandaran (${countsText}) ke skema ${targetSchema}?`);
   }
 
   async function refreshPostMigrationState() {
@@ -488,6 +510,7 @@
     setControlsDisabled(true);
 
     try {
+      const targetSchema = getTargetSchema();
       renderMigrationStatus('loading', 'Membaca dan mengesahkan skema fail JSON...', file.name);
 
       const rawText = await file.text();
@@ -511,6 +534,8 @@
       }
 
       const client = await getSupabaseClient();
+      await ensureSuperAdminAuthSession(client);
+
       const restoredSummary = [];
 
       for (let tIdx = 0; tIdx < TABLE_ORDER.length; tIdx++) {
@@ -521,10 +546,9 @@
         const tableName = TABLE_ORDER[tIdx];
         const tableSpec = validated.tables[tableName];
         const rows = tableSpec.rows;
-        const primaryKey = tableSpec.primary_key;
 
         if (rows.length === 0) {
-          restoredSummary.push(`${tableName}: 0 rekod (tiada baris untuk dipulihkan)`);
+          restoredSummary.push(`${targetSchema}.${tableName}: 0 rekod (tiada baris untuk dipulihkan)`);
           continue;
         }
 
@@ -540,25 +564,26 @@
 
           renderMigrationStatus(
             'loading',
-            `Memulihkan jadual ${tableName} (Kelompok ${bIdx + 1}/${totalBatches})...`,
+            `Memulihkan jadual ${targetSchema}.${tableName} (Kelompok ${bIdx + 1}/${totalBatches})...`,
             `Memproses rekod ${start + 1} hingga ${start + batchSlice.length} daripada ${rows.length}.`
           );
 
-          let upsertQuery = client
-            .from(tableName)
-            .upsert(batchSlice, { onConflict: primaryKey });
+          let rpcBatchQuery = client.rpc('import_memo_backup_batch', {
+            p_table_name: tableName,
+            p_rows: batchSlice
+          });
 
-          if (typeof upsertQuery.abortSignal === 'function') {
-            upsertQuery = upsertQuery.abortSignal(signal);
+          if (typeof rpcBatchQuery.abortSignal === 'function') {
+            rpcBatchQuery = rpcBatchQuery.abortSignal(signal);
           }
 
-          const { error: upsertError } = await upsertQuery;
-          if (upsertError) {
-            throw new Error(`Ralat pemulihan pada jadual ${tableName} (kelompok ${bIdx + 1}): ${upsertError.message}`);
+          const { error: batchError } = await rpcBatchQuery;
+          if (batchError) {
+            throw new Error(`Ralat pemulihan pada jadual ${targetSchema}.${tableName} (kelompok ${bIdx + 1}): ${batchError.message}`);
           }
         }
 
-        restoredSummary.push(`${tableName}: ${rows.length} rekod berjaya dipulihkan`);
+        restoredSummary.push(`${targetSchema}.${tableName}: ${rows.length} rekod berjaya dipulihkan`);
       }
 
       if (signal.aborted) {
@@ -568,26 +593,26 @@
       renderMigrationStatus(
         'loading',
         'Menyelaraskan jujukan ID pangkalan data...',
-        'Menjalankan penetapan semula urutan kunci primer di Supabase.'
+        `Menjalankan penetapan semula urutan kunci primer di skema ${targetSchema}.`
       );
 
-      let rpcQuery = client.rpc('reset_memo_sequences');
-      if (typeof rpcQuery.abortSignal === 'function') {
-        rpcQuery = rpcQuery.abortSignal(signal);
+      let rpcSeqQuery = client.rpc('reset_memo_sequences');
+      if (typeof rpcSeqQuery.abortSignal === 'function') {
+        rpcSeqQuery = rpcSeqQuery.abortSignal(signal);
       }
 
-      const { error: rpcError } = await rpcQuery;
+      const { error: rpcError } = await rpcSeqQuery;
       if (rpcError) {
         throw new Error(`Data dipulihkan, tetapi gagal menyelaraskan jujukan ID (RPC reset_memo_sequences): ${rpcError.message}`);
       }
 
-      restoredSummary.push('Jujukan ID pangkalan data (sequences) berjaya diselaraskan');
+      restoredSummary.push(`Jujukan ID skema ${targetSchema} (sequences) berjaya diselaraskan`);
 
       await refreshPostMigrationState();
 
-      renderMigrationStatus('success', 'Pemulihan data 1-to-1 JSON selesai sepenuhnya', restoredSummary);
+      renderMigrationStatus('success', `Pemulihan data 1-to-1 JSON ke skema ${targetSchema} selesai sepenuhnya`, restoredSummary);
       if (typeof window.showMessage === 'function') {
-        window.showMessage('Pemulihan data 1-to-1 berjaya dan cache tempatan telah disegarkan.', 'success');
+        window.showMessage(`Pemulihan data 1-to-1 ke skema ${targetSchema} berjaya dan cache tempatan telah disegarkan.`, 'success');
       }
 
       return true;
@@ -666,6 +691,7 @@
     getSchema: function() {
       return {
         app: APP_NAME,
+        schema: getTargetSchema(),
         schema_version: SCHEMA_VERSION,
         table_order: [...TABLE_ORDER],
         tables: JSON.parse(JSON.stringify(TABLE_SCHEMAS))

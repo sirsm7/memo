@@ -4,10 +4,17 @@
   }
   window.__realtimeManagerInitialized = true;
 
-  const CHANNEL_NAME = 'memo-realtime-channel';
   let activeChannel = null;
   let isSubscribing = false;
   let syncDebounceTimer = null;
+
+  function getTargetSchema() {
+    const schema = (window.__ENV && window.__ENV.SUPABASE_SCHEMA)
+      || (window.APP_CONFIG && window.APP_CONFIG.SUPABASE_SCHEMA)
+      || window.SUPABASE_SCHEMA
+      || 'memo_ag';
+    return String(schema).trim() || 'memo_ag';
+  }
 
   function isNewerOrEqualTimestamp(newRecord, cachedRecord) {
     if (!newRecord || !cachedRecord) {
@@ -186,25 +193,28 @@
         await cleanupRealtimeChannel();
       }
 
+      const targetSchema = getTargetSchema();
+      const channelName = `memo-realtime-${targetSchema}`;
+
       const channel = client
-        .channel(CHANNEL_NAME)
+        .channel(channelName)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'memo_rekod' },
+          { event: '*', schema: targetSchema, table: 'memo_rekod' },
           (payload) => {
             handleMemoRekodChange(payload);
           }
         )
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'memo_pegawai' },
+          { event: '*', schema: targetSchema, table: 'memo_pegawai' },
           (payload) => {
             handleMemoPegawaiChange(payload);
           }
         )
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'memo_admin' },
+          { event: '*', schema: targetSchema, table: 'memo_admin' },
           (payload) => {
             handleMemoAdminChange(payload);
           }

@@ -156,7 +156,7 @@ async function handleLogin(e) {
   const errorDiv = document.getElementById('loginAdminError');
   const btn = document.getElementById('btnSubmitLogin');
 
-  const email = emailInput ? emailInput.value.trim() : '';
+  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
   const pass = passInput ? passInput.value.trim() : '';
 
   if (errorDiv) {
@@ -166,12 +166,17 @@ async function handleLogin(e) {
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Sahkan...';
+    btn.textContent = '';
+    const loader = document.createElement('div');
+    loader.className = 'loader mr-2 border-white border-top-indigo-500';
+    btn.appendChild(loader);
+    btn.appendChild(document.createTextNode(' Sahkan...'));
   }
 
   try {
-    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-      await window.appConfigReady;
+    const readyPromise = window.ENV_READY || window.appConfigReady;
+    if (readyPromise && typeof readyPromise.then === 'function') {
+      await readyPromise;
     }
 
     const client = window._supabase;
@@ -179,16 +184,54 @@ async function handleLogin(e) {
       throw new Error("Klien pangkalan data belum sedia. Sila semak konfigurasi pelayan.");
     }
 
-    const { data, error } = await client
-      .from('memo_admin')
-      .select('*')
-      .eq('email', email)
-      .eq('password', pass)
-      .single();
+    let adminRecord = null;
+    let isSupabaseAuthSession = false;
 
-    if (error || !data) throw new Error("Emel atau Kata Laluan salah.");
+    if (client.auth && typeof client.auth.signInWithPassword === 'function') {
+      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+        email: email,
+        password: pass
+      });
 
-    const normalizedRole = String(data.role || '').trim().toUpperCase();
+      if (!authError && authData && authData.user) {
+        isSupabaseAuthSession = true;
+        const { data: dbAdmin } = await client
+          .from('memo_admin')
+          .select('id, email, role, created_at')
+          .ilike('email', email)
+          .maybeSingle();
+
+        if (dbAdmin) {
+          adminRecord = dbAdmin;
+        } else {
+          const metaRole = (authData.user.app_metadata && authData.user.app_metadata.role) || 'SUPER ADMIN';
+          adminRecord = {
+            id: 0,
+            email: authData.user.email || email,
+            role: metaRole
+          };
+        }
+      }
+    }
+
+    if (!adminRecord) {
+      const { data: rpcRows, error: rpcError } = await client.rpc('verify_staff_login', {
+        p_email: email,
+        p_password: pass
+      });
+
+      if (rpcError) {
+        throw new Error("Emel atau Kata Laluan salah.");
+      }
+
+      const matched = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+      if (!matched || !matched.email) {
+        throw new Error("Emel atau Kata Laluan salah.");
+      }
+      adminRecord = matched;
+    }
+
+    const normalizedRole = String(adminRecord.role || '').trim().toUpperCase();
     const isSystemAdmin = normalizedRole === 'SUPER ADMIN' || normalizedRole === 'ADMIN';
     const isManager = normalizedRole === 'TPPD' || normalizedRole === 'KETUA SEKTOR' || normalizedRole === 'KETUA UNIT';
     const isPerakam = normalizedRole === 'PERAKAM';
@@ -200,8 +243,8 @@ async function handleLogin(e) {
       const { data: pData, error: pError } = await client
         .from('memo_pegawai')
         .select('sektor, unit')
-        .eq('emel_rasmi', email)
-        .single();
+        .ilike('emel_rasmi', email)
+        .maybeSingle();
 
       if (!pError && pData) {
         managerSektor = pData.sektor;
@@ -211,7 +254,17 @@ async function handleLogin(e) {
       }
     }
 
-    currentAdmin = { ...data, isSystemAdmin, isManager, isPerakam, managerSektor, managerUnit };
+    currentAdmin = {
+      id: adminRecord.id,
+      email: adminRecord.email,
+      role: adminRecord.role,
+      isSystemAdmin,
+      isManager,
+      isPerakam,
+      managerSektor,
+      managerUnit,
+      isSupabaseAuthSession
+    };
     window.currentAdmin = currentAdmin;
     sessionStorage.setItem('memo_admin_session', JSON.stringify(currentAdmin));
 
@@ -219,9 +272,9 @@ async function handleLogin(e) {
     showAdminUI(true);
     loadAdminData();
 
-    let welcomeMsg = `Selamat Datang, ${data.role}!`;
+    let welcomeMsg = `Selamat Datang, ${adminRecord.role}!`;
     if (currentAdmin.isManager) welcomeMsg = `Selamat Datang, ${managerUnit} (${managerSektor})`;
-    if (currentAdmin.isPerakam) welcomeMsg = `Sesi Aktif: Mod Perakam Pendaftaran Surat (${data.email}).`;
+    if (currentAdmin.isPerakam) welcomeMsg = `Sesi Aktif: Mod Perakam Pendaftaran Surat (${adminRecord.email}).`;
 
     window.showMessage(welcomeMsg, 'success');
   } catch (err) {
@@ -237,11 +290,19 @@ async function handleLogin(e) {
   }
 }
 
-function handleLogout() {
+async function handleLogout() {
   if (isProcessingBatch || isProcessingTppdBatch) {
     window.showMessage("Sila tunggu sehingga proses pukal selesai.", "error");
     return;
   }
+
+  try {
+    const client = window._supabase;
+    if (client && client.auth && typeof client.auth.signOut === 'function') {
+      await client.auth.signOut();
+    }
+  } catch (err) {}
+
   sessionStorage.removeItem('memo_admin_session');
   currentAdmin = null;
   window.currentAdmin = null;
@@ -843,7 +904,7 @@ function updateSortIcons(type) {
 function filterAdminTable(type, query) {
   const q = (query || '').toLowerCase();
   if (type === 'memo') {
-    const filtered = adminMemoData.filter(m => 
+    const filtered = adminMemoData.filter(m =>
       (m.tajuk_program && m.tajuk_program.toLowerCase().includes(q)) ||
       (m.no_rujukan && m.no_rujukan.toLowerCase().includes(q)) ||
       (m.no_tambahan && m.no_tambahan.toLowerCase().includes(q)) ||
@@ -854,8 +915,8 @@ function filterAdminTable(type, query) {
     currentFilteredAdminMemo = filtered;
     renderAdminMemoTable(filtered);
   } else if (type === 'pegawai') {
-    const filtered = adminPegawaiData.filter(p => 
-      (p.nama && p.nama.toLowerCase().includes(q)) || 
+    const filtered = adminPegawaiData.filter(p =>
+      (p.nama && p.nama.toLowerCase().includes(q)) ||
       (p.sektor && p.sektor.toLowerCase().includes(q)) ||
       (p.unit && p.unit.toLowerCase().includes(q)) ||
       (p.emel_rasmi && p.emel_rasmi.toLowerCase().includes(q))

@@ -1,9 +1,9 @@
 const DB_NAME = 'MemoAG_CacheDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORES = ['memo_rekod', 'memo_pegawai', 'memo_admin', 'cache_meta'];
 const DEFAULT_TTL = 30 * 60 * 1000;
 
-window.__memoryCache = window.__memoryCache || {
+window.__memoryCache = {
   memo_rekod: new Map(),
   memo_pegawai: new Map(),
   memo_admin: new Map(),
@@ -55,9 +55,10 @@ const CacheService = {
         request.onupgradeneeded = (event) => {
           const db = event.target.result;
           STORES.forEach(storeName => {
-            if (!db.objectStoreNames.contains(storeName)) {
-              db.createObjectStore(storeName, { keyPath: 'id' });
+            if (db.objectStoreNames.contains(storeName)) {
+              db.deleteObjectStore(storeName);
             }
+            db.createObjectStore(storeName, { keyPath: 'id' });
           });
         };
 
@@ -327,8 +328,9 @@ const CacheService = {
     } catch (cacheErr) {}
 
     try {
-      if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-        await window.appConfigReady;
+      const readyPromise = window.ENV_READY || window.appConfigReady;
+      if (readyPromise && typeof readyPromise.then === 'function') {
+        await readyPromise;
       }
 
       const client = window._supabase;
