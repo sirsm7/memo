@@ -17,7 +17,7 @@
   Cache-Control: no-cache, no-store, must-revalidate
 
 /styles.css
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
 
 /js/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
