@@ -373,6 +373,23 @@ window.removeTag = function(emel) {
   renderTags();
 };
 
+function createCloseIconSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'w-4 h-4');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('viewBox', '0 0 24 24');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+
+  svg.appendChild(path);
+  return svg;
+}
+
 function renderTags() {
   const container = document.getElementById('selectedTagsContainer');
   const emailInput = document.getElementById('email');
@@ -389,6 +406,7 @@ function renderTags() {
   }
 
   const emails = [];
+  const fragment = document.createDocumentFragment();
 
   globalSelected.forEach((nama, emel) => {
     emails.push(emel);
@@ -403,16 +421,17 @@ function renderTags() {
     btnRemove.type = 'button';
     btnRemove.setAttribute('data-email', emel);
     btnRemove.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
-    btnRemove.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+    btnRemove.appendChild(createCloseIconSvg());
     btnRemove.addEventListener('click', function() {
       removeTag(this.getAttribute('data-email'));
     });
 
     tagDiv.appendChild(spanNama);
     tagDiv.appendChild(btnRemove);
-    container.appendChild(tagDiv);
+    fragment.appendChild(tagDiv);
   });
 
+  container.appendChild(fragment);
   emailInput.value = emails.join(', ');
 }
 
@@ -550,6 +569,40 @@ function resetFileUpload() {
   }
 }
 
+async function resolveManagerList(client) {
+  let adminList = [];
+
+  try {
+    const { data, error } = await client.rpc('get_manager_roles');
+    if (!error && Array.isArray(data) && data.length > 0) {
+      adminList = data;
+    }
+  } catch (rpcErr) {}
+
+  if (adminList.length === 0 && window.CacheService && typeof window.CacheService.getAll === 'function') {
+    try {
+      const cachedAdmins = await window.CacheService.getAll('memo_admin', 'id', true);
+      if (Array.isArray(cachedAdmins) && cachedAdmins.length > 0) {
+        adminList = cachedAdmins;
+      }
+    } catch (cacheErr) {}
+  }
+
+  if (adminList.length === 0) {
+    adminList = (Array.isArray(globalPegawaiFlat) ? globalPegawaiFlat : [])
+      .filter(p => p && p.emel_rasmi && window.isManagerRole && window.isManagerRole(p.unit))
+      .map(p => {
+        const unitUpper = String(p.unit || '').trim().toUpperCase();
+        return {
+          email: p.emel_rasmi,
+          role: unitUpper.startsWith('KETUA UNIT') ? 'KETUA UNIT' : unitUpper
+        };
+      });
+  }
+
+  return adminList;
+}
+
 async function handleFormSubmit(e) {
   e.preventDefault();
   if (isSubmittingForm) return;
@@ -577,20 +630,7 @@ async function handleFormSubmit(e) {
     const emels = Array.from(globalSelected.keys());
     const currentUnit = document.getElementById('unit').value;
 
-    let adminList = [];
-    try {
-      adminList = await window.CacheService.getAll('memo_admin', 'id', true);
-      if (!adminList || adminList.length === 0) {
-        const { data, error } = await client.from('memo_admin').select('email, role');
-        if (error) throw error;
-        adminList = data;
-        await window.CacheService.setAll('memo_admin', data);
-      }
-    } catch (adminErr) {
-      const { data, error } = await client.from('memo_admin').select('email, role');
-      if (error) throw error;
-      adminList = data;
-    }
+    const adminList = await resolveManagerList(client);
 
     const managerRoles = ['TPPD', 'KETUA SEKTOR', 'KETUA UNIT'];
     const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
