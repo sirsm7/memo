@@ -675,16 +675,21 @@ async function handleFormSubmit(e) {
     const adminData = sessionStr ? JSON.parse(sessionStr) : null;
     const perakamEmail = adminData ? adminData.email : '';
 
+    const noRujukanVal = String(document.getElementById('noRujukan')?.value || '').trim().toUpperCase();
+    const noTambahanVal = String(document.getElementById('noTambahan')?.value || '').trim().toUpperCase();
+    const dariVal = String(document.getElementById('dari')?.value || '').trim().toUpperCase();
+    const tajukProgramVal = String(document.getElementById('tajukProgram')?.value || '').trim().toUpperCase();
+
     const newRecordPayload = {
       sektor: document.getElementById('sektor').value,
       unit: currentUnit,
       nama_penerima: names.join(', '),
       emel_penerima: emels.join(', '),
-      no_rujukan: document.getElementById('noRujukan').value.toUpperCase(),
-      no_tambahan: document.getElementById('noTambahan').value.toUpperCase(),
+      no_rujukan: noRujukanVal,
+      no_tambahan: noTambahanVal,
       tarikh_surat: document.getElementById('tarikhSurat').value,
-      dari: document.getElementById('dari').value.toUpperCase(),
-      tajuk_program: document.getElementById('tajukProgram').value.toUpperCase(),
+      dari: dariVal,
+      tajuk_program: tajukProgramVal,
       tarikh_terima: document.getElementById('tarikhTerima').value,
       masa_rekod: document.getElementById('masaRekod').value,
       file_url: currentFileUrl
@@ -712,8 +717,8 @@ async function handleFormSubmit(e) {
         unit: currentUnit,
         namaArray: names,
         emailArray: emels,
-        noRujukan: document.getElementById('noRujukan').value.toUpperCase(),
-        tajukProgram: document.getElementById('tajukProgram').value.toUpperCase(),
+        noRujukan: noRujukanVal,
+        tajukProgram: tajukProgramVal,
         tarikhTerima: document.getElementById('tarikhTerima').value,
         masaRekod: document.getElementById('masaRekod').value,
         fileUrl: currentFileUrl,
