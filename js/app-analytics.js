@@ -1,7 +1,58 @@
 let analyticsCurrentPage = 1;
 const ANALYTICS_PAGE_SIZE = 20;
 
+function createAnalyticsSvgIcon(pathD, svgClass = 'w-3 h-3 mr-1') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', svgClass);
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('viewBox', '0 0 24 24');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('d', pathD);
+
+  svg.appendChild(path);
+  return svg;
+}
+
+function clearAnalyticsState() {
+  allRecords = [];
+  currentFilteredRecords = [];
+  analyticsCurrentPage = 1;
+
+  const kpiZeroIds = ['kpiTotal', 'kpiToday', 'kpiPending', 'kpiPendingTppd', 'kpiPendingKS', 'kpiPendingKU'];
+  kpiZeroIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '0';
+  });
+
+  const elTopSektor = document.getElementById('kpiTopSektor');
+  if (elTopSektor) elTopSektor.textContent = '-';
+
+  const tBody = document.getElementById('tableBody');
+  if (tBody) {
+    tBody.textContent = '';
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 10;
+    td.className = 'p-8 text-center text-red-600 font-semibold';
+    td.textContent = 'Sistem sedang tergendala. Fungsi semakan tidak tersedia tanpa sambungan langsung pada pangkalan data.';
+    tr.appendChild(td);
+    tBody.appendChild(tr);
+  }
+
+  renderAnalyticsPagination(0);
+}
+
 function loadDashboardData() {
+  if (window.DB_CONNECTED !== true) {
+    clearAnalyticsState();
+    return;
+  }
+
   const tBody = document.getElementById('tableBody');
 
   if (typeof allRecords !== 'undefined' && allRecords.length === 0 && tBody) {
@@ -36,6 +87,10 @@ function loadDashboardData() {
   }
 
   window.CacheService.fetchSWR('memo_rekod', 'created_at', false, (data) => {
+    if (window.DB_CONNECTED !== true) {
+      clearAnalyticsState();
+      return;
+    }
     if (!data) return;
 
     allRecords = data;
@@ -292,10 +347,12 @@ function renderTable(dataArray) {
     const spanStatus = document.createElement('span');
     if (isMenunggu) {
       spanStatus.className = 'inline-flex items-center px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded border border-amber-200 shadow-sm whitespace-nowrap';
-      spanStatus.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Menunggu Pengurusan';
+      spanStatus.appendChild(createAnalyticsSvgIcon('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'w-3 h-3 mr-1'));
+      spanStatus.appendChild(document.createTextNode(' Menunggu Pengurusan'));
     } else {
       spanStatus.className = 'inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-200 shadow-sm whitespace-nowrap';
-      spanStatus.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Selesai Diagih';
+      spanStatus.appendChild(createAnalyticsSvgIcon('M5 13l4 4L19 7', 'w-3 h-3 mr-1'));
+      spanStatus.appendChild(document.createTextNode(' Selesai Diagih'));
     }
     tdStatus.appendChild(spanStatus);
     tr.appendChild(tdStatus);
@@ -311,7 +368,8 @@ function renderTable(dataArray) {
       aFail.target = '_blank';
       aFail.rel = 'noopener noreferrer';
       aFail.className = 'inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded border border-indigo-100 hover:bg-indigo-100 transition-colors w-full justify-center';
-      aFail.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg> Buka';
+      aFail.appendChild(createAnalyticsSvgIcon('M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14', 'w-3 h-3 mr-1'));
+      aFail.appendChild(document.createTextNode(' Buka'));
       divAksi.appendChild(aFail);
     } else {
       const spanNoFail = document.createElement('span');
@@ -324,7 +382,8 @@ function renderTable(dataArray) {
       const btnEdit = document.createElement('button');
       btnEdit.type = 'button';
       btnEdit.className = 'inline-flex items-center mt-1 px-2 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded border border-amber-200 shadow-sm hover:bg-amber-100 transition-colors w-full justify-center';
-      btnEdit.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Edit';
+      btnEdit.appendChild(createAnalyticsSvgIcon('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', 'w-3 h-3 mr-1'));
+      btnEdit.appendChild(document.createTextNode(' Edit'));
       btnEdit.addEventListener('click', () => {
         if (typeof window.editMemo === 'function') {
           window.editMemo(row.id);
@@ -334,7 +393,8 @@ function renderTable(dataArray) {
       const btnDelete = document.createElement('button');
       btnDelete.type = 'button';
       btnDelete.className = 'inline-flex items-center mt-1 px-2 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded border border-red-200 shadow-sm hover:bg-red-100 transition-colors w-full justify-center';
-      btnDelete.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Padam';
+      btnDelete.appendChild(createAnalyticsSvgIcon('M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16', 'w-3 h-3 mr-1'));
+      btnDelete.appendChild(document.createTextNode(' Padam'));
       btnDelete.addEventListener('click', () => {
         if (typeof window.deleteMemo === 'function') {
           window.deleteMemo(row.id);
@@ -390,7 +450,32 @@ function renderAnalyticsPagination(totalRecords) {
 
   const textDiv = document.createElement('div');
   textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
-  textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> rekod (Halaman <span class="font-bold text-indigo-600">${analyticsCurrentPage}</span>/${totalPages})`;
+
+  const spanStart = document.createElement('span');
+  spanStart.className = 'font-bold text-slate-700';
+  spanStart.textContent = String(startRecord);
+
+  const spanEnd = document.createElement('span');
+  spanEnd.className = 'font-bold text-slate-700';
+  spanEnd.textContent = String(endRecord);
+
+  const spanTotal = document.createElement('span');
+  spanTotal.className = 'font-bold text-slate-700';
+  spanTotal.textContent = String(totalRecords);
+
+  const spanPage = document.createElement('span');
+  spanPage.className = 'font-bold text-indigo-600';
+  spanPage.textContent = String(analyticsCurrentPage);
+
+  textDiv.appendChild(document.createTextNode('Menunjukkan '));
+  textDiv.appendChild(spanStart);
+  textDiv.appendChild(document.createTextNode(' - '));
+  textDiv.appendChild(spanEnd);
+  textDiv.appendChild(document.createTextNode(' daripada '));
+  textDiv.appendChild(spanTotal);
+  textDiv.appendChild(document.createTextNode(' rekod (Halaman '));
+  textDiv.appendChild(spanPage);
+  textDiv.appendChild(document.createTextNode(`/${totalPages})`));
 
   const btnsDiv = document.createElement('div');
   btnsDiv.className = 'flex items-center space-x-2';
@@ -399,14 +484,16 @@ function renderAnalyticsPagination(totalRecords) {
   btnPrev.type = 'button';
   btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnPrev.disabled = isPrevDisabled;
-  btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+  btnPrev.appendChild(createAnalyticsSvgIcon('M15 19l-7-7 7-7', 'w-4 h-4 mr-1'));
+  btnPrev.appendChild(document.createTextNode(' Sebelumnya'));
   btnPrev.addEventListener('click', () => window.changeAnalyticsPage(analyticsCurrentPage - 1));
 
   const btnNext = document.createElement('button');
   btnNext.type = 'button';
   btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnNext.disabled = isNextDisabled;
-  btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+  btnNext.appendChild(document.createTextNode('Seterusnya '));
+  btnNext.appendChild(createAnalyticsSvgIcon('M9 5l7 7-7 7', 'w-4 h-4 ml-1'));
   btnNext.addEventListener('click', () => window.changeAnalyticsPage(analyticsCurrentPage + 1));
 
   btnsDiv.appendChild(btnPrev);
@@ -417,6 +504,7 @@ function renderAnalyticsPagination(totalRecords) {
 }
 
 window.changeAnalyticsPage = function(targetPage) {
+  if (window.DB_CONNECTED !== true) return;
   const totalPages = Math.ceil(currentFilteredRecords.length / ANALYTICS_PAGE_SIZE) || 1;
   if (targetPage < 1 || targetPage > totalPages) return;
   analyticsCurrentPage = targetPage;
@@ -430,6 +518,11 @@ window.changeAnalyticsPage = function(targetPage) {
 };
 
 function filterTable() {
+  if (window.DB_CONNECTED !== true) {
+    clearAnalyticsState();
+    return;
+  }
+
   const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
   const vStatus = document.getElementById('filterStatus')?.value || '';
   const vSektor = document.getElementById('filterSektor')?.value || '';
@@ -554,6 +647,11 @@ function updateCascadingFilters() {
 }
 
 function resetAnalisisFilters() {
+  if (window.DB_CONNECTED !== true) {
+    clearAnalyticsState();
+    return;
+  }
+
   if (document.getElementById('searchInput')) document.getElementById('searchInput').value = '';
   if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = '';
   if (document.getElementById('filterSektor')) document.getElementById('filterSektor').value = '';
@@ -567,6 +665,7 @@ function resetAnalisisFilters() {
 }
 
 window.handleAnalyticsRealtimeUpdate = function(payload) {
+  if (window.DB_CONNECTED !== true) return;
   if (!payload || !payload.eventType) return;
 
   if (payload.eventType === 'INSERT' && payload.new) {
@@ -629,6 +728,10 @@ window.handleAnalyticsRealtimeUpdate = function(payload) {
 };
 
 window.exportToExcel = function() {
+  if (window.DB_CONNECTED !== true) {
+    return window.showMessage("Sistem sedang tergendala. Eksport rekod tidak berfungsi selagi tiada sambungan langsung pada pangkalan data.", "error");
+  }
+
   if (!currentFilteredRecords || currentFilteredRecords.length === 0) {
     return window.showMessage("Tiada rekod sedia ada untuk dieksport.", "error");
   }
@@ -673,3 +776,15 @@ window.exportToExcel = function() {
     window.showMessage("Ralat semasa mengeksport Excel: " + err.message, "error");
   }
 };
+
+window.addEventListener('dbConnectionStateChanged', (event) => {
+  const isConnected = Boolean(event && event.detail && event.detail.connected);
+  if (!isConnected) {
+    clearAnalyticsState();
+  } else {
+    const tabAnalisis = document.getElementById('tabAnalisis');
+    if (tabAnalisis && !tabAnalisis.classList.contains('hidden')) {
+      loadDashboardData();
+    }
+  }
+});

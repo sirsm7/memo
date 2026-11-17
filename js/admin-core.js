@@ -26,14 +26,81 @@ var adminSortState = {
   pegawai: { column: 'nama', direction: 'asc' }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  checkAdminSession();
+function createAdminSvgIcon(pathD, svgClass = 'w-3 h-3 mr-1') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', svgClass);
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('viewBox', '0 0 24 24');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('d', pathD);
+
+  svg.appendChild(path);
+  return svg;
+}
+
+function clearAdminMemoryState() {
+  adminMemoData = [];
+  adminPegawaiData = [];
+  adminSistemData = [];
+  currentFilteredAdminMemo = [];
+  currentFilteredAdminPegawai = [];
+  managerMemoData = [];
+  managerSelected.clear();
+  managerSelectedMemos.clear();
+  adminEditSelected.clear();
+  adminMemoCurrentPage = 1;
+  adminPegawaiCurrentPage = 1;
+
+  toggleModal('modalLoginAdmin', false);
+  toggleModal('modalPegawai', false);
+  toggleModal('modalMemo', false);
+  toggleModal('modalTppdAssign', false);
+  toggleModal('modalTambahAdmin', false);
+}
+
+async function initAdminLifecycle() {
   setupAdminEventListeners();
-  checkUrlIntercept();
+
+  try {
+    const readyPromise = window.ENV_READY || window.appConfigReady;
+    if (readyPromise && typeof readyPromise.then === 'function') {
+      await readyPromise;
+    }
+  } catch (err) {
+    showAdminUI(false);
+    return;
+  }
+
+  if (window.DB_CONNECTED === true) {
+    checkAdminSession();
+    checkUrlIntercept();
+  } else {
+    showAdminUI(false);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initAdminLifecycle();
 });
 
 function setupAdminEventListeners() {
-  document.getElementById('btnBukaLoginAdmin')?.addEventListener('click', () => toggleModal('modalLoginAdmin', true));
+  document.getElementById('btnBukaLoginAdmin')?.addEventListener('click', () => {
+    if (window.DB_CONNECTED !== true) {
+      if (typeof window.showMessage === 'function') {
+        window.showMessage(
+          "Sistem sedang tergendala dan dalam proses kemaskini. Akses log masuk tidak tersedia selagi tiada sambungan langsung pada pangkalan data.",
+          "error"
+        );
+      }
+      return;
+    }
+    toggleModal('modalLoginAdmin', true);
+  });
   document.getElementById('btnBatalLogin')?.addEventListener('click', () => toggleModal('modalLoginAdmin', false));
   document.getElementById('btnLogKeluarAdmin')?.addEventListener('click', handleLogout);
   document.getElementById('formLoginAdmin')?.addEventListener('submit', handleLogin);
@@ -42,7 +109,10 @@ function setupAdminEventListeners() {
   document.getElementById('subTabBtnPegawai')?.addEventListener('click', () => switchAdminSection('pegawai'));
   document.getElementById('subTabBtnSistem')?.addEventListener('click', () => switchAdminSection('sistem'));
 
-  document.getElementById('btnTambahPegawai')?.addEventListener('click', () => openPegawaiModal());
+  document.getElementById('btnTambahPegawai')?.addEventListener('click', () => {
+    if (window.DB_CONNECTED !== true) return;
+    openPegawaiModal();
+  });
   document.getElementById('formPegawai')?.addEventListener('submit', handlePegawaiSubmit);
 
   document.getElementById('pegawaiSektorSelect')?.addEventListener('change', function() {
@@ -71,7 +141,10 @@ function setupAdminEventListeners() {
   document.getElementById('btnPukalSegerak')?.addEventListener('click', startBatchSync);
   document.getElementById('btnPukalPadam')?.addEventListener('click', startBatchDelete);
 
-  document.getElementById('btnTambahAdmin')?.addEventListener('click', () => toggleModal('modalTambahAdmin', true));
+  document.getElementById('btnTambahAdmin')?.addEventListener('click', () => {
+    if (window.DB_CONNECTED !== true) return;
+    toggleModal('modalTambahAdmin', true);
+  });
   document.getElementById('formTambahAdmin')?.addEventListener('submit', handleTambahAdminSubmit);
 
   document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => {
@@ -111,9 +184,25 @@ function setupAdminEventListeners() {
       dropTppd.classList.add('hidden');
     }
   });
+
+  window.addEventListener('dbConnectionStateChanged', (event) => {
+    const isConnected = Boolean(event && event.detail && event.detail.connected);
+    if (!isConnected) {
+      clearAdminMemoryState();
+      showAdminUI(false);
+    } else {
+      checkAdminSession();
+      checkUrlIntercept();
+    }
+  });
 }
 
 function checkAdminSession() {
+  if (window.DB_CONNECTED !== true) {
+    showAdminUI(false);
+    return;
+  }
+
   const session = sessionStorage.getItem('memo_admin_session');
   if (session) {
     try {
@@ -125,11 +214,16 @@ function checkAdminSession() {
       sessionStorage.removeItem('memo_admin_session');
       currentAdmin = null;
       window.currentAdmin = null;
+      showAdminUI(false);
     }
   }
 }
 
 function checkUrlIntercept() {
+  if (window.DB_CONNECTED !== true) {
+    return;
+  }
+
   const urlParams = new URLSearchParams(window.location.search);
   const action = urlParams.get('action');
 
@@ -151,6 +245,17 @@ function checkUrlIntercept() {
 
 async function handleLogin(e) {
   e.preventDefault();
+
+  if (window.DB_CONNECTED !== true) {
+    if (typeof window.showMessage === 'function') {
+      window.showMessage(
+        "Sistem sedang tergendala. Urusan log masuk tidak berfungsi selagi tiada sambungan langsung pada pangkalan data.",
+        "error"
+      );
+    }
+    return;
+  }
+
   const emailInput = document.getElementById('loginAdminEmail');
   const passInput = document.getElementById('loginAdminPassword');
   const errorDiv = document.getElementById('loginAdminError');
@@ -177,6 +282,15 @@ async function handleLogin(e) {
     const readyPromise = window.ENV_READY || window.appConfigReady;
     if (readyPromise && typeof readyPromise.then === 'function') {
       await readyPromise;
+    }
+
+    if (typeof window.verifyDatabaseConnection === 'function') {
+      const isDbAlive = await window.verifyDatabaseConnection({ timeoutMs: 6000, silent: true });
+      if (!isDbAlive) {
+        throw new Error("Tiada sambungan langsung pada pangkalan data. Log masuk tidak dibenarkan.");
+      }
+    } else if (window.DB_CONNECTED !== true) {
+      throw new Error("Tiada sambungan langsung pada pangkalan data.");
     }
 
     const client = window._supabase;
@@ -221,6 +335,13 @@ async function handleLogin(e) {
       });
 
       if (rpcError) {
+        const msgLower = String(rpcError.message || '').toLowerCase();
+        if (msgLower.includes('fetch') || msgLower.includes('network') || msgLower.includes('timeout')) {
+          if (typeof window.verifyDatabaseConnection === 'function') {
+            await window.verifyDatabaseConnection({ silent: true });
+          }
+          throw new Error("Sambungan ke pangkalan data terputus semasa pengesahan.");
+        }
         throw new Error("Emel atau Kata Laluan salah.");
       }
 
@@ -307,7 +428,9 @@ async function handleLogout() {
   currentAdmin = null;
   window.currentAdmin = null;
   showAdminUI(false);
-  window.switchTab('utama');
+  if (window.DB_CONNECTED === true && typeof window.switchTab === 'function') {
+    window.switchTab('utama');
+  }
   window.location.reload();
 }
 
@@ -317,6 +440,15 @@ function showAdminUI(isLoggedIn) {
   const tabAdmin = document.getElementById('tabBtnAdminPanel');
   const tabTppd = document.getElementById('tabBtnTppdPanel');
   const menuCardDaftar = document.getElementById('menuCardDaftar');
+
+  if (window.DB_CONNECTED !== true) {
+    if (btnLogin) btnLogin.classList.add('hidden');
+    if (btnLogout) btnLogout.classList.add('hidden');
+    if (tabAdmin) tabAdmin.classList.add('hidden');
+    if (tabTppd) tabTppd.classList.add('hidden');
+    if (menuCardDaftar) menuCardDaftar.classList.add('hidden');
+    return;
+  }
 
   if (isLoggedIn && currentAdmin) {
     if (btnLogin) btnLogin.classList.add('hidden');
@@ -345,6 +477,8 @@ function showAdminUI(isLoggedIn) {
 }
 
 async function loadAdminData() {
+  if (window.DB_CONNECTED !== true) return;
+
   loadAdminPegawai();
 
   if (currentAdmin && currentAdmin.isManager) {
@@ -357,10 +491,10 @@ async function loadAdminData() {
 }
 
 function loadAdminMemo() {
-  if (!window.CacheService) return;
+  if (window.DB_CONNECTED !== true || !window.CacheService) return;
 
   window.CacheService.fetchSWR('memo_rekod', 'created_at', false, (data) => {
-    if (!data) return;
+    if (window.DB_CONNECTED !== true || !data) return;
     adminMemoData = data;
 
     adminSortState.memo = { column: 'id', direction: 'desc' };
@@ -371,10 +505,10 @@ function loadAdminMemo() {
 }
 
 function loadAdminPegawai() {
-  if (!window.CacheService) return;
+  if (window.DB_CONNECTED !== true || !window.CacheService) return;
 
   window.CacheService.fetchSWR('memo_pegawai', 'nama', true, (data) => {
-    if (!data) return;
+    if (window.DB_CONNECTED !== true || !data) return;
     adminPegawaiData = data;
 
     if (currentAdmin && currentAdmin.isSystemAdmin) {
@@ -386,10 +520,10 @@ function loadAdminPegawai() {
 }
 
 function loadAdminSistem() {
-  if (!window.CacheService) return;
+  if (window.DB_CONNECTED !== true || !window.CacheService) return;
 
   window.CacheService.fetchSWR('memo_admin', 'id', true, (data) => {
-    if (!data) return;
+    if (window.DB_CONNECTED !== true || !data) return;
     adminSistemData = data;
     renderAdminSistemTable(adminSistemData);
   });
@@ -464,7 +598,8 @@ function renderAdminMemoTable(data) {
     const btnCal = document.createElement('button');
     if (hasCalendar) {
       btnCal.className = 'text-red-500 hover:text-red-700 text-[10px] font-bold bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24';
-      btnCal.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Padam Kalendar';
+      btnCal.appendChild(createAdminSvgIcon('M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16', 'w-3 h-3 mr-1'));
+      btnCal.appendChild(document.createTextNode(' Padam Kalendar'));
       btnCal.addEventListener('click', () => {
         if (typeof window.removeSingleCalendar === 'function') {
           window.removeSingleCalendar(row.id);
@@ -472,7 +607,8 @@ function renderAdminMemoTable(data) {
       });
     } else {
       btnCal.className = 'text-emerald-600 hover:text-emerald-800 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 px-2 py-1.5 rounded transition-colors flex items-center justify-center mx-auto w-24';
-      btnCal.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Segerak Kalendar';
+      btnCal.appendChild(createAdminSvgIcon('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', 'w-3 h-3 mr-1'));
+      btnCal.appendChild(document.createTextNode(' Segerak Kalendar'));
       btnCal.addEventListener('click', () => {
         if (typeof window.syncSingleCalendar === 'function') {
           window.syncSingleCalendar(row.id);
@@ -513,6 +649,39 @@ function renderAdminMemoTable(data) {
   renderAdminMemoPagination(totalRecords);
 }
 
+function buildPaginationInfoElement(startRecord, endRecord, totalRecords, currentPage, totalPages, entityLabel) {
+  const textDiv = document.createElement('div');
+  textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
+
+  const spanStart = document.createElement('span');
+  spanStart.className = 'font-bold text-slate-700';
+  spanStart.textContent = String(startRecord);
+
+  const spanEnd = document.createElement('span');
+  spanEnd.className = 'font-bold text-slate-700';
+  spanEnd.textContent = String(endRecord);
+
+  const spanTotal = document.createElement('span');
+  spanTotal.className = 'font-bold text-slate-700';
+  spanTotal.textContent = String(totalRecords);
+
+  const spanPage = document.createElement('span');
+  spanPage.className = 'font-bold text-indigo-600';
+  spanPage.textContent = String(currentPage);
+
+  textDiv.appendChild(document.createTextNode('Menunjukkan '));
+  textDiv.appendChild(spanStart);
+  textDiv.appendChild(document.createTextNode(' - '));
+  textDiv.appendChild(spanEnd);
+  textDiv.appendChild(document.createTextNode(' daripada '));
+  textDiv.appendChild(spanTotal);
+  textDiv.appendChild(document.createTextNode(` ${entityLabel} (Halaman `));
+  textDiv.appendChild(spanPage);
+  textDiv.appendChild(document.createTextNode(`/${totalPages})`));
+
+  return textDiv;
+}
+
 function renderAdminMemoPagination(totalRecords) {
   let container = document.getElementById('adminMemoPagination');
 
@@ -546,9 +715,7 @@ function renderAdminMemoPagination(totalRecords) {
 
   container.textContent = '';
 
-  const textDiv = document.createElement('div');
-  textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
-  textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> memo (Halaman <span class="font-bold text-indigo-600">${adminMemoCurrentPage}</span>/${totalPages})`;
+  const textDiv = buildPaginationInfoElement(startRecord, endRecord, totalRecords, adminMemoCurrentPage, totalPages, 'memo');
 
   const btnsDiv = document.createElement('div');
   btnsDiv.className = 'flex items-center space-x-2';
@@ -557,14 +724,16 @@ function renderAdminMemoPagination(totalRecords) {
   btnPrev.type = 'button';
   btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnPrev.disabled = isPrevDisabled;
-  btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+  btnPrev.appendChild(createAdminSvgIcon('M15 19l-7-7 7-7', 'w-4 h-4 mr-1'));
+  btnPrev.appendChild(document.createTextNode(' Sebelumnya'));
   btnPrev.addEventListener('click', () => window.changeAdminMemoPage(adminMemoCurrentPage - 1));
 
   const btnNext = document.createElement('button');
   btnNext.type = 'button';
   btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnNext.disabled = isNextDisabled;
-  btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+  btnNext.appendChild(document.createTextNode('Seterusnya '));
+  btnNext.appendChild(createAdminSvgIcon('M9 5l7 7-7 7', 'w-4 h-4 ml-1'));
   btnNext.addEventListener('click', () => window.changeAdminMemoPage(adminMemoCurrentPage + 1));
 
   btnsDiv.appendChild(btnPrev);
@@ -575,6 +744,7 @@ function renderAdminMemoPagination(totalRecords) {
 }
 
 window.changeAdminMemoPage = function(targetPage) {
+  if (window.DB_CONNECTED !== true) return;
   const totalPages = Math.ceil(currentFilteredAdminMemo.length / ADMIN_MEMO_PAGE_SIZE) || 1;
   if (targetPage < 1 || targetPage > totalPages) return;
   adminMemoCurrentPage = targetPage;
@@ -707,9 +877,7 @@ function renderAdminPegawaiPagination(totalRecords) {
 
   container.textContent = '';
 
-  const textDiv = document.createElement('div');
-  textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
-  textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> pegawai (Halaman <span class="font-bold text-indigo-600">${adminPegawaiCurrentPage}</span>/${totalPages})`;
+  const textDiv = buildPaginationInfoElement(startRecord, endRecord, totalRecords, adminPegawaiCurrentPage, totalPages, 'pegawai');
 
   const btnsDiv = document.createElement('div');
   btnsDiv.className = 'flex items-center space-x-2';
@@ -718,14 +886,16 @@ function renderAdminPegawaiPagination(totalRecords) {
   btnPrev.type = 'button';
   btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnPrev.disabled = isPrevDisabled;
-  btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+  btnPrev.appendChild(createAdminSvgIcon('M15 19l-7-7 7-7', 'w-4 h-4 mr-1'));
+  btnPrev.appendChild(document.createTextNode(' Sebelumnya'));
   btnPrev.addEventListener('click', () => window.changeAdminPegawaiPage(adminPegawaiCurrentPage - 1));
 
   const btnNext = document.createElement('button');
   btnNext.type = 'button';
   btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnNext.disabled = isNextDisabled;
-  btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+  btnNext.appendChild(document.createTextNode('Seterusnya '));
+  btnNext.appendChild(createAdminSvgIcon('M9 5l7 7-7 7', 'w-4 h-4 ml-1'));
   btnNext.addEventListener('click', () => window.changeAdminPegawaiPage(adminPegawaiCurrentPage + 1));
 
   btnsDiv.appendChild(btnPrev);
@@ -736,6 +906,7 @@ function renderAdminPegawaiPagination(totalRecords) {
 }
 
 window.changeAdminPegawaiPage = function(targetPage) {
+  if (window.DB_CONNECTED !== true) return;
   const totalPages = Math.ceil(currentFilteredAdminPegawai.length / ADMIN_PEGAWAI_PAGE_SIZE) || 1;
   if (targetPage < 1 || targetPage > totalPages) return;
   adminPegawaiCurrentPage = targetPage;
@@ -886,18 +1057,15 @@ window.handleSort = function(type, column) {
 function updateSortIcons(type) {
   const allIcons = document.querySelectorAll(`[id^="sort-${type}-"]`);
   allIcons.forEach(icon => {
-    icon.innerHTML = '';
+    icon.textContent = '';
   });
 
   const state = adminSortState[type];
   const activeIconContainer = document.getElementById(`sort-${type}-${state.column}`);
 
   if (activeIconContainer) {
-    if (state.direction === 'asc') {
-      activeIconContainer.innerHTML = '<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>';
-    } else {
-      activeIconContainer.innerHTML = '<svg class="w-4 h-4 text-indigo-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-    }
+    const pathD = state.direction === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7';
+    activeIconContainer.appendChild(createAdminSvgIcon(pathD, 'w-4 h-4 text-indigo-600 inline'));
   }
 }
 
@@ -927,6 +1095,7 @@ function filterAdminTable(type, query) {
 }
 
 window.handleAdminRealtimeUpdate = function(tableName, payload) {
+  if (window.DB_CONNECTED !== true) return;
   if (!payload || !payload.eventType) return;
 
   if (tableName === 'memo_rekod') {
@@ -979,6 +1148,7 @@ function toggleModal(id, show) {
   const m = document.getElementById(id);
   if (!m) return;
   if (show) {
+    if (window.DB_CONNECTED !== true) return;
     m.classList.remove('hidden');
   } else {
     m.classList.add('hidden');

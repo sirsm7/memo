@@ -58,12 +58,19 @@
   }
 
   function scheduleManagerMemoReload() {
+    if (window.DB_CONNECTED !== true) {
+      return;
+    }
+
     if (managerReloadTimer) {
       clearTimeout(managerReloadTimer);
     }
 
     managerReloadTimer = setTimeout(() => {
       managerReloadTimer = null;
+      if (window.DB_CONNECTED !== true) {
+        return;
+      }
       const activeAdmin = window.currentAdmin || null;
       if (
         typeof window.loadManagerMemo === 'function' &&
@@ -117,6 +124,10 @@
   }
 
   async function handleMemoRekodChange(payload) {
+    if (window.DB_CONNECTED !== true) {
+      return;
+    }
+
     const valid = await shouldProcessPayload('memo_rekod', payload);
     if (!valid) {
       return;
@@ -138,6 +149,10 @@
   }
 
   async function handleMemoPegawaiChange(payload) {
+    if (window.DB_CONNECTED !== true) {
+      return;
+    }
+
     const valid = await shouldProcessPayload('memo_pegawai', payload);
     if (!valid) {
       return;
@@ -155,6 +170,10 @@
   }
 
   async function handleMemoAdminChange(payload) {
+    if (window.DB_CONNECTED !== true) {
+      return;
+    }
+
     const valid = await shouldProcessPayload('memo_admin', payload);
     if (!valid) {
       return;
@@ -170,6 +189,10 @@
   }
 
   async function cleanupRealtimeChannel() {
+    if (syncDebounceTimer) {
+      clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = null;
+    }
     if (managerReloadTimer) {
       clearTimeout(managerReloadTimer);
       managerReloadTimer = null;
@@ -194,6 +217,11 @@
       const readyPromise = window.ENV_READY || window.appConfigReady;
       if (readyPromise && typeof readyPromise.then === 'function') {
         await readyPromise;
+      }
+
+      if (window.DB_CONNECTED !== true) {
+        await cleanupRealtimeChannel();
+        return null;
       }
 
       const client = window._supabase;
@@ -237,7 +265,14 @@
         );
 
       channel.subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          if (activeChannel === channel) {
+            cleanupRealtimeChannel();
+          }
+          if (typeof window.verifyDatabaseConnection === 'function') {
+            window.verifyDatabaseConnection({ silent: true });
+          }
+        } else if (status === 'CLOSED') {
           if (activeChannel === channel) {
             cleanupRealtimeChannel();
           }
@@ -254,11 +289,20 @@
   }
 
   function triggerSWRBackgroundSync() {
+    if (window.DB_CONNECTED !== true) {
+      return;
+    }
+
     if (syncDebounceTimer) {
       clearTimeout(syncDebounceTimer);
     }
 
     syncDebounceTimer = setTimeout(() => {
+      syncDebounceTimer = null;
+      if (window.DB_CONNECTED !== true) {
+        return;
+      }
+
       if (!window.CacheService || typeof window.CacheService.fetchSWR !== 'function') {
         return;
       }
@@ -308,6 +352,9 @@
 
   async function handleLifecycleResume() {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      if (typeof window.setDatabaseConnectionState === 'function') {
+        window.setDatabaseConnectionState(false, 'Peranti terputus daripada sambungan internet.');
+      }
       return;
     }
 
@@ -329,12 +376,33 @@
     }
 
     const needsReconnect = !activeChannel || activeChannel.state !== 'joined';
-    if (needsReconnect) {
+
+    if (window.DB_CONNECTED !== true || needsReconnect) {
+      if (typeof window.verifyDatabaseConnection === 'function') {
+        const isAlive = await window.verifyDatabaseConnection({ silent: true });
+        if (!isAlive) {
+          return;
+        }
+      } else if (window.DB_CONNECTED !== true) {
+        return;
+      }
+    }
+
+    if (!activeChannel || activeChannel.state !== 'joined') {
       await initRealtimeSubscription(true);
     }
 
     triggerSWRBackgroundSync();
   }
+
+  window.addEventListener('dbConnectionStateChanged', (event) => {
+    const isConnected = Boolean(event && event.detail && event.detail.connected);
+    if (!isConnected) {
+      cleanupRealtimeChannel();
+    } else if (!activeChannel || activeChannel.state !== 'joined') {
+      initRealtimeSubscription(false);
+    }
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {

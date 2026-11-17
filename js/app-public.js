@@ -14,17 +14,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const yearElem = document.getElementById('currentYear');
   if (yearElem) yearElem.textContent = new Date().getFullYear();
 
-  loadPublicPegawaiData();
   setupEventListeners();
+  loadPublicPegawaiData();
   switchTab('utama');
 });
 
-function loadPublicPegawaiData() {
+async function loadPublicPegawaiData() {
   if (!window.CacheService) {
     return;
   }
 
+  try {
+    const readyPromise = window.ENV_READY || window.appConfigReady;
+    if (readyPromise && typeof readyPromise.then === 'function') {
+      await readyPromise;
+    }
+  } catch (err) {
+    return;
+  }
+
+  if (window.DB_CONNECTED !== true) {
+    return;
+  }
+
   window.CacheService.fetchSWR('memo_pegawai', 'sektor', true, (data) => {
+    if (window.DB_CONNECTED !== true) return;
     if (!data || data.length === 0) return;
 
     processPegawai(data);
@@ -61,6 +75,26 @@ function setupEventListeners() {
       dropUtama.classList.add('hidden');
     }
   });
+
+  window.addEventListener('dbConnectionStateChanged', (event) => {
+    const isConnected = Boolean(event && event.detail && event.detail.connected);
+    const submitBtn = document.getElementById('submitBtn');
+    const fileInput = document.getElementById('salinanSurat');
+
+    if (!isConnected) {
+      if (submitBtn) submitBtn.disabled = true;
+      if (fileInput) fileInput.disabled = true;
+    } else {
+      if (submitBtn && !isSubmittingForm) submitBtn.disabled = false;
+      const hiddenUrlInput = document.getElementById('uploadedFileUrl');
+      if (fileInput && (!hiddenUrlInput || !hiddenUrlInput.value)) {
+        fileInput.disabled = false;
+      }
+      if (!Array.isArray(globalPegawaiFlat) || globalPegawaiFlat.length === 0) {
+        loadPublicPegawaiData();
+      }
+    }
+  });
 }
 
 window.isManagerRole = function(unitName) {
@@ -70,6 +104,19 @@ window.isManagerRole = function(unitName) {
 };
 
 window.switchTab = function(tabName) {
+  if (window.DB_CONNECTED !== true) {
+    if (typeof window.setDatabaseConnectionState === 'function' && window.DB_CONNECTION_ERROR) {
+      window.setDatabaseConnectionState(false, window.DB_CONNECTION_ERROR);
+    }
+    if (tabName !== 'utama' && typeof window.showMessage === 'function') {
+      window.showMessage(
+        "Sistem sedang tergendala dan dalam proses kemaskini. Semua urusan input dan semakan tidak berfungsi selagi tiada sambungan langsung pada pangkalan data.",
+        "error"
+      );
+    }
+    return;
+  }
+
   if (['daftar', 'admin', 'tppd'].includes(tabName)) {
     const sessionStr = sessionStorage.getItem('memo_admin_session');
     const adminData = sessionStr ? JSON.parse(sessionStr) : null;
@@ -445,6 +492,11 @@ const toBase64 = file => new Promise((resolve, reject) => {
 async function handleEarlyUpload(input) {
   if (!input.files || input.files.length === 0) return;
 
+  if (window.DB_CONNECTED !== true) {
+    resetFileUpload();
+    return showMessage("Sistem sedang tergendala. Urusan muat naik dan pendaftaran tidak berfungsi selagi tiada sambungan langsung pada pangkalan data.", "error");
+  }
+
   const file = input.files[0];
   const MAX_SIZE_MB = 5;
   const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
@@ -480,7 +532,7 @@ async function handleEarlyUpload(input) {
 
   statusDiv.classList.remove('hidden');
   loader.classList.remove('hidden');
-  text.textContent = "Sedang memuat naik fail ke Drive pelayan...";
+  text.textContent = "Mengesahkan sambungan pangkalan data & memuat naik fail...";
   text.classList.replace('text-emerald-600', 'text-slate-600');
   link.classList.add('hidden');
   resetBtn.classList.add('hidden');
@@ -490,6 +542,15 @@ async function handleEarlyUpload(input) {
     const readyPromise = window.ENV_READY || window.appConfigReady;
     if (readyPromise && typeof readyPromise.then === 'function') {
       await readyPromise;
+    }
+
+    if (typeof window.verifyDatabaseConnection === 'function') {
+      const isDbAlive = await window.verifyDatabaseConnection({ timeoutMs: 6000, silent: true });
+      if (!isDbAlive) {
+        throw new Error("Tiada sambungan langsung pada pangkalan data. Muat naik dibatalkan.");
+      }
+    } else if (window.DB_CONNECTED !== true) {
+      throw new Error("Tiada sambungan langsung pada pangkalan data.");
     }
 
     const gasUrl = window.GAS_URL || window.GAS_ENDPOINT_URL;
@@ -554,7 +615,7 @@ function resetFileUpload() {
   const input = document.getElementById('salinanSurat');
   if (input) {
     input.value = "";
-    input.disabled = false;
+    input.disabled = window.DB_CONNECTED !== true;
   }
   const statusEl = document.getElementById('uploadStatus');
   if (statusEl) statusEl.classList.add('hidden');
@@ -607,6 +668,10 @@ async function handleFormSubmit(e) {
   e.preventDefault();
   if (isSubmittingForm) return;
 
+  if (window.DB_CONNECTED !== true) {
+    return showMessage("Sistem sedang tergendala. Semua urusan pendaftaran tidak berfungsi selagi tiada sambungan langsung pada pangkalan data.", "error");
+  }
+
   const hiddenUrlInput = document.getElementById('uploadedFileUrl');
   const currentFileUrl = hiddenUrlInput ? hiddenUrlInput.value.trim() : "";
 
@@ -614,12 +679,21 @@ async function handleFormSubmit(e) {
   if (globalSelected.size === 0) return showMessage("Sila pilih sekurang-kurangnya 1 penerima.", "error");
 
   isSubmittingForm = true;
-  setLoading(true, "Mengesahkan Hierarki Sistem...");
+  setLoading(true, "Mengesahkan Sambungan & Hierarki...");
 
   try {
     const readyPromise = window.ENV_READY || window.appConfigReady;
     if (readyPromise && typeof readyPromise.then === 'function') {
       await readyPromise;
+    }
+
+    if (typeof window.verifyDatabaseConnection === 'function') {
+      const isDbAlive = await window.verifyDatabaseConnection({ timeoutMs: 6000, silent: true });
+      if (!isDbAlive) {
+        throw new Error("Sambungan langsung ke pangkalan data terputus. Rekod tidak dapat disimpan.");
+      }
+    } else if (window.DB_CONNECTED !== true) {
+      throw new Error("Tiada sambungan langsung pada pangkalan data.");
     }
 
     const client = window._supabase;
@@ -697,7 +771,12 @@ async function handleFormSubmit(e) {
 
     const { data: rec, error: subError } = await client.from('memo_rekod').insert([newRecordPayload]).select();
 
-    if (subError) throw subError;
+    if (subError) {
+      if (typeof window.verifyDatabaseConnection === 'function') {
+        await window.verifyDatabaseConnection({ silent: true });
+      }
+      throw subError;
+    }
 
     if (window.CacheService) {
       await window.CacheService.clearStore('memo_rekod');
@@ -759,7 +838,7 @@ function setLoading(status, txt) {
   const btn = document.getElementById('submitBtn');
   const bt = document.getElementById('btnText');
   if (!btn || !bt) return;
-  btn.disabled = status;
+  btn.disabled = status || window.DB_CONNECTED !== true;
   bt.textContent = '';
 
   if (status) {

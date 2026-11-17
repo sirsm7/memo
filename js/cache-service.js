@@ -1,5 +1,5 @@
 const DB_NAME = 'MemoAG_CacheDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORES = ['memo_rekod', 'memo_pegawai', 'memo_admin', 'cache_meta'];
 const DEFAULT_TTL = 30 * 60 * 1000;
 
@@ -320,28 +320,61 @@ const CacheService = {
   },
 
   fetchSWR: async function(tableName, orderCol, ascending, callback) {
-    try {
-      const cachedData = await this.getAll(tableName, orderCol, ascending);
-      if (cachedData && cachedData.length > 0) {
-        callback(cachedData, true);
+    if (typeof callback !== 'function') {
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      if (typeof window.setDatabaseConnectionState === 'function') {
+        window.setDatabaseConnectionState(false, 'Peranti berada di luar talian (tiada sambungan internet).');
       }
-    } catch (cacheErr) {}
+      return;
+    }
 
     try {
       const readyPromise = window.ENV_READY || window.appConfigReady;
       if (readyPromise && typeof readyPromise.then === 'function') {
         await readyPromise;
       }
+    } catch (configErr) {
+      if (typeof window.setDatabaseConnectionState === 'function' && window.DB_CONNECTED !== false) {
+        window.setDatabaseConnectionState(false, configErr && configErr.message ? configErr.message : 'Konfigurasi pelayan gagal.');
+      }
+      return;
+    }
 
+    if (window.DB_CONNECTED !== true) {
+      return;
+    }
+
+    try {
+      const cachedData = await this.getAll(tableName, orderCol, ascending);
+      if (cachedData && cachedData.length > 0 && window.DB_CONNECTED === true) {
+        callback(cachedData, true);
+      }
+    } catch (cacheErr) {}
+
+    const controller = new AbortController();
+    const timerId = setTimeout(() => {
+      controller.abort();
+    }, 10000);
+
+    try {
       const client = window._supabase;
       if (!client || typeof client.from !== 'function') {
         throw new Error('Klien Supabase belum sedia.');
       }
 
-      const { data, error } = await client
+      let query = client
         .from(tableName)
         .select('*')
         .order(orderCol, { ascending: ascending });
+
+      if (typeof query.abortSignal === 'function') {
+        query = query.abortSignal(controller.signal);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -349,8 +382,21 @@ const CacheService = {
 
       await this.setAll(tableName, freshData).catch(() => {});
 
-      callback(freshData, false);
-    } catch (networkErr) {}
+      if (window.DB_CONNECTED === true) {
+        callback(freshData, false);
+      }
+    } catch (networkErr) {
+      const isAbort = networkErr && (networkErr.name === 'AbortError' || String(networkErr.message || '').toLowerCase().includes('abort'));
+      const errorMsg = isAbort
+        ? 'Sambungan ke pangkalan data tamat masa semasa memuat turun rekod.'
+        : (networkErr && networkErr.message ? networkErr.message : 'Gagal menyambung ke pangkalan data.');
+
+      if (typeof window.setDatabaseConnectionState === 'function') {
+        window.setDatabaseConnectionState(false, errorMsg);
+      }
+    } finally {
+      clearTimeout(timerId);
+    }
   }
 };
 
