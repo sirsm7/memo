@@ -5,6 +5,17 @@ var currentFilteredRecords = window.currentFilteredRecords || [];
 var globalSelected = new Map();
 var isSubmittingForm = false;
 
+function debouncePublic(fn, delay = 250) {
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (window.__appPublicInitialized) {
     return;
@@ -53,14 +64,16 @@ function setupEventListeners() {
   document.getElementById('sektor')?.addEventListener('change', populateUnit);
   document.getElementById('unit')?.addEventListener('change', populateNama);
 
-  document.getElementById('carianPegawaiUtama')?.addEventListener('input', window.handleCarianDaftar);
+  const debouncedCarianDaftar = debouncePublic((e) => window.handleCarianDaftar(e), 250);
+  document.getElementById('carianPegawaiUtama')?.addEventListener('input', debouncedCarianDaftar);
 
   document.getElementById('salinanSurat')?.addEventListener('change', function() { handleEarlyUpload(this); });
   document.getElementById('resetFileBtn')?.addEventListener('click', resetFileUpload);
 
   document.getElementById('mainForm')?.addEventListener('submit', handleFormSubmit);
 
-  document.getElementById('searchInput')?.addEventListener('keyup', filterTable);
+  const debouncedFilterTable = debouncePublic(() => { if (typeof filterTable === 'function') filterTable(); }, 250);
+  document.getElementById('searchInput')?.addEventListener('input', debouncedFilterTable);
   document.getElementById('filterStatus')?.addEventListener('change', filterTable);
   document.getElementById('filterSektor')?.addEventListener('change', filterTable);
   document.getElementById('filterUnit')?.addEventListener('change', filterTable);
@@ -153,6 +166,7 @@ window.switchTab = function(tabName) {
 
     if (t === tabName) {
       tabDiv.classList.remove('hidden');
+      tabDiv.classList.add('fade-in-panel');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       tabDiv.classList.add('hidden');
@@ -184,6 +198,16 @@ window.switchTab = function(tabName) {
   if (tabName === 'analisis') {
     if (typeof loadDashboardData === 'function') {
       loadDashboardData();
+    }
+  }
+
+  if (tabName === 'kalendar') {
+    const calFrame = document.getElementById('calendarFrame');
+    if (calFrame) {
+      const lazySrc = calFrame.getAttribute('data-src');
+      if (lazySrc && !calFrame.getAttribute('src')) {
+        calFrame.setAttribute('src', lazySrc);
+      }
     }
   }
 };
@@ -822,7 +846,10 @@ async function handleFormSubmit(e) {
     }
 
     const calFrame = document.getElementById('calendarFrame');
-    if (calFrame) calFrame.src = calFrame.src;
+    if (calFrame && calFrame.getAttribute('src')) {
+      const currentCalSrc = calFrame.getAttribute('src');
+      calFrame.setAttribute('src', currentCalSrc);
+    }
 
     resetForm();
 
@@ -865,9 +892,31 @@ window.showMessage = function(m, t) {
     titleText = 'Berjaya';
   }
 
+  const contentContainer = document.createElement('div');
+  const rawMessage = String(m || '');
+  const lines = rawMessage.split(/<br\s*\/?>/gi);
+
+  lines.forEach((line, lineIdx) => {
+    if (lineIdx > 0) {
+      contentContainer.appendChild(document.createElement('br'));
+    }
+    const segments = line.split(/(<strong>.*?<\/strong>)/gi);
+    segments.forEach(seg => {
+      if (!seg) return;
+      const strongMatch = seg.match(/^<strong>(.*?)<\/strong>$/i);
+      if (strongMatch) {
+        const strongEl = document.createElement('strong');
+        strongEl.textContent = strongMatch[1];
+        contentContainer.appendChild(strongEl);
+      } else {
+        contentContainer.appendChild(document.createTextNode(seg));
+      }
+    });
+  });
+
   Swal.fire({
     title: titleText,
-    html: m,
+    html: contentContainer,
     icon: iconType,
     confirmButtonColor: '#4f46e5',
     confirmButtonText: 'Tutup',

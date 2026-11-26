@@ -1,5 +1,7 @@
 let analyticsCurrentPage = 1;
 const ANALYTICS_PAGE_SIZE = 20;
+const XLSX_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let isExportingExcel = false;
 
 function createAnalyticsSvgIcon(pathD, svgClass = 'w-3 h-3 mr-1') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -727,16 +729,41 @@ window.handleAnalyticsRealtimeUpdate = function(payload) {
   updateCascadingFilters();
 };
 
-window.exportToExcel = function() {
+window.exportToExcel = async function() {
   if (window.DB_CONNECTED !== true) {
     return window.showMessage("Sistem sedang tergendala. Eksport rekod tidak berfungsi selagi tiada sambungan langsung pada pangkalan data.", "error");
+  }
+
+  if (isExportingExcel) {
+    return;
   }
 
   if (!currentFilteredRecords || currentFilteredRecords.length === 0) {
     return window.showMessage("Tiada rekod sedia ada untuk dieksport.", "error");
   }
 
+  const exportBtn = document.getElementById('btnExportExcel');
+  isExportingExcel = true;
+
+  if (exportBtn) {
+    exportBtn.disabled = true;
+    exportBtn.classList.add('opacity-60', 'cursor-not-allowed');
+    exportBtn.textContent = '';
+    const spinner = document.createElement('div');
+    spinner.className = 'loader mr-2 border-emerald-200 border-top-white w-4 h-4';
+    exportBtn.appendChild(spinner);
+    exportBtn.appendChild(document.createTextNode('Menjana Excel...'));
+  }
+
   try {
+    if (typeof window.XLSX === 'undefined') {
+      if (typeof window.loadExternalScript === 'function') {
+        await window.loadExternalScript(XLSX_CDN_URL, 'XLSX');
+      } else {
+        throw new Error('Pustaka eksport Excel belum tersedia.');
+      }
+    }
+
     const exportData = currentFilteredRecords.map((row, index) => {
       const isMenunggu = window.isManagerRole ? (window.isManagerRole(row.unit) && (!row.calendar_event_id || row.calendar_event_id.startsWith('PENDING_'))) : false;
       const statusTxt = isMenunggu ? 'Menunggu Tindakan Pengurusan' : 'Selesai Diagihkan';
@@ -774,6 +801,15 @@ window.exportToExcel = function() {
     window.showMessage("Fail Excel berjaya dijana dan dimuat turun.", "success");
   } catch (err) {
     window.showMessage("Ralat semasa mengeksport Excel: " + err.message, "error");
+  } finally {
+    isExportingExcel = false;
+    if (exportBtn) {
+      exportBtn.disabled = false;
+      exportBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+      exportBtn.textContent = '';
+      exportBtn.appendChild(createAnalyticsSvgIcon('M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'w-4 h-4 mr-2'));
+      exportBtn.appendChild(document.createTextNode('Eksport Excel'));
+    }
   }
 };
 

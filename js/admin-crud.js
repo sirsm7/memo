@@ -1,3 +1,20 @@
+function createCrudCloseIconSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'w-4 h-4');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('viewBox', '0 0 24 24');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+
+  svg.appendChild(path);
+  return svg;
+}
+
 window.openPegawaiModal = function(pegawai = null) {
   const form = document.getElementById('formPegawai');
   const sSelect = document.getElementById('pegawaiSektorSelect');
@@ -393,6 +410,8 @@ function renderAdminEditTags() {
     return;
   }
 
+  const fragment = document.createDocumentFragment();
+
   adminEditSelected.forEach((nama, emel) => {
     const div = document.createElement('div');
     div.className = 'inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-transform hover:-translate-y-0.5';
@@ -403,13 +422,15 @@ function renderAdminEditTags() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
-    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+    btn.appendChild(createCrudCloseIconSvg());
     btn.addEventListener('click', () => removeAdminEditTag(emel));
 
     div.appendChild(span);
     div.appendChild(btn);
-    container.appendChild(div);
+    fragment.appendChild(div);
   });
+
+  container.appendChild(fragment);
 }
 
 window.editMemo = function(id) {
@@ -488,7 +509,11 @@ async function handleMemoSubmit(e) {
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4"></div> Memproses...';
+    btn.textContent = '';
+    const loader = document.createElement('div');
+    loader.className = 'loader mr-2 border-slate-300 border-top-slate-500 w-4 h-4';
+    btn.appendChild(loader);
+    btn.appendChild(document.createTextNode(' Memproses...'));
   }
 
   try {
@@ -604,7 +629,11 @@ async function handleTambahAdminSubmit(e) {
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-500"></div> Menyimpan...';
+    btn.textContent = '';
+    const loader = document.createElement('div');
+    loader.className = 'loader mr-2 border-white border-top-indigo-500';
+    btn.appendChild(loader);
+    btn.appendChild(document.createTextNode(' Menyimpan...'));
   }
 
   try {

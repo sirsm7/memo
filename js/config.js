@@ -12,6 +12,41 @@ window.DB_CONNECTION_ERROR = '';
 
 let activeVerifyPromise = null;
 let hasEvaluatedDbState = false;
+const externalScriptPromises = new Map();
+
+window.loadExternalScript = function(src, globalCheckName) {
+  if (globalCheckName && typeof window[globalCheckName] !== 'undefined') {
+    return Promise.resolve(window[globalCheckName]);
+  }
+  if (externalScriptPromises.has(src)) {
+    return externalScriptPromises.get(src);
+  }
+
+  const promise = new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(globalCheckName ? window[globalCheckName] : true), { once: true });
+      existing.addEventListener('error', () => {
+        externalScriptPromises.delete(src);
+        reject(new Error(`Gagal memuatkan pustaka skrip: ${src}`));
+      }, { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve(globalCheckName ? window[globalCheckName] : true);
+    script.onerror = () => {
+      externalScriptPromises.delete(src);
+      reject(new Error(`Gagal memuatkan pustaka skrip: ${src}`));
+    };
+    document.head.appendChild(script);
+  });
+
+  externalScriptPromises.set(src, promise);
+  return promise;
+};
 
 function buildFallbackMaintenanceOverlay() {
   let overlay = document.getElementById('dbMaintenanceOverlay');
@@ -185,10 +220,14 @@ function syncMaintenanceUIWithState() {
   const isConnected = Boolean(window.DB_CONNECTED);
   const overlay = buildFallbackMaintenanceOverlay();
   const workspace = document.getElementById('appMainWorkspace');
+  const initialLoading = document.getElementById('dbInitialLoading');
   const reasonEl = document.getElementById('dbMaintenanceReason');
 
   if (reasonEl) {
     reasonEl.textContent = window.DB_CONNECTION_ERROR || 'Status: Tiada sambungan langsung ke pelayan pangkalan data.';
+  }
+  if (initialLoading) {
+    initialLoading.classList.add('hidden');
   }
 
   if (!isConnected) {
@@ -205,6 +244,7 @@ function syncMaintenanceUIWithState() {
     }
     if (workspace) {
       workspace.classList.remove('hidden');
+      workspace.classList.add('fade-in-panel');
     }
     toggleLegacyWorkspaceVisibility(true);
   }

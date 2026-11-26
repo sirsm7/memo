@@ -26,6 +26,17 @@ var adminSortState = {
   pegawai: { column: 'nama', direction: 'asc' }
 };
 
+function debounceAdmin(fn, delay = 250) {
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
 function createAdminSvgIcon(pathD, svgClass = 'w-3 h-3 mr-1') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', svgClass);
@@ -147,14 +158,17 @@ function setupAdminEventListeners() {
   });
   document.getElementById('formTambahAdmin')?.addEventListener('submit', handleTambahAdminSubmit);
 
-  document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => {
+  const debouncedAdminMemoSearch = debounceAdmin((val) => {
     adminMemoCurrentPage = 1;
-    filterAdminTable('memo', e.target.value);
-  });
-  document.getElementById('adminSearchPegawai')?.addEventListener('input', (e) => {
+    filterAdminTable('memo', val);
+  }, 250);
+  document.getElementById('adminSearchMemo')?.addEventListener('input', (e) => debouncedAdminMemoSearch(e.target.value));
+
+  const debouncedAdminPegawaiSearch = debounceAdmin((val) => {
     adminPegawaiCurrentPage = 1;
-    filterAdminTable('pegawai', e.target.value);
-  });
+    filterAdminTable('pegawai', val);
+  }, 250);
+  document.getElementById('adminSearchPegawai')?.addEventListener('input', (e) => debouncedAdminPegawaiSearch(e.target.value));
 
   document.getElementById('tppdSektorSelect')?.addEventListener('change', window.populateManagerUnit);
   document.getElementById('tppdUnitSelect')?.addEventListener('change', populateManagerNama);
@@ -1007,7 +1021,10 @@ function switchAdminSection(section) {
 
   const div = document.getElementById(targetSection);
   const btn = document.getElementById(targetBtn);
-  if (div) div.classList.remove('hidden');
+  if (div) {
+    div.classList.remove('hidden');
+    div.classList.add('fade-in-panel');
+  }
   if (btn) {
     btn.classList.add('bg-indigo-100', 'text-indigo-700');
     btn.classList.remove('text-slate-600');

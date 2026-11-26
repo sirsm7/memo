@@ -18,6 +18,35 @@
   100% { transform: rotate(360deg); }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-panel {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.skeleton-pulse {
+  animation: skeletonPulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;

@@ -6,6 +6,56 @@ var managerSelected = typeof managerSelected !== 'undefined' ? managerSelected :
 var managerSelectedMemos = typeof managerSelectedMemos !== 'undefined' ? managerSelectedMemos : new Set();
 var isProcessingTppdBatch = false;
 
+function createDelegationSvgIcon(pathD, svgClass = 'w-3.5 h-3.5 mr-1') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', svgClass);
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('viewBox', '0 0 24 24');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('d', pathD);
+
+  svg.appendChild(path);
+  return svg;
+}
+
+function buildManagerPaginationInfo(startRecord, endRecord, totalRecords, currentPage, totalPages) {
+  const textDiv = document.createElement('div');
+  textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
+
+  const spanStart = document.createElement('span');
+  spanStart.className = 'font-bold text-slate-700';
+  spanStart.textContent = String(startRecord);
+
+  const spanEnd = document.createElement('span');
+  spanEnd.className = 'font-bold text-slate-700';
+  spanEnd.textContent = String(endRecord);
+
+  const spanTotal = document.createElement('span');
+  spanTotal.className = 'font-bold text-slate-700';
+  spanTotal.textContent = String(totalRecords);
+
+  const spanPage = document.createElement('span');
+  spanPage.className = 'font-bold text-indigo-600';
+  spanPage.textContent = String(currentPage);
+
+  textDiv.appendChild(document.createTextNode('Menunjukkan '));
+  textDiv.appendChild(spanStart);
+  textDiv.appendChild(document.createTextNode(' - '));
+  textDiv.appendChild(spanEnd);
+  textDiv.appendChild(document.createTextNode(' daripada '));
+  textDiv.appendChild(spanTotal);
+  textDiv.appendChild(document.createTextNode(' rekod menunggu (Halaman '));
+  textDiv.appendChild(spanPage);
+  textDiv.appendChild(document.createTextNode(`/${totalPages})`));
+
+  return textDiv;
+}
+
 async function loadManagerMemo() {
   const activeAdmin = window.currentAdmin || (typeof currentAdmin !== 'undefined' ? currentAdmin : null);
   if (!activeAdmin || (!activeAdmin.isManager && !activeAdmin.isSystemAdmin)) return;
@@ -17,28 +67,12 @@ async function loadManagerMemo() {
 
   managerMemoCurrentPage = 1;
 
-  try {
-    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
-      await window.appConfigReady;
-    }
-
-    const client = window._supabase;
-    if (!client || typeof client.from !== 'function') {
-      throw new Error("Klien Supabase belum sedia.");
-    }
-
-    const { data, error } = await client
-      .from('memo_rekod')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    const rawData = data || [];
+  const applyFilteredData = (rawData) => {
+    const list = Array.isArray(rawData) ? rawData : [];
     const userRole = String(activeAdmin.role || '').trim().toUpperCase();
     const currentEmail = String(activeAdmin.email || '').trim().toLowerCase();
 
-    managerMemoData = rawData.filter(m => {
+    managerMemoData = list.filter(m => {
       const isPendingCalendar = String(m.calendar_event_id).startsWith('PENDING_');
       const isNoCalendarAndIsManager = (!m.calendar_event_id) && window.isManagerRole && window.isManagerRole(m.unit);
 
@@ -62,6 +96,34 @@ async function loadManagerMemo() {
     });
 
     renderManagerTable(managerMemoData);
+  };
+
+  try {
+    if (window.CacheService && typeof window.CacheService.fetchSWR === 'function') {
+      await window.CacheService.fetchSWR('memo_rekod', 'created_at', false, (data) => {
+        if (window.DB_CONNECTED !== true || !data) return;
+        applyFilteredData(data);
+      });
+      return;
+    }
+
+    if (window.appConfigReady && typeof window.appConfigReady.then === 'function') {
+      await window.appConfigReady;
+    }
+
+    const client = window._supabase;
+    if (!client || typeof client.from !== 'function') {
+      throw new Error("Klien Supabase belum sedia.");
+    }
+
+    const { data, error } = await client
+      .from('memo_rekod')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    applyFilteredData(data || []);
   } catch (error) {
     window.showMessage("Gagal memuatkan rekod delegasi: " + error.message, "error");
     managerMemoData = [];
@@ -172,7 +234,8 @@ function renderManagerTable(data) {
     const btnAksi = document.createElement('button');
     btnAksi.type = 'button';
     btnAksi.className = 'bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors shadow-sm whitespace-nowrap flex items-center mx-auto';
-    btnAksi.innerHTML = '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> Tindakan';
+    btnAksi.appendChild(createDelegationSvgIcon('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', 'w-3.5 h-3.5 mr-1'));
+    btnAksi.appendChild(document.createTextNode(' Tindakan'));
     btnAksi.addEventListener('click', () => {
       openManagerAssignModal(row.id, false);
     });
@@ -226,9 +289,7 @@ function renderManagerMemoPagination(totalRecords) {
 
   container.textContent = '';
 
-  const textDiv = document.createElement('div');
-  textDiv.className = 'text-slate-500 font-medium text-center sm:text-left';
-  textDiv.innerHTML = `Menunjukkan <span class="font-bold text-slate-700">${startRecord}</span> - <span class="font-bold text-slate-700">${endRecord}</span> daripada <span class="font-bold text-slate-700">${totalRecords}</span> rekod menunggu (Halaman <span class="font-bold text-indigo-600">${managerMemoCurrentPage}</span>/${totalPages})`;
+  const textDiv = buildManagerPaginationInfo(startRecord, endRecord, totalRecords, managerMemoCurrentPage, totalPages);
 
   const btnsDiv = document.createElement('div');
   btnsDiv.className = 'flex items-center space-x-2';
@@ -237,14 +298,16 @@ function renderManagerMemoPagination(totalRecords) {
   btnPrev.type = 'button';
   btnPrev.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnPrev.disabled = isPrevDisabled;
-  btnPrev.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> Sebelumnya';
+  btnPrev.appendChild(createDelegationSvgIcon('M15 19l-7-7 7-7', 'w-4 h-4 mr-1'));
+  btnPrev.appendChild(document.createTextNode(' Sebelumnya'));
   btnPrev.addEventListener('click', () => window.changeManagerMemoPage(managerMemoCurrentPage - 1));
 
   const btnNext = document.createElement('button');
   btnNext.type = 'button';
   btnNext.className = 'px-3 py-1.5 rounded-lg border border-slate-300 font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors flex items-center shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white';
   btnNext.disabled = isNextDisabled;
-  btnNext.innerHTML = 'Seterusnya <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+  btnNext.appendChild(document.createTextNode('Seterusnya '));
+  btnNext.appendChild(createDelegationSvgIcon('M9 5l7 7-7 7', 'w-4 h-4 ml-1'));
   btnNext.addEventListener('click', () => window.changeManagerMemoPage(managerMemoCurrentPage + 1));
 
   btnsDiv.appendChild(btnPrev);
@@ -415,10 +478,11 @@ window.openManagerAssignModal = function(id = null, isBulk = false) {
     if (isBulk) {
       const bulkDiv = document.createElement('div');
       bulkDiv.className = 'flex items-center text-indigo-700 bg-indigo-100/50 p-2 rounded border border-indigo-200 shadow-sm mt-2';
-      bulkDiv.innerHTML = `
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-        <span class="text-sm font-bold">Mod Pukal: ${managerSelectedMemos.size} Surat dipilih untuk penugasan serentak.</span>
-      `;
+      bulkDiv.appendChild(createDelegationSvgIcon('M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z', 'w-5 h-5 mr-2'));
+      const bulkSpan = document.createElement('span');
+      bulkSpan.className = 'text-sm font-bold';
+      bulkSpan.textContent = `Mod Pukal: ${managerSelectedMemos.size} Surat dipilih untuk penugasan serentak.`;
+      bulkDiv.appendChild(bulkSpan);
       infoContainer.appendChild(bulkDiv);
     } else {
       const m = managerMemoData.find(x => x.id === id);
@@ -697,7 +761,7 @@ function renderManagerTags() {
     btnRemove.type = 'button';
     btnRemove.setAttribute('data-email', emel);
     btnRemove.className = 'ml-2 text-indigo-400 hover:text-red-500 focus:outline-none transition-colors';
-    btnRemove.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+    btnRemove.appendChild(createDelegationSvgIcon('M6 18L18 6M6 6l12 12', 'w-4 h-4'));
     btnRemove.addEventListener('click', function() {
       removeManagerTag(this.getAttribute('data-email'));
     });
@@ -718,7 +782,11 @@ async function handleManagerAssignSubmit(e) {
   const btn = document.getElementById('btnSubmitTppdAssign');
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<div class="loader mr-2 border-white border-top-indigo-600 w-4 h-4"></div> Memproses...';
+    btn.textContent = '';
+    const loader = document.createElement('div');
+    loader.className = 'loader mr-2 border-white border-top-indigo-600 w-4 h-4';
+    btn.appendChild(loader);
+    btn.appendChild(document.createTextNode(' Memproses...'));
   }
 
   const targetSektor = document.getElementById('tppdSektorSelect')?.value || '';
